@@ -6,7 +6,12 @@ Eigenständige App mit drei Widgets:
 - **Stundenplan · Heute** (4×2): dazu der Tagesplan
 - **Stundenplan · Woche** (4×4): Wochenraster Mo–Fr
 
-Hell/Dunkel folgt dem System. Die Widgets aktualisieren sich jede Minute, solange das Handy an ist.
+Dazu drei Mensa-Widgets (**Mensa · Klein/Mittel/Groß**) für die Mensa Golm – mit den Pfeilen ‹ › oben
+rechts blättert man durch die Öffnungstage.
+
+Hell/Dunkel folgt dem System. Alle Widgets lassen sich frei in der Größe ziehen (z. B. 4×3).
+Die Stundenplan-Widgets aktualisieren sich jede Minute, solange das Handy an ist; der Speiseplan
+wird höchstens stündlich neu geladen und ist auch offline (letzter Stand) verfügbar.
 
 ## App installieren (fertige APK)
 

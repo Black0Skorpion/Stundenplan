@@ -46,7 +46,9 @@ public class MainActivity extends Activity {
 
         TextView info = new TextView(this);
         info.setText("Widget hinzufügen: Startbildschirm gedrückt halten → Widgets → Stundenplan. "
-                + "Es gibt drei Größen: Klein (aktuelle Veranstaltung), Mittel (mit Tagesplan) und Groß (Woche).\n\n"
+                + "Stundenplan: Klein (aktuelle Veranstaltung), Mittel (mit Tagesplan) und Groß (Woche).\n"
+                + "Mensa Golm: Klein, Mittel und Groß – mit den Pfeilen ‹ › oben rechts blättert man durch die Tage.\n"
+                + "Alle Widgets lassen sich frei in der Größe ziehen (z. B. 4×3).\n\n"
                 + "Neuen Stundenplan übernehmen: im Planer als Kalender (.ics) exportieren und hier importieren.");
         info.setPadding(0, pad / 2, 0, pad / 2);
         inhalt.addView(info);
@@ -93,6 +95,10 @@ public class MainActivity extends Activity {
 
     private void zeigeVorschau() {
         vorschauen.removeAllViews();
+        TextView ueberschrift = new TextView(this);
+        ueberschrift.setText("Stundenplan");
+        ueberschrift.setTextSize(18);
+        vorschauen.addView(ueberschrift);
         List<Termin> alle = Daten.laden(this);
         boolean dunkel = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
@@ -103,16 +109,49 @@ public class MainActivity extends Activity {
             float b = Float.parseFloat(g[1]), h = Float.parseFloat(g[2]);
             ImageView bild = new ImageView(this);
             bild.setImageBitmap(Zeichner.zeichnen(g[0], b, h, d, dunkel, jetzt, alle));
-            GradientDrawable hg = new GradientDrawable();
-            hg.setColor(Color.parseColor(dunkel ? "#1C1C1E" : "#FFFFFF"));
-            hg.setCornerRadius(22 * d);
-            hg.setStroke(Math.max(1, Math.round(d)), Color.parseColor(dunkel ? "#3A3A3C" : "#D3D1C7"));
-            bild.setBackground(hg);
+            bild.setBackground(hintergrund(dunkel, d));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Math.round(b * d), Math.round(h * d));
             lp.gravity = Gravity.CENTER_HORIZONTAL;
             lp.bottomMargin = Math.round(16 * d);
             vorschauen.addView(bild, lp);
         }
+        zeigeMensaVorschau(dunkel, d, jetzt);
+    }
+
+    /** Mensa-Vorschau: Speiseplan im Hintergrund laden, dann anzeigen. */
+    private void zeigeMensaVorschau(boolean dunkel, float d, long jetzt) {
+        TextView ueberschrift = new TextView(this);
+        ueberschrift.setText("Mensa Golm (lädt …)");
+        ueberschrift.setTextSize(18);
+        vorschauen.addView(ueberschrift);
+        new Thread(() -> {
+            List<MensaDaten.Tag> tage = MensaDaten.ladeTage(this, true);
+            MensaDaten.Auswahl a = MensaDaten.waehleTag(tage, jetzt, 0);
+            MensaDaten.Plan plan = a.tag.geschlossen ? null : MensaDaten.ladePlan(this, a.tag.datum, true);
+            MensaWidget.alleAktualisieren(this, false);
+            runOnUiThread(() -> {
+                ueberschrift.setText("Mensa Golm");
+                String[][] groessen = {{Zeichner.KLEIN, "160", "160"}, {Zeichner.MITTEL, "340", "160"}, {Zeichner.GROSS, "340", "356"}};
+                for (String[] g : groessen) {
+                    float b = Float.parseFloat(g[1]), h = Float.parseFloat(g[2]);
+                    ImageView bild = new ImageView(this);
+                    bild.setImageBitmap(MensaZeichner.zeichnen(g[0], b, h, d, dunkel, jetzt, a, plan));
+                    bild.setBackground(hintergrund(dunkel, d));
+                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Math.round(b * d), Math.round(h * d));
+                    lp.gravity = Gravity.CENTER_HORIZONTAL;
+                    lp.bottomMargin = Math.round(16 * d);
+                    vorschauen.addView(bild, lp);
+                }
+            });
+        }).start();
+    }
+
+    private static GradientDrawable hintergrund(boolean dunkel, float d) {
+        GradientDrawable hg = new GradientDrawable();
+        hg.setColor(Color.parseColor(dunkel ? "#1C1C1E" : "#FFFFFF"));
+        hg.setCornerRadius(22 * d);
+        hg.setStroke(Math.max(1, Math.round(d)), Color.parseColor(dunkel ? "#3A3A3C" : "#D3D1C7"));
+        return hg;
     }
 
     @Override

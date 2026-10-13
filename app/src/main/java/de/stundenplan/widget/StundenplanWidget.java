@@ -58,7 +58,8 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
         if (irgendeins) planeNaechsteAktualisierung(ctx);
     }
 
-    static void aktualisiere(Context ctx, AppWidgetManager mgr, int id, String modus, List<Termin> alle) {
+    /** Aktuelle Widget-Größe in dp: { Breite, Höhe }. */
+    static float[] groesse(Context ctx, AppWidgetManager mgr, int id, String modus) {
         Bundle o = mgr.getAppWidgetOptions(id);
         boolean hochkant = ctx.getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE;
         float b = hochkant ? o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH);
@@ -67,6 +68,12 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
             b = Zeichner.KLEIN.equals(modus) ? 160 : 340;
             h = Zeichner.GROSS.equals(modus) ? 356 : 160;
         }
+        return new float[]{b, h};
+    }
+
+    static void aktualisiere(Context ctx, AppWidgetManager mgr, int id, String modus, List<Termin> alle) {
+        float[] g = groesse(ctx, mgr, id, modus);
+        float b = g[0], h = g[1];
 
         boolean dunkel = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;

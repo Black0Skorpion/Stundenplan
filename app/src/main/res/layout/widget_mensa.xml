@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wurzel"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_hintergrund"
+    android:clipToOutline="true">
+
+    <ImageView
+        android:id="@+id/bild"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/mensa_name"
+        android:scaleType="fitStart" />
+
+    <!-- Antippbare Felder oben rechts: zurück / weiter -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_gravity="top|end"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:id="@+id/zurueck"
+            android:layout_width="44dp"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/mensa_zurueck" />
+
+        <FrameLayout
+            android:id="@+id/weiter"
+            android:layout_width="44dp"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/mensa_weiter" />
+    </LinearLayout>
+</FrameLayout>
