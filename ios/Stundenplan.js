@@ -1,8 +1,8 @@
-// Stundenplan-Widget für Scriptable (klein, mittel und groß)
+// Stundenplan-Widget für Scriptable (klein, mittel, groß und – auf dem iPad – extragroß)
 // Design: kräftige, vollflächige Farben. Hell/Dunkel folgt automatisch dem iPhone.
 //
 // Größen: Klein (2×2) = aktuelle/nächste Veranstaltung, Mittel (4×2) = dazu der Tagesplan,
-// Groß (4×4) = ganze Woche. Nach der letzten Veranstaltung zeigen Klein und Mittel den nächsten Tag.
+// Groß (4×4) = ganze Woche, Extragroß (nur iPad) = Woche plus aktuelle Veranstaltung und Tagesplan. Nach der letzten Veranstaltung zeigen Klein und Mittel den nächsten Tag.
 //
 // Widget-Parameter (optional, beim Bearbeiten des Widgets eintragen):
 //   hell   → immer heller Modus
@@ -444,11 +444,29 @@ function spaltenZuweisen(termine) {
   return fertig
 }
 
-// Größe des Widgets je nach iPhone (in Punkten): [Breite groß/mittel, Höhe groß, Kantenlänge klein]
+// Größe des Widgets je nach Gerät (in Punkten)
 function widgetGroesse(familie) {
   const s = Device.screenSize()
   const kurz = Math.round(Math.min(s.width, s.height))
   const lang = Math.round(Math.max(s.width, s.height))
+
+  if (Device.isPad()) {
+    // iPad: [klein, mittel-/groß-Breite, extragroß-Breite] laut Apple (Gerätegrößen)
+    const ipad = {
+      "768x1024": [120, 260, 540], "744x1133": [120, 260, 540], "810x1080": [124, 272, 568],
+      "820x1180": [136, 300, 628], "834x1112": [132, 288, 600], "834x1194": [136, 300, 628],
+      "834x1210": [136, 300, 628], "954x1373": [162, 350, 726], "970x1389": [162, 350, 726],
+      "1024x1366": [160, 356, 748], "1032x1376": [160, 356, 748], "1192x1590": [188, 412, 860],
+    }
+    let g = ipad[kurz + "x" + lang]
+    if (!g) g = kurz >= 1000 ? ipad["1024x1366"] : kurz >= 900 ? ipad["954x1373"] : kurz >= 820 ? ipad["834x1194"] : kurz >= 800 ? ipad["810x1080"] : ipad["744x1133"]
+    if (familie === "small") return { breite: g[0], hoehe: g[0] }
+    if (familie === "medium") return { breite: g[1], hoehe: g[0] }
+    if (familie === "extraLarge") return { breite: g[2], hoehe: g[1] }
+    return { breite: g[1], hoehe: g[1] }
+  }
+
+  // iPhone: [Breite groß/mittel, Höhe groß, Kantenlänge klein]
   const tabelle = {
     "440x956": [364, 382, 170], "430x932": [364, 382, 170], "428x926": [364, 382, 170],
     "414x896": [360, 379, 169], "402x874": [338, 354, 158], "393x852": [338, 354, 158],
@@ -499,14 +517,29 @@ function zeichneBlock(ctx, t, x, y, b, h) {
   const weissGedimmt = new Color("#FFFFFF", 0.85)
   const schmal = b < 40   // nebeneinanderliegende Termine
   const kurz = h < 34     // z. B. 45 Minuten
+  const kompakt = h < 40  // z. B. 90 Minuten auf dem iPad (flachere Widgets)
 
   if (kurz) {
     // Kurzer Termin: Titel, darunter Art · Raum
     const pad = 2
     const innenB = b - 2 * pad
     text(ctx, kurs.kurz, new Rect(x + pad, y + 1, innenB, 11), Font.boldSystemFont(9), weiss)
-    if (h >= 19) {
-      text(ctx, typ.kurz + " · " + t.raum, new Rect(x + pad, y + 11, innenB, 9), Font.mediumSystemFont(7.5), weissGedimmt)
+    if (h >= 16) {
+      text(ctx, typ.kurz + "\u00A0·\u00A0" + t.raum, new Rect(x + pad, y + 9.5, innenB, 9), Font.mediumSystemFont(7), weissGedimmt)
+    }
+    return
+  }
+
+  if (kompakt && !schmal) {
+    // Wenig Höhe: Titel, darunter Art und Raum in einer Zeile
+    const pad = 3
+    const innenB = b - 2 * pad
+    const art = b >= 80 ? typ.lang : typ.kurz
+    text(ctx, kurs.kurz, new Rect(x + pad, y + pad - 0.5, innenB, 12), Font.boldSystemFont(10), weiss)
+    text(ctx, art + "\u00A0·\u00A0" + t.raum, new Rect(x + pad, y + pad + 11.5, innenB, 9), Font.mediumSystemFont(7.5), weissGedimmt)
+    if (h >= 36) {
+      // Bei etwas mehr Platz: Uhrzeit als dritte Zeile
+      text(ctx, uhrzeit(t.start) + "–" + uhrzeit(t.ende), new Rect(x + pad, y + pad + 20.5, innenB, 9), Font.mediumSystemFont(7.5), weissGedimmt)
     }
     return
   }
@@ -843,14 +876,7 @@ function mittleresWidget(alle, jetzt, farben) {
   const links = zeile.addStack()
   links.layoutVertically()
   links.size = new Size(linksB, innenH)
-  const kopf = links.addStack()
-  kopf.layoutHorizontally()
-  kopf.centerAlignContent()
-  textHinzu(kopf, auswahl.label, Font.semiboldSystemFont(12), auswahl.istHeute ? farben.akzent : farben.vorder)
-  kopf.addSpacer(5)
-  const datumText = ["Heute", "Morgen"].includes(auswahl.label) ? datumKurz(auswahl.datum) : auswahl.datum.getDate() + ". " + MONATE[auswahl.datum.getMonth()]
-  textHinzu(kopf, datumText, Font.systemFont(11), farben.gedimmt)
-  kopf.addSpacer()
+  tagesKopf(links, auswahl, farben)
   links.addSpacer(6)
   const fokus = fokusTermin(auswahl, jetzt)
   karte(links, fokus, auswahl, jetzt, linksB, true)
@@ -868,9 +894,15 @@ function mittleresWidget(alle, jetzt, farben) {
   textHinzu(rKopf, anzahl + (anzahl === 1 ? " Termin" : " Termine"), Font.systemFont(11), farben.gedimmt)
   rKopf.addSpacer()
   rechts.addSpacer(6)
+  tagesListe(rechts, auswahl, jetzt, farben, rechtsB, innenH - 20)
+  rechts.addSpacer()
+  return w
+}
 
+// Liste der Termine eines Tages (mittleres und extragroßes Widget)
+function tagesListe(parent, auswahl, jetzt, farben, breite, verfuegbarH) {
   const zeilenH = 30
-  const maxZeilen = Math.max(1, Math.floor((innenH - 20) / (zeilenH + 3)))
+  const maxZeilen = Math.max(1, Math.floor(verfuegbarH / (zeilenH + 3)))
   let liste = auswahl.termine.slice()
   let mehr = 0
   if (liste.length > maxZeilen) {
@@ -887,10 +919,10 @@ function mittleresWidget(alle, jetzt, farben) {
     const typ = typInfo(t.typ)
     const vorbei = t.ende <= jetzt
     const laufend = t.start <= jetzt && t.ende > jetzt
-    const r = rechts.addStack()
+    const r = parent.addStack()
     r.layoutHorizontally()
     r.centerAlignContent()
-    r.size = new Size(rechtsB, zeilenH)
+    r.size = new Size(breite, zeilenH)
     r.setPadding(0, 0, 0, 4)
     if (laufend) {
       r.backgroundColor = new Color(kurs.farbe, 0.16)
@@ -911,13 +943,23 @@ function mittleresWidget(alle, jetzt, farben) {
     textHinzu(oben, kurs.kurz, Font.boldSystemFont(12), farben.vorder, { deckkraft: d, skalierung: 0.7 })
     textHinzu(txt, typ.lang + " · " + t.raum, Font.systemFont(10), farben.gedimmt, { deckkraft: d, skalierung: 0.75 })
     r.addSpacer()
-    if (i < liste.length - 1 || mehr) rechts.addSpacer(3)
+    if (i < liste.length - 1 || mehr) parent.addSpacer(3)
   })
   if (mehr) {
-    textHinzu(rechts, "+ " + mehr + " weitere", Font.systemFont(10), farben.gedimmt)
+    textHinzu(parent, "+ " + mehr + " weitere", Font.systemFont(10), farben.gedimmt)
   }
-  rechts.addSpacer()
-  return w
+}
+
+// Kopfzeile "Heute Di, 13. Okt" für mittleres und extragroßes Widget
+function tagesKopf(parent, auswahl, farben) {
+  const kopf = parent.addStack()
+  kopf.layoutHorizontally()
+  kopf.centerAlignContent()
+  textHinzu(kopf, auswahl.label, Font.semiboldSystemFont(12), auswahl.istHeute ? farben.akzent : farben.vorder)
+  kopf.addSpacer(5)
+  const datumText = ["Heute", "Morgen"].includes(auswahl.label) ? datumKurz(auswahl.datum) : auswahl.datum.getDate() + ". " + MONATE[auswahl.datum.getMonth()]
+  textHinzu(kopf, datumText, Font.systemFont(11), farben.gedimmt)
+  kopf.addSpacer()
 }
 
 // ───────────────────────── Großes Widget (4×4) ─────────────────────────
@@ -933,7 +975,8 @@ function statusText(alle, jetzt) {
   return "ab " + tag + uhrzeit(naechster.start) + " " + kursInfo(naechster.titel).kurz + " · " + naechster.raum
 }
 
-function grossesWidget(alle, jetzt, farben) {
+// Wochenansicht (Kopfzeile + Raster) in einen Stack zeichnen – für Groß und Extragroß
+function wochenAnsicht(parent, alle, jetzt, farben, breite, hoehe, mitStatus) {
   // Angezeigte Woche: aktuelle Woche, am Wochenende die nächste
   const montag = new Date(jetzt)
   montag.setHours(0, 0, 0, 0)
@@ -957,33 +1000,89 @@ function grossesWidget(alle, jetzt, farben) {
     endeH = Math.max(endeH, Math.ceil(stunden(t.ende)))
   }
 
-  const groesse = widgetGroesse("large")
-  const rand = 11
   const kopfH = 16
   const abstand = 5
-  const w = basisWidget(farben, rand)
-
-  const kopf = w.addStack()
+  const kopf = parent.addStack()
   kopf.layoutHorizontally()
   kopf.centerAlignContent()
-  kopf.size = new Size(groesse.breite - 2 * rand, kopfH)
+  kopf.size = new Size(breite, kopfH)
   const titel = naechsteWoche
     ? "Nächste Woche · KW " + kalenderwoche(montag)
     : datumKurz(jetzt) + " · KW " + kalenderwoche(jetzt)
   textHinzu(kopf, titel, Font.semiboldSystemFont(13), farben.vorder, { skalierung: 1 })
   kopf.addSpacer()
-  textHinzu(kopf, statusText(alle, jetzt), Font.systemFont(11), farben.gedimmt, { skalierung: 0.8 })
+  if (mitStatus) textHinzu(kopf, statusText(alle, jetzt), Font.systemFont(11), farben.gedimmt, { skalierung: 0.8 })
 
-  w.addSpacer(abstand)
+  parent.addSpacer(abstand)
 
-  const rasterB = groesse.breite - 2 * rand
-  const rasterH = groesse.hoehe - 2 * rand - kopfH - abstand
+  const rasterH = hoehe - kopfH - abstand
   if (wochenTermine.length === 0) {
-    leerHinweis(w, farben, "Keine Termine in dieser Woche")
+    parent.addSpacer()
+    textHinzu(parent, "Keine Termine in dieser Woche", Font.mediumSystemFont(13), farben.gedimmt)
+    parent.addSpacer()
   } else {
-    const bild = w.addImage(zeichneRaster(rasterB, rasterH, tage, startH, endeH, jetzt, true))
-    bild.imageSize = new Size(rasterB, rasterH)
+    const bild = parent.addImage(zeichneRaster(breite, rasterH, tage, startH, endeH, jetzt, true))
+    bild.imageSize = new Size(breite, rasterH)
   }
+}
+
+function grossesWidget(alle, jetzt, farben) {
+  const groesse = widgetGroesse("large")
+  const rand = 11
+  const w = basisWidget(farben, rand)
+  wochenAnsicht(w, alle, jetzt, farben, groesse.breite - 2 * rand, groesse.hoehe - 2 * rand, true)
+  return w
+}
+
+// ───────────────────────── Extragroßes Widget (nur iPad) ─────────────────────────
+
+function extraGrossesWidget(alle, jetzt, farben) {
+  const groesse = widgetGroesse("extraLarge")
+  const rand = 12
+  const luecke = 16
+  const w = basisWidget(farben, rand)
+  const innenB = groesse.breite - 2 * rand
+  const innenH = groesse.hoehe - 2 * rand
+  const rechtsB = Math.round(Math.min(250, innenB * 0.34))
+  const linksB = innenB - luecke - rechtsB
+
+  const zeile = w.addStack()
+  zeile.layoutHorizontally()
+  zeile.topAlignContent()
+
+  // Links: Woche
+  const links = zeile.addStack()
+  links.layoutVertically()
+  links.size = new Size(linksB, innenH)
+  wochenAnsicht(links, alle, jetzt, farben, linksB, innenH, false)
+
+  zeile.addSpacer(luecke)
+
+  // Rechts: aktuelle/nächste Veranstaltung und Tagesplan
+  const rechts = zeile.addStack()
+  rechts.layoutVertically()
+  rechts.size = new Size(rechtsB, innenH)
+  const auswahl = tagesAuswahl(alle, jetzt)
+  if (!auswahl) {
+    rechts.addSpacer()
+    textHinzu(rechts, "Keine weiteren Termine", Font.mediumSystemFont(13), farben.gedimmt)
+    rechts.addSpacer()
+    return w
+  }
+  tagesKopf(rechts, auswahl, farben)
+  rechts.addSpacer(6)
+  const fokus = fokusTermin(auswahl, jetzt)
+  karte(rechts, fokus, auswahl, jetzt, rechtsB, true)
+  rechts.addSpacer(12)
+  const anzahl = auswahl.termine.length
+  const lKopf = rechts.addStack()
+  lKopf.layoutHorizontally()
+  textHinzu(lKopf, (auswahl.istHeute ? "Heute · " : auswahl.label + " · ") + anzahl + (anzahl === 1 ? " Termin" : " Termine"), Font.systemFont(11), farben.gedimmt)
+  lKopf.addSpacer()
+  rechts.addSpacer(5)
+  // Platz für die Liste: Gesamthöhe minus Kopf, Karte (ca. 112) und Abstände
+  tagesListe(rechts, auswahl, jetzt, farben, rechtsB, innenH - 14 - 6 - 112 - 12 - 13 - 5)
+  rechts.addSpacer()
   return w
 }
 
@@ -996,6 +1095,7 @@ async function erstelleWidget(familie) {
   let w
   if (familie === "small") w = kleinesWidget(alle, jetzt, farben)
   else if (familie === "medium") w = mittleresWidget(alle, jetzt, farben)
+  else if (familie === "extraLarge") w = extraGrossesWidget(alle, jetzt, farben)
   else w = grossesWidget(alle, jetzt, farben)
   aktualisierung(w, alle, jetzt)
   return w
@@ -1010,10 +1110,12 @@ if (config.runsInWidget) {
   auswahl.addAction("Klein (2×2)")
   auswahl.addAction("Mittel (4×2)")
   auswahl.addAction("Groß (4×4)")
+  if (Device.isPad()) auswahl.addAction("Extragroß (8×4, iPad)")
   auswahl.addCancelAction("Abbrechen")
   const i = await auswahl.presentSheet()
   if (i === 0) await (await erstelleWidget("small")).presentSmall()
   if (i === 1) await (await erstelleWidget("medium")).presentMedium()
   if (i === 2) await (await erstelleWidget("large")).presentLarge()
+  if (i === 3) await (await erstelleWidget("extraLarge")).presentExtraLarge()
 }
 Script.complete()

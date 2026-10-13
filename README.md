@@ -38,4 +38,4 @@ Kurznamen, Farben und die Adresse, die beim Tippen geöffnet wird, stehen in
 ## iPhone (Scriptable)
 
 Die iOS-Version liegt unter `ios/Stundenplan.js`. In der App **Scriptable** ein neues Script anlegen,
-den Inhalt einfügen und als Widget (klein, mittel oder groß) auf den Home-Bildschirm legen.
+den Inhalt einfügen und als Widget (klein, mittel oder groß – auf dem iPad auch extragroß) auf den Home-Bildschirm legen.
