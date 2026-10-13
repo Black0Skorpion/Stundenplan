@@ -8,12 +8,13 @@ Eigenständige App mit drei Widgets:
 
 Hell/Dunkel folgt dem System. Die Widgets aktualisieren sich jede Minute, solange das Handy an ist.
 
-## APK bauen – Variante A: GitHub (ohne Android Studio)
+## App installieren (fertige APK)
 
-1. Neues (privates) Repository auf GitHub anlegen und den Inhalt dieses Ordners hochladen.
-2. Unter **Actions** läuft automatisch „APK bauen“ (ca. 3–5 Minuten).
-3. Im fertigen Lauf unten bei **Artifacts** „Stundenplan-APK“ herunterladen und entpacken.
-4. `app-debug.apk` aufs Handy schicken und installieren (Installation aus unbekannten Quellen erlauben).
+Bei jeder Änderung baut GitHub die App automatisch und stellt sie als Release bereit:
+
+1. Auf dem Android-Handy im Browser **github.com/Black0Skorpion/Stundenplan/releases/latest** öffnen (eingeloggt).
+2. Unter **Assets** auf **Stundenplan.apk** tippen und herunterladen.
+3. Datei öffnen und installieren (Installation aus unbekannten Quellen erlauben, ggf. „Trotzdem installieren“).
 
 ## APK bauen – Variante B: Android Studio
 

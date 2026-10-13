@@ -4,12 +4,15 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -18,7 +21,17 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk Stundenplan.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Stundenplan-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: Stundenplan.apk
+      - name: Als Release "aktuell" veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete aktuell --yes --cleanup-tag || true
+          gh release create aktuell Stundenplan.apk \
+            --title "Stundenplan-App (aktuell)" \
+            --notes "Automatisch gebaut aus ${GITHUB_SHA::7}. Auf dem Android-Handy Stundenplan.apk antippen und installieren." \
+            --target "$GITHUB_SHA"
