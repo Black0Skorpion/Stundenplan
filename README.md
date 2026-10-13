@@ -39,3 +39,10 @@ Kurznamen, Farben und die Adresse, die beim Tippen geöffnet wird, stehen in
 
 Die iOS-Version liegt unter `ios/Stundenplan.js`. In der App **Scriptable** ein neues Script anlegen,
 den Inhalt einfügen und als Widget (klein, mittel oder groß – auf dem iPad auch extragroß) auf den Home-Bildschirm legen.
+
+## Mensa-Widget (iPhone/iPad, Scriptable)
+
+`ios/MensaGolm.js` zeigt den Speiseplan der Mensa Golm (Daten von openmensa.org).
+Den Tag wählt man über den Widget-Parameter: leer (nächster Öffnungstag), `heute`, `morgen`,
+`+1`, `+2` … oder `mo`–`fr`. Mehrere Mensa-Widgets gleicher Größe übereinander ziehen ergibt einen
+Stapel, durch den man wischen kann (z. B. Parameter leer, +1, +2, +3, +4).
