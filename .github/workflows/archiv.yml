@@ -26,9 +26,13 @@ jobs:
               continue
             fi
             rm -rf tmp && mkdir tmp
-            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/$ID/zip" > tmp/a.zip
-            unzip -q tmp/a.zip -d tmp
+            # curl folgt der Weiterleitung zum Speicher, ohne den Token dorthin mitzuschicken
+            curl -sSfL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/$ID/zip" -o tmp/a.zip || { echo "Download $TAG fehlgeschlagen"; continue; }
+            unzip -q tmp/a.zip -d tmp || { echo "Entpacken $TAG fehlgeschlagen"; continue; }
+            ls -la tmp
             QUELLE=$(ls tmp/*.ipa tmp/*.apk 2>/dev/null | head -1)
+            [ -z "$QUELLE" ] && { echo "Keine Datei in $TAG"; continue; }
             cp "$QUELLE" "tmp/$DATEI"
             gh release create "$TAG" "tmp/$DATEI" --title "$TITEL" \
               --notes "Frühere Version, gebaut aus ${COMMIT:0:7} (aus den gespeicherten Build-Dateien wiederhergestellt)." \
@@ -42,4 +46,4 @@ jobs:
           11932839925|android-v1.1|Android-App 1.1|Stundenplan-1.1.apk|0c5bd263514407103dc60bc105d6652e1b600314
           LISTE
           # Android 1.1 als „neueste Version“ markieren (Link …/releases/latest)
-          gh release edit android-v1.1 --latest
+          gh release edit android-v1.1 --latest || true
