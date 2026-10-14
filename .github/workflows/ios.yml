@@ -1,0 +1,73 @@
+name: iOS-App bauen
+
+on:
+  push:
+    paths:
+      - "ios-app/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode-Version
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Projekt erzeugen (XcodeGen)
+        working-directory: ios-app
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: App bauen (unsigniert)
+        working-directory: ios-app
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Stundenplan.xcodeproj \
+            -target Stundenplan \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build > build.log 2>&1 || (grep -E "error:" -A3 build.log | head -150; tail -40 build.log; exit 1)
+          grep -c "warning:" build.log || true
+
+      - name: IPA packen (App-Gruppe als Berechtigung eintragen)
+        working-directory: ios-app
+        run: |
+          APP=build/Release-iphoneos/Stundenplan.app
+          ls -la "$APP" "$APP/PlugIns"
+          # Ad-hoc-Signatur nur, damit die Berechtigungen (App-Gruppe) in der Datei stehen.
+          # SideStore/iloader signieren beim Installieren ohnehin neu.
+          codesign -f -s - --entitlements Support/Widgets.entitlements "$APP/PlugIns/StundenplanWidgets.appex"
+          codesign -f -s - --entitlements Support/App.entitlements "$APP"
+          codesign -d --entitlements - "$APP" || true
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry ../Stundenplan.ipa Payload
+          ls -la ../Stundenplan.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stundenplan-IPA
+          path: Stundenplan.ipa
+
+      - name: Als Release "ios-aktuell" veröffentlichen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete ios-aktuell --yes --cleanup-tag || true
+          gh release create ios-aktuell Stundenplan.ipa \
+            --title "iOS-App (aktuell)" \
+            --notes "Stundenplan-App für iPhone/iPad mit Widgets. Installation: Stundenplan.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
+            --latest=false

@@ -1,0 +1,306 @@
+import WidgetKit
+import SwiftUI
+
+// ───────────────────────── Daten ─────────────────────────
+
+struct SperrEintrag: TimelineEntry {
+    let date: Date
+    let termine: [Termin]
+    let variante: SperrVariante
+}
+
+struct SperrProvider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> SperrEintrag {
+        SperrEintrag(date: Date(), termine: Speicher.termine(), variante: .standard)
+    }
+
+    func snapshot(for configuration: SperrEinstellung, in context: Context) async -> SperrEintrag {
+        SperrEintrag(date: Date(), termine: Speicher.termine(), variante: configuration.variante)
+    }
+
+    func timeline(for configuration: SperrEinstellung, in context: Context) async -> Timeline<SperrEintrag> {
+        let jetzt = Date()
+        let alle = Speicher.termine()
+        var zeiten = Set(Plan.wechselZeitpunkte(alle, ab: jetzt, stunden: 24))
+        // Zeile über der Uhr zeigt Minuten als Text → alle 5 Minuten für die nächsten 3 Stunden
+        if configuration.variante.fuer(.accessoryInline) == .countdown {
+            var t = jetzt
+            for _ in 0..<36 {
+                t = t.addingTimeInterval(5 * 60)
+                zeiten.insert(t)
+            }
+        }
+        let eintraege = ([jetzt] + zeiten.sorted().prefix(90)).map {
+            SperrEintrag(date: $0, termine: alle, variante: configuration.variante)
+        }
+        return Timeline(entries: eintraege, policy: .atEnd)
+    }
+}
+
+// ───────────────────────── Widget ─────────────────────────
+
+struct SperrWidget: Widget {
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: "StundenplanSperr", intent: SperrEinstellung.self, provider: SperrProvider()) { eintrag in
+            SperrAnsicht(eintrag: eintrag)
+        }
+        .configurationDisplayName("Stundenplan")
+        .description("Nächste Veranstaltung mit Raum oder Countdown. Anzeige über „Widget bearbeiten“ wählbar.")
+        .supportedFamilies([.accessoryInline, .accessoryRectangular, .accessoryCircular])
+    }
+}
+
+struct SperrAnsicht: View {
+    let eintrag: SperrEintrag
+    @Environment(\.widgetFamily) private var familie
+
+    var body: some View {
+        let variante = eintrag.variante.fuer(familie)
+        let jetzt = eintrag.date
+        let naechster = Plan.naechster(eintrag.termine, jetzt)
+        Group {
+            switch familie {
+            case .accessoryInline:
+                SperrZeile(termin: naechster, jetzt: jetzt, variante: variante)
+            case .accessoryCircular:
+                SperrRund(termin: naechster, jetzt: jetzt, variante: variante)
+            default:
+                SperrRechteck(alle: eintrag.termine, termin: naechster, jetzt: jetzt, variante: variante)
+            }
+        }
+        .containerBackground(for: .widget) { Color.clear }
+        .widgetURL(ziel(variante, naechster, jetzt))
+    }
+
+    /// Tippen: Lageplan des Termins bzw. (Tagesübersicht) des ganzen Tages
+    private func ziel(_ variante: SperrVariante, _ naechster: Termin?, _ jetzt: Date) -> URL {
+        if variante == .tag, let auswahl = Plan.tagesAuswahl(eintrag.termine, jetzt) {
+            return Ziele.tag(auswahl.datum)
+        }
+        return naechster.map(Ziele.termin) ?? Ziele.planer
+    }
+}
+
+// ───────────────────────── Zeile über der Uhr ─────────────────────────
+
+struct SperrZeile: View {
+    let termin: Termin?
+    let jetzt: Date
+    let variante: SperrVariante
+
+    var body: some View {
+        if let t = termin {
+            let kurs = Kurse.info(t.titel).kurz
+            let laufend = t.laeuft(jetzt)
+            Label {
+                Text(text(t, kurs, laufend))
+            } icon: {
+                Image(systemName: laufend ? "clock" : "calendar")
+            }
+        } else {
+            Text("Keine Termine")
+        }
+    }
+
+    private func text(_ t: Termin, _ kurs: String, _ laufend: Bool) -> String {
+        switch variante {
+        case .raum:
+            return t.raum + " · " + kurs + (laufend ? " bis " + Zeit.uhrzeit(t.ende) : " " + Zeit.wannText(t, jetzt))
+        case .countdown where laufend || Zeit.gleicherTag(t.start, jetzt):
+            let ziel = laufend ? t.ende : t.start
+            let min = Int(ceil(ziel.timeIntervalSince(jetzt) / 60))
+            return kurs + (laufend ? " noch " : " in ") + Zeit.minutenText(max(0, min))
+        default:
+            return laufend
+                ? "bis \(Zeit.uhrzeit(t.ende)) · \(kurs) · \(t.raum)"
+                : "\(Zeit.wannText(t, jetzt)) \(kurs) · \(t.raum)"
+        }
+    }
+}
+
+// ───────────────────────── Rechteck ─────────────────────────
+
+struct SperrRechteck: View {
+    let alle: [Termin]
+    let termin: Termin?
+    let jetzt: Date
+    let variante: SperrVariante
+
+    var body: some View {
+        if variante == .tag {
+            tagesUebersicht
+        } else if let t = termin {
+            let kurs = Kurse.info(t.titel)
+            let typ = Kurse.typ(t.typ)
+            let laufend = t.laeuft(jetzt)
+            if variante == .raum {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(kurs.kurz + " · " + (laufend ? "bis " + Zeit.uhrzeit(t.ende) : Zeit.wannText(t, jetzt)))
+                        .font(.system(size: 12, weight: .semibold))
+                        .opacity(0.8)
+                    Text(t.raum)
+                        .font(.system(size: 24, weight: .bold))
+                        .minimumScaleFactor(0.6)
+                    Text(typ.lang)
+                        .font(.system(size: 11))
+                        .opacity(0.7)
+                }
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                let bald = !laufend && Zeit.gleicherTag(t.start, jetzt) && t.start.timeIntervalSince(jetzt) <= 3600
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        if laufend {
+                            Text("JETZT · NOCH")
+                            Text(timerInterval: jetzt...t.ende, countsDown: true).monospacedDigit()
+                        } else if bald {
+                            Text("BEGINNT IN")
+                            Text(timerInterval: jetzt...t.start, countsDown: true).monospacedDigit()
+                        } else {
+                            Text(Zeit.wannText(t, jetzt).uppercased())
+                        }
+                    }
+                    .font(.system(size: 10, weight: .bold))
+                    .opacity(0.75)
+                    Text(kurs.kurz + " · " + typ.lang)
+                        .font(.system(size: 15, weight: .bold))
+                        .minimumScaleFactor(0.75)
+                    Text(t.raum + " · " + Zeit.uhrzeit(t.start) + "–" + Zeit.uhrzeit(t.ende))
+                        .font(.system(size: 13, weight: .medium))
+                        .opacity(0.9)
+                        .minimumScaleFactor(0.75)
+                }
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            Text("Keine weiteren Termine")
+                .font(.system(size: 13, weight: .semibold))
+                .opacity(0.8)
+        }
+    }
+
+    @ViewBuilder
+    private var tagesUebersicht: some View {
+        if let auswahl = Plan.tagesAuswahl(alle, jetzt) {
+            let rest = Array(auswahl.termine.filter { $0.ende > jetzt }.prefix(3))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(auswahl.label.uppercased())
+                    .font(.system(size: 10, weight: .bold))
+                    .opacity(0.7)
+                ForEach(rest) { t in
+                    HStack(spacing: 5) {
+                        Text(Zeit.uhrzeit(t.start))
+                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                            .opacity(t.laeuft(jetzt) ? 1 : 0.8)
+                        Text(Kurse.info(t.titel).kurz)
+                            .font(.system(size: 12, weight: .bold))
+                        Text(t.raum)
+                            .font(.system(size: 12))
+                            .opacity(0.8)
+                    }
+                    .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Text("Keine weiteren Termine")
+                .font(.system(size: 13, weight: .semibold))
+                .opacity(0.8)
+        }
+    }
+}
+
+// ───────────────────────── Rund ─────────────────────────
+
+struct SperrRund: View {
+    let termin: Termin?
+    let jetzt: Date
+    let variante: SperrVariante
+
+    var body: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            if let t = termin {
+                inhalt(t)
+            } else {
+                Text("–").font(.system(size: 13, weight: .semibold))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func inhalt(_ t: Termin) -> some View {
+        let kurs = Kurse.info(t.titel).kurz
+        let laufend = t.laeuft(jetzt)
+        let heute = Zeit.gleicherTag(t.start, jetzt)
+        switch variante {
+        case .raum:
+            let r = RaumTeile(t.raum)
+            VStack(spacing: 0) {
+                Text(r?.haus ?? t.raum)
+                    .font(.system(size: 22, weight: .bold))
+                    .minimumScaleFactor(0.5)
+                if let r {
+                    Text(r.rest)
+                        .font(.system(size: 11, weight: .semibold))
+                        .opacity(0.8)
+                        .minimumScaleFactor(0.6)
+                }
+            }
+            .lineLimit(1)
+            .padding(4)
+        case .zeit:
+            VStack(spacing: 0) {
+                Text(laufend ? "bis" : kurs)
+                    .font(.system(size: 10, weight: .semibold))
+                    .opacity(0.75)
+                Text(Zeit.uhrzeit(laufend ? t.ende : t.start))
+                    .font(.system(size: 17, weight: .bold))
+                if !laufend && !heute {
+                    Text(Zeit.wochentageKurz[Zeit.wochentag(t.start)])
+                        .font(.system(size: 9, weight: .semibold))
+                        .opacity(0.7)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(4)
+        default:
+            // Countdown mit Ring: läuft gerade → Fortschritt der Veranstaltung, bald → letzte Stunde davor
+            let bald = !laufend && heute && t.start.timeIntervalSince(jetzt) <= 3600
+            if laufend || bald {
+                let bereich = laufend ? t.start...t.ende : t.start.addingTimeInterval(-3600)...t.start
+                ProgressView(timerInterval: bereich, countsDown: false) {
+                    EmptyView()
+                } currentValueLabel: {
+                    EmptyView()
+                }
+                .progressViewStyle(.circular)
+                .padding(2)
+            }
+            VStack(spacing: 0) {
+                Text(kurs)
+                    .font(.system(size: 9, weight: .semibold))
+                    .opacity(0.8)
+                if laufend || heute {
+                    Text(timerInterval: jetzt...(laufend ? t.ende : max(jetzt, t.start)), countsDown: true)
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text(Zeit.uhrzeit(t.start))
+                        .font(.system(size: 14, weight: .bold))
+                    Text(Zeit.wochentageKurz[Zeit.wochentag(t.start)])
+                        .font(.system(size: 9, weight: .semibold))
+                        .opacity(0.7)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(6)
+        }
+    }
+}

@@ -4,3 +4,6 @@ app/build/
 local.properties
 .idea/
 *.iml
+ios-app/Stundenplan.xcodeproj/
+ios-app/build/
+ios-app/Payload/
