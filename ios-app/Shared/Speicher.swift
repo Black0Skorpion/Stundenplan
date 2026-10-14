@@ -72,9 +72,48 @@ enum Speicher {
 
     private static let termineDatei = "termine.json"
 
-    /// Alle Termine (eigener Import oder eingebaut), mit akademischem Viertel, sortiert.
-    static func termine() -> [Termin] {
-        rohTermine().map(Plan.viertelAnpassen).sorted { $0.start < $1.start }
+    /// Alle Termine (eigener Import oder eingebaut), mit akademischem Viertel und eigenen Änderungen, sortiert.
+    /// Ausgefallene Termine sind nur mit `mitAusfaellen` dabei (für die Anzeige in der App).
+    static func termine(mitAusfaellen: Bool = false) -> [Termin] {
+        let aenderungen = self.aenderungen()
+        return rohTermine()
+            .map(Plan.viertelAnpassen)
+            .map { t -> Termin in
+                guard let a = aenderungen[t.schluessel] else { return t }
+                var n = t
+                n.ausfall = a.ausfall
+                if let r = a.raum, !r.isEmpty, r != t.raum {
+                    n.alterRaum = t.raum
+                    n.raum = r
+                }
+                return n
+            }
+            .filter { mitAusfaellen || !$0.ausfall }
+            .sorted { $0.start < $1.start }
+    }
+
+    // ───────────── Eigene Änderungen (Ausfall, anderer Raum) ─────────────
+
+    struct Aenderung: Codable {
+        var ausfall: Bool = false
+        var raum: String? = nil
+        var leer: Bool { !ausfall && (raum ?? "").isEmpty }
+    }
+
+    static func aenderungen() -> [String: Aenderung] {
+        lesen([String: Aenderung].self, "aenderungen.json") ?? [:]
+    }
+
+    static func aendere(_ t: Termin, _ aendern: (inout Aenderung) -> Void) {
+        var alle = aenderungen()
+        var a = alle[t.schluessel] ?? Aenderung()
+        aendern(&a)
+        alle[t.schluessel] = a.leer ? nil : a
+        // Alte Einträge (vergangene Termine) aufräumen
+        let grenze = Date().addingTimeInterval(-30 * 86400).timeIntervalSince1970
+        alle = alle.filter { (Double($0.key.split(separator: "|").first ?? "") ?? .infinity) > grenze }
+        schreiben(alle, "aenderungen.json")
+        widgetsNeuLaden()
     }
 
     static func rohTermine() -> [Termin] {
@@ -113,6 +152,8 @@ enum Speicher {
         /// Mitteilung vor jeder Veranstaltung
         var erinnerungen: Bool = false
         var vorlaufMinuten: Int = 10
+        /// Live-Aktivität (Dynamic Island) für die laufende Veranstaltung
+        var liveAktivitaet: Bool = true
 
         init() {}
 
@@ -122,6 +163,7 @@ enum Speicher {
             link = try c.decodeIfPresent(String.self, forKey: .link) ?? ""
             erinnerungen = try c.decodeIfPresent(Bool.self, forKey: .erinnerungen) ?? false
             vorlaufMinuten = try c.decodeIfPresent(Int.self, forKey: .vorlaufMinuten) ?? 10
+            liveAktivitaet = try c.decodeIfPresent(Bool.self, forKey: .liveAktivitaet) ?? true
         }
     }
 

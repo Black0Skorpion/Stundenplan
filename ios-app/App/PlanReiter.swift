@@ -10,7 +10,7 @@ struct PlanReiter: View {
             TimelineView(.periodic(from: .now, by: 30)) { kontext in
                 let jetzt = kontext.date
                 let farben = Farben.fuer(dunkel: schema == .dark)
-                let woche = Plan.woche(zustand.termine, jetzt, versatz: wochenVersatz)
+                let woche = Plan.woche(zustand.alleTermine, jetzt, versatz: wochenVersatz)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -84,7 +84,8 @@ struct PlanReiter: View {
                 TerminKarte(termin: fokus, istHeute: auswahl.istHeute, jetzt: jetzt, ausfuehrlich: true)
                     .verlinkt(Ziele.termin(fokus))
             }
-            TagesListe(termine: auswahl.termine, jetzt: jetzt, farben: farben, maxZeilen: 99)
+            TagesListe(termine: Plan.termineAm(zustand.alleTermine, auswahl.datum), jetzt: jetzt, farben: farben,
+                       maxZeilen: 99, wege: true)
         }
     }
 }

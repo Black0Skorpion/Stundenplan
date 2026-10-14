@@ -9,8 +9,34 @@ struct Termin: Codable, Hashable, Identifiable {
     var titel: String
     var typ: String
     var raum: String
+    /// Von Hand als ausgefallen markiert
+    var ausfall: Bool = false
+    /// Ursprünglicher Raum, falls von Hand geändert
+    var alterRaum: String? = nil
 
-    var id: String { "\(Int(start.timeIntervalSince1970))|\(titel)|\(raum)" }
+    init(start: Date, ende: Date, titel: String, typ: String, raum: String) {
+        self.start = start
+        self.ende = ende
+        self.titel = titel
+        self.typ = typ
+        self.raum = raum
+    }
+
+    // Ältere gespeicherte Daten haben die neuen Felder noch nicht
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        start = try c.decode(Date.self, forKey: .start)
+        ende = try c.decode(Date.self, forKey: .ende)
+        titel = try c.decode(String.self, forKey: .titel)
+        typ = try c.decode(String.self, forKey: .typ)
+        raum = try c.decode(String.self, forKey: .raum)
+        ausfall = try c.decodeIfPresent(Bool.self, forKey: .ausfall) ?? false
+        alterRaum = try c.decodeIfPresent(String.self, forKey: .alterRaum)
+    }
+
+    var id: String { schluessel }
+    /// Bleibt gleich, auch wenn der Raum geändert wird
+    var schluessel: String { "\(Int(start.timeIntervalSince1970))|\(titel)" }
     var dauer: TimeInterval { ende.timeIntervalSince(start) }
 
     func laeuft(_ jetzt: Date) -> Bool { start <= jetzt && ende > jetzt }
@@ -19,6 +45,7 @@ struct Termin: Codable, Hashable, Identifiable {
 struct KursInfo {
     let kurz: String
     let farbe: Color
+    let hex: UInt32
 }
 
 struct TypInfo {
@@ -68,7 +95,7 @@ extension Color {
 enum Kurse {
     static func info(_ titel: String) -> KursInfo {
         if let k = Konfig.kurse[titel] {
-            return KursInfo(kurz: k.kurz, farbe: Color(hex: k.farbe))
+            return KursInfo(kurz: k.kurz, farbe: Color(hex: k.farbe), hex: k.farbe)
         }
         // Unbekannte Veranstaltung: Kürzel aus den Anfangsbuchstaben, Farbe stabil aus dem Titel
         let kurz: String
@@ -79,7 +106,7 @@ enum Kurse {
         }
         let summe = titel.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
         let farbe = Konfig.ersatzFarben[summe % Konfig.ersatzFarben.count]
-        return KursInfo(kurz: kurz, farbe: Color(hex: farbe))
+        return KursInfo(kurz: kurz, farbe: Color(hex: farbe), hex: farbe)
     }
 
     static func typ(_ typ: String) -> TypInfo {

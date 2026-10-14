@@ -7,6 +7,7 @@ struct EinstellungenReiter: View {
     @State private var importieren = false
     @State private var erinnerungen = Speicher.einstellungen().erinnerungen
     @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
+    @State private var live = Speicher.einstellungen().liveAktivitaet
 
     private var icsTypen: [UTType] {
         var t: [UTType] = [.calendarEvent]
@@ -60,6 +61,20 @@ struct EinstellungenReiter: View {
                     Text("Erinnerungen")
                 } footer: {
                     Text("Mitteilung mit Raum vor jeder Veranstaltung, z. B. „GdP in 10 Min“. Tippen öffnet den Lageplan. Läuft nur auf dem iPhone, ohne Server.")
+                }
+
+                Section {
+                    Toggle("Countdown in der Dynamic Island", isOn: $live)
+                } header: {
+                    Text("Live-Aktivität")
+                } footer: {
+                    Text("Zeigt ab einer Stunde vorher den Countdown und den Raum in der Dynamic Island und auf dem Sperrbildschirm. Ohne Server kann iOS sie nur starten, wenn die App geöffnet wird – am einfachsten über die Erinnerung.")
+                }
+                .onChange(of: live) { _, an in
+                    var e = Speicher.einstellungen()
+                    e.liveAktivitaet = an
+                    Speicher.speichere(e)
+                    LiveAktivitaet.aktualisieren(zustand.termine)
                 }
                 .onChange(of: erinnerungen) { _, an in erinnerungenAendern(an) }
                 .onChange(of: vorlauf) { _, _ in speichereErinnerungen() }

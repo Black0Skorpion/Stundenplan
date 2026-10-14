@@ -14,6 +14,7 @@ enum Ziele {
     /// Öffnet einfach die App (Reiter „Plan“) – Widgets verlinken nie direkt auf den Planer
     static let app = URL(string: "stundenplan://plan")!
     static let mensa = URL(string: "stundenplan://mensa")!
+    static let abfahrten = URL(string: "stundenplan://abfahrten")!
 }
 
 extension View {
@@ -181,8 +182,10 @@ struct TerminBlock: View {
         .padding(.horizontal, schmal || kurz ? 2 : 3.5)
         .padding(.vertical, kurz ? 1 : 3)
         .frame(width: breite, height: hoehe, alignment: .topLeading)
+        .strikethrough(termin.ausfall, color: .white)
         .background(RoundedRectangle(cornerRadius: 5).fill(kurs.farbe))
         .clipped()
+        .opacity(termin.ausfall ? 0.35 : 1)
     }
 
     /// "2.70.0.10" → "2.70.\n0.10" (für schmale Blöcke)
@@ -271,6 +274,8 @@ struct TagesListe: View {
     let farben: Farben
     let maxZeilen: Int
     var links = true
+    /// Zwischen zwei Terminen in verschiedenen Häusern die Gehzeit anzeigen (nur in der App)
+    var wege = false
 
     var body: some View {
         // Vergangene Termine zuerst ausblenden, wenn der Platz nicht reicht
@@ -284,7 +289,13 @@ struct TagesListe: View {
             }
         }
         return VStack(alignment: .leading, spacing: 3) {
-            ForEach(liste) { t in
+            ForEach(Array(liste.enumerated()), id: \.element.id) { i, t in
+                if wege, i > 0, let weg = wegText(liste[i - 1], t) {
+                    Label(weg, systemImage: "figure.walk")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(farben.gedimmt)
+                        .padding(.leading, 11)
+                }
                 TerminZeile(termin: t, jetzt: jetzt, farben: farben)
                     .verlinkt(links ? Ziele.termin(t) : nil)
             }
@@ -295,6 +306,14 @@ struct TagesListe: View {
             }
         }
     }
+}
+
+/// "ca. 6 Min zu Haus 70 (15 Min Pause)" – nur bei Hauswechsel
+func wegText(_ a: Termin, _ b: Termin) -> String? {
+    guard !a.ausfall, !b.ausfall, let min = Orte.gehminuten(von: a.raum, zu: b.raum), min > 0,
+          let r = RaumTeile(b.raum) else { return nil }
+    let pause = Int(b.start.timeIntervalSince(a.ende) / 60)
+    return "ca. \(min) Min zu Haus \(r.haus)" + (pause > 0 ? " (\(pause) Min Pause)" : "")
 }
 
 struct TerminZeile: View {
@@ -321,13 +340,14 @@ struct TerminZeile: View {
                         .foregroundStyle(farben.vorder)
                         .minimumScaleFactor(0.7)
                 }
-                Text(typ.lang + " · " + termin.raum)
+                Text(termin.ausfall ? "fällt aus" : typ.lang + " · " + termin.raum + (termin.alterRaum != nil ? " (geändert)" : ""))
                     .font(.system(size: 10))
-                    .foregroundStyle(farben.gedimmt)
+                    .foregroundStyle(termin.ausfall ? Palette.jetzt : farben.gedimmt)
                     .minimumScaleFactor(0.75)
             }
             .lineLimit(1)
-            .opacity(vorbei ? 0.45 : 1)
+            .strikethrough(termin.ausfall)
+            .opacity(vorbei || termin.ausfall ? 0.45 : 1)
             Spacer(minLength: 0)
         }
         .padding(.trailing, 4)

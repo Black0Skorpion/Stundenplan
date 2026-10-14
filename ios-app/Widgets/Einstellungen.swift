@@ -69,6 +69,19 @@ struct SperrEinstellung: WidgetConfigurationIntent {
     var variante: SperrVariante
 }
 
+// ───────────────────────── Abfahrten ─────────────────────────
+
+struct AbfahrtenEinstellung: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Abfahrten Golm"
+    static var description = IntentDescription("Nächste Züge und Busse ab Golm.")
+
+    @Parameter(title: "Nur Züge", default: false)
+    var nurZuege: Bool
+
+    @Parameter(title: "Farbschema", default: .automatisch)
+    var thema: ThemaOption
+}
+
 // ───────────────────────── Mensa ─────────────────────────
 
 enum MensaTagOption: String, AppEnum, CaseIterable {

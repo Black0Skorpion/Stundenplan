@@ -61,6 +61,7 @@ struct StundenplanApp: App {
                     if neu == .active {
                         zustand.neuLaden()
                         Task { await Erinnerungen.planen() }
+                        LiveAktivitaet.aktualisieren(zustand.termine)
                     }
                 }
         }
@@ -68,23 +69,36 @@ struct StundenplanApp: App {
 }
 
 enum Reiter: Hashable {
-    case plan, mensa, lageplan, einstellungen
+    case plan, mensa, abfahrten, lageplan, einstellungen
 }
 
 struct LageplanAnfrage: Identifiable {
     let id = UUID()
     let titel: String
-    let termine: [Termin]
+    /// Schlüssel der Termine (bleiben gleich, auch wenn Raum/Ausfall geändert werden)
+    let schluessel: [String]
 }
 
 final class AppZustand: ObservableObject {
     @Published var reiter: Reiter = .plan
+    /// Ohne ausgefallene Termine (für Karte, „nächster Termin“ usw.)
     @Published var termine: [Termin] = Speicher.termine()
+    /// Mit ausgefallenen Terminen (für Wochenraster und Tagesliste)
+    @Published var alleTermine: [Termin] = Speicher.termine(mitAusfaellen: true)
     @Published var lageplan: LageplanAnfrage?
     @Published var meldung: String?
 
     func neuLaden() {
         termine = Speicher.termine()
+        alleTermine = Speicher.termine(mitAusfaellen: true)
+    }
+
+    /// Ausfall oder Raum von Hand ändern
+    func aendere(_ t: Termin, _ aendern: (inout Speicher.Aenderung) -> Void) {
+        Speicher.aendere(t, aendern)
+        neuLaden()
+        Task { await Erinnerungen.planen() }
+        LiveAktivitaet.aktualisieren(termine)
     }
 
     func oeffne(_ url: URL) {
@@ -104,12 +118,13 @@ final class AppZustand: ObservableObject {
         case "lageplan":
             if let s = zahl("termin") {
                 let zeit = Date(timeIntervalSince1970: s)
-                let treffer = termine.filter { abs($0.start.timeIntervalSince(zeit)) < 1 }
+                let treffer = alleTermine.filter { abs($0.start.timeIntervalSince(zeit)) < 1 }
                 lageplan = LageplanAnfrage(titel: treffer.first.map { Zeit.datumKurz($0.start) } ?? "Termin",
-                                           termine: treffer)
+                                           schluessel: treffer.map(\.schluessel))
             } else if let s = zahl("tag") {
                 let tag = Date(timeIntervalSince1970: s)
-                lageplan = LageplanAnfrage(titel: Zeit.datumKurz(tag), termine: Plan.termineAm(termine, tag))
+                lageplan = LageplanAnfrage(titel: Zeit.datumKurz(tag),
+                                           schluessel: Plan.termineAm(alleTermine, tag).map(\.schluessel))
             } else {
                 reiter = .lageplan
             }
@@ -119,6 +134,8 @@ final class AppZustand: ObservableObject {
             reiter = .plan
         case "mensa":
             reiter = .mensa
+        case "abfahrten":
+            reiter = .abfahrten
         default:
             break
         }
@@ -163,6 +180,9 @@ struct Hauptansicht: View {
             MensaReiter()
                 .tabItem { Label("Mensa", systemImage: "fork.knife") }
                 .tag(Reiter.mensa)
+            AbfahrtenReiter()
+                .tabItem { Label("Abfahrten", systemImage: "tram") }
+                .tag(Reiter.abfahrten)
             LageplanReiter()
                 .tabItem { Label("Lageplan", systemImage: "map") }
                 .tag(Reiter.lageplan)
@@ -172,7 +192,7 @@ struct Hauptansicht: View {
         }
         .sheet(item: $zustand.lageplan) { anfrage in
             NavigationStack {
-                LageplanAnsicht(titel: anfrage.titel, termine: anfrage.termine)
+                LageplanAnsicht(titel: anfrage.titel, schluessel: anfrage.schluessel)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Fertig") { zustand.lageplan = nil }

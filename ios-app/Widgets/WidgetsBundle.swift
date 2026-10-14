@@ -7,5 +7,7 @@ struct StundenplanWidgets: WidgetBundle {
         StundenplanWidget()
         SperrWidget()
         MensaWidget()
+        AbfahrtenWidget()
+        VorlesungLiveAktivitaet()
     }
 }
