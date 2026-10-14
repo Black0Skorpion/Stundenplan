@@ -18,6 +18,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set +e
           # Artefakt-ID | Tag | Titel | Dateiname | Commit
           while IFS='|' read -r ID TAG TITEL DATEI COMMIT; do
             [ -z "$ID" ] && continue
@@ -28,15 +29,17 @@ jobs:
             rm -rf tmp && mkdir tmp
             # curl folgt der Weiterleitung zum Speicher, ohne den Token dorthin mitzuschicken
             curl -sSfL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/$ID/zip" -o tmp/a.zip || { echo "Download $TAG fehlgeschlagen"; continue; }
-            unzip -q tmp/a.zip -d tmp || { echo "Entpacken $TAG fehlgeschlagen"; continue; }
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/$ID/zip" -o tmp/a.zip 2>tmp/fehler.txt || { echo "::warning::Download $TAG fehlgeschlagen: $(cat tmp/fehler.txt | head -c 300)"; continue; }
+            unzip -q tmp/a.zip -d tmp || { echo "::warning::Entpacken $TAG fehlgeschlagen"; continue; }
             ls -la tmp
             QUELLE=$(ls tmp/*.ipa tmp/*.apk 2>/dev/null | head -1)
-            [ -z "$QUELLE" ] && { echo "Keine Datei in $TAG"; continue; }
+            [ -z "$QUELLE" ] && { echo "::warning::Keine Datei in $TAG: $(ls tmp | tr '\n' ' ')"; continue; }
             cp "$QUELLE" "tmp/$DATEI"
             gh release create "$TAG" "tmp/$DATEI" --title "$TITEL" \
               --notes "Frühere Version, gebaut aus ${COMMIT:0:7} (aus den gespeicherten Build-Dateien wiederhergestellt)." \
-              --target "$COMMIT" --latest=false
+              --target "$COMMIT" --latest=false 2>tmp/fehler.txt \
+              && echo "::notice::$TAG angelegt" \
+              || echo "::warning::Release $TAG fehlgeschlagen: $(cat tmp/fehler.txt | head -c 300)"
           done <<'LISTE'
           11927170928|ios-v0.1.0|iOS-App 0.1.0|Stundenplan-0.1.0.ipa|a78b10b67074020be639ff2bdb0081f45ba25870
           11928112064|ios-v0.1.1|iOS-App 0.1.1|Stundenplan-0.1.1.ipa|67c3f0607fadb9cf550bc356dfde74484022b6dc
