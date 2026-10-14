@@ -37,13 +37,17 @@ Startbildschirm gedrückt halten → **Widgets** → **Stundenplan** → gewüns
 App „Stundenplan“ öffnen → **ICS-Datei importieren** → die im Planer exportierte `.ics` auswählen.
 **Eingebaute Termine verwenden** setzt auf die mitgelieferten Termine (WiSe 26/27) zurück.
 
-Kurznamen, Farben und die Adresse, die beim Tippen geöffnet wird, stehen in
+**Eigener Planer-Link:** In der App den über „Plan teilen“ kopierten Link einfügen und speichern –
+beim Tippen auf ein Stundenplan-Widget öffnet sich dann genau dieser Plan.
+
+Kurznamen, Farben und der Standard-Link stehen in
 `app/src/main/java/de/stundenplan/widget/Konfig.java`.
 
 ## iPhone (Scriptable)
 
 Die iOS-Version liegt unter `ios/Stundenplan.js`. In der App **Scriptable** ein neues Script anlegen,
 den Inhalt einfügen und als Widget (klein, mittel oder groß – auf dem iPad auch extragroß) auf den Home-Bildschirm legen.
+Eigener Planer-Link: oben im Script bei `CONFIG.TAP_URL` eintragen oder als Widget-Parameter.
 
 ## Mensa-Widget (iPhone/iPad, Scriptable)
 

@@ -96,10 +96,21 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
         }
     }
 
+    static final String EINSTELLUNGEN = "einstellungen";
+    static final String PLANER_LINK = "planer_link";
+
+    /** Eigener Planer-Link aus der App, sonst der Standard aus Konfig.TAP_URL. */
+    static String planerLink(Context ctx) {
+        String eigener = ctx.getSharedPreferences(EINSTELLUNGEN, Context.MODE_PRIVATE).getString(PLANER_LINK, "");
+        if (eigener != null && eigener.startsWith("http")) return eigener;
+        return Konfig.TAP_URL;
+    }
+
     private static PendingIntent tippAktion(Context ctx) {
         Intent i;
-        if (Konfig.TAP_URL != null && !Konfig.TAP_URL.isEmpty()) {
-            i = new Intent(Intent.ACTION_VIEW, Uri.parse(Konfig.TAP_URL));
+        String link = planerLink(ctx);
+        if (link != null && !link.isEmpty()) {
+            i = new Intent(Intent.ACTION_VIEW, Uri.parse(link));
         } else {
             i = new Intent(ctx, MainActivity.class);
         }

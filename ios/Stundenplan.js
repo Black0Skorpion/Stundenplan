@@ -4,9 +4,13 @@
 // Größen: Klein (2×2) = aktuelle/nächste Veranstaltung, Mittel (4×2) = dazu der Tagesplan,
 // Groß (4×4) = ganze Woche, Extragroß (nur iPad) = Woche plus aktuelle Veranstaltung und Tagesplan. Nach der letzten Veranstaltung zeigen Klein und Mittel den nächsten Tag.
 //
-// Widget-Parameter (optional, beim Bearbeiten des Widgets eintragen):
+// Widget-Parameter (optional, beim Bearbeiten des Widgets eintragen, mit Leerzeichen kombinierbar):
 //   hell   → immer heller Modus
 //   dunkel → immer dunkler Modus
+//   https://planner.joshuan.dev/de?s=…  → dein eigener Planer-Link, öffnet sich beim Tippen
+//
+// Eigener Planer-Link: Im Planer auf "Plan teilen" tippen, Link kopieren und entweder oben bei
+// CONFIG.TAP_URL eintragen (gilt für alle Widgets) oder als Widget-Parameter (nur dieses Widget).
 //
 // Stundenplan aktualisieren: Neue .ics-Datei aus dem Planer exportieren und als
 // "stundenplan.ics" in iCloud Drive › Scriptable ablegen. Liegt dort keine Datei,
@@ -658,8 +662,8 @@ function zeichneRaster(breite, hoehe, tage, startH, endeH, jetzt, mitTagesDatum)
 // ───────────────────────── Gemeinsame Widget-Bausteine ─────────────────────────
 
 function themenFarben() {
-  const param = (args.widgetParameter || "").trim().toLowerCase()
-  const thema = ["hell", "dunkel"].includes(param) ? param : CONFIG.THEMA
+  const teile = (args.widgetParameter || "").trim().toLowerCase().split(/\s+/)
+  const thema = teile.includes("hell") ? "hell" : teile.includes("dunkel") ? "dunkel" : CONFIG.THEMA
   if (thema === "hell" || thema === "dunkel") {
     const f = FARBEN[thema]
     return {
@@ -681,8 +685,16 @@ function basisWidget(farben, rand) {
   const w = new ListWidget()
   w.backgroundColor = farben.bg
   w.setPadding(rand, rand, rand, rand)
-  if (CONFIG.TAP_URL) w.url = CONFIG.TAP_URL
+  const link = tippLink()
+  if (link) w.url = link
   return w
+}
+
+// Link beim Tippen: Planer-Link aus dem Widget-Parameter, sonst CONFIG.TAP_URL
+function tippLink() {
+  const teile = (args.widgetParameter || "").trim().split(/\s+/)
+  const eigener = teile.find(t => /^https?:\/\//i.test(t))
+  return eigener || CONFIG.TAP_URL
 }
 
 function textHinzu(stack, inhalt, font, farbe, optionen) {

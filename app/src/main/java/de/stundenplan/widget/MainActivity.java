@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -74,6 +75,31 @@ public class MainActivity extends Activity {
             neuLaden();
         });
         inhalt.addView(zuruecksetzen);
+
+        // Eigener Planer-Link: öffnet sich beim Tippen auf die Stundenplan-Widgets
+        TextView linkTitel = new TextView(this);
+        linkTitel.setText("\nDein Planer-Link (im Planer über „Plan teilen“ kopieren):");
+        inhalt.addView(linkTitel);
+        EditText linkFeld = new EditText(this);
+        linkFeld.setSingleLine(true);
+        linkFeld.setHint(Konfig.TAP_URL);
+        linkFeld.setText(getSharedPreferences(StundenplanWidget.EINSTELLUNGEN, MODE_PRIVATE)
+                .getString(StundenplanWidget.PLANER_LINK, ""));
+        inhalt.addView(linkFeld);
+        Button linkSpeichern = new Button(this);
+        linkSpeichern.setText("Link speichern");
+        linkSpeichern.setOnClickListener(v -> {
+            String link = linkFeld.getText().toString().trim();
+            if (!link.isEmpty() && !link.startsWith("http")) {
+                Toast.makeText(this, "Der Link muss mit https:// beginnen", Toast.LENGTH_LONG).show();
+                return;
+            }
+            getSharedPreferences(StundenplanWidget.EINSTELLUNGEN, MODE_PRIVATE).edit()
+                    .putString(StundenplanWidget.PLANER_LINK, link).apply();
+            StundenplanWidget.alleAktualisieren(this);
+            Toast.makeText(this, link.isEmpty() ? "Standard-Link wird verwendet" : "Link gespeichert", Toast.LENGTH_SHORT).show();
+        });
+        inhalt.addView(linkSpeichern);
 
         vorschauen = new LinearLayout(this);
         vorschauen.setOrientation(LinearLayout.VERTICAL);
