@@ -12,16 +12,20 @@
 // Einfacher: Script in der Scriptable-App starten → „Einstellungen“ (Farbschema, Planer-Link,
 // Sperrbildschirm-Varianten per Auswahlmenü). Ein Widget-Parameter hat trotzdem Vorrang.
 //
-// Tippen: Raum/Karte/Tageszeile → Lageplan Golm mit markiertem Gebäude; Wochentag in der
-// Wochenansicht → alle Räume des Tages; Kopfzeile bzw. kleines Widget → Planer.
+// Tippen: Raum/Karte/Tageszeile → Lageplan Golm mit markiertem Gebäude, Route (Apple Karten)
+// und „Ändern“ (fällt aus / anderer Raum); Wochentag in der Wochenansicht → alle Räume des Tages.
+// Der Rest des Widgets öffnet das Script (Menü). Der Planer öffnet sich nur noch im Lageplan.
+//
+// Erinnerungen vor Veranstaltungen: Script starten → „Einstellungen“ → „Erinnerungen“.
+// Siri: „Hey Siri, Stundenplan“ sagt die nächste Veranstaltung an.
 //
 // Sperrbildschirm-Widgets (iPhone): Variante per Einstellungen oder Parameter:
 //   Zeile über der Uhr:  naechste (Standard) · raum · countdown
 //   Rechteckig:          naechste (Standard) · raum · tag
 //   Rund:                countdown (Standard) · raum · zeit
 //
-// Eigener Planer-Link: Im Planer auf "Plan teilen" tippen, Link kopieren und entweder oben bei
-// CONFIG.TAP_URL eintragen (gilt für alle Widgets) oder als Widget-Parameter (nur dieses Widget).
+// Eigener Planer-Link: Im Planer auf "Plan teilen" tippen, Link kopieren und in den Einstellungen
+// eintragen. Er öffnet sich im Lageplan über „Im Planer öffnen“.
 //
 // Stundenplan aktualisieren: Neue .ics-Datei aus dem Planer exportieren und als
 // "stundenplan.ics" in iCloud Drive › Scriptable ablegen. Liegt dort keine Datei,
@@ -37,7 +41,7 @@ const CONFIG = {
   STANDARD_START: 8,   // früheste angezeigte Stunde
   STANDARD_ENDE: 18,   // späteste angezeigte Stunde
   THEMA: "auto",       // "auto" | "hell" | "dunkel"
-  TAP_URL: "https://planner.joshuan.dev/de", // öffnet beim Tippen aufs Widget ("" = Scriptable öffnen)
+  TAP_URL: "https://planner.joshuan.dev/de", // Standard-Planer-Link (Lageplan → „Im Planer öffnen“)
 
   // Kurznamen und Farben pro Veranstaltung (vollständiger Titel aus dem Kalender)
   KURSE: {
@@ -299,6 +303,28 @@ async function ladeTermine() {
     }
   }
   return eingebetteteTermine()
+}
+
+// Termine mit akademischem Viertel und eigenen Änderungen (fällt aus / anderer Raum), sortiert.
+// Ausgefallene sind nur mit mitAusfaellen dabei (Lageplan, Ändern-Menü).
+async function ladeAlle(mitAusfaellen) {
+  const aend = aenderungen()
+  return (await ladeTermine())
+    .map(viertelAnpassen)
+    .map(t => {
+      const a = aend[schluessel(t)]
+      if (!a) return t
+      const n = Object.assign({}, t)
+      if (a.ausfall) n.ausfall = true
+      if (a.raum && a.raum !== t.raum) { n.alterRaum = t.raum; n.raum = a.raum }
+      return n
+    })
+    .filter(t => mitAusfaellen || !t.ausfall)
+    .sort((a, b) => a.start - b.start)
+}
+
+function schluessel(t) {
+  return Math.floor(t.start.getTime() / 1000) + "|" + t.titel
 }
 
 function utcAusKompakt(s) {
@@ -696,8 +722,7 @@ function basisWidget(farben, rand) {
   const w = new ListWidget()
   w.backgroundColor = farben.bg
   w.setPadding(rand, rand, rand, rand)
-  const link = tippLink()
-  if (link) w.url = link
+  // Kein Link: Tippen auf freie Fläche öffnet das Script (Menü), nie den Planer
   return w
 }
 
@@ -980,8 +1005,6 @@ function tagesListe(parent, auswahl, jetzt, farben, breite, verfuegbarH) {
 // Kopfzeile "Heute Di, 13. Okt" für mittleres und extragroßes Widget
 function tagesKopf(parent, auswahl, farben) {
   const kopf = parent.addStack()
-  const planer = tippLink()
-  if (planer) kopf.url = planer
   kopf.layoutHorizontally()
   kopf.centerAlignContent()
   textHinzu(kopf, auswahl.label, Font.semiboldSystemFont(12), auswahl.istHeute ? farben.akzent : farben.vorder)
@@ -1035,8 +1058,6 @@ function wochenAnsicht(parent, alle, jetzt, farben, breite, hoehe, mitStatus) {
   kopf.layoutHorizontally()
   kopf.centerAlignContent()
   kopf.size = new Size(breite, kopfH)
-  const planer = tippLink()
-  if (planer) kopf.url = planer
   const titel = naechsteWoche
     ? "Nächste Woche · KW " + kalenderwoche(montag)
     : datumKurz(jetzt) + " · KW " + kalenderwoche(jetzt)
@@ -1168,6 +1189,154 @@ function einstellungenSpeichern(neu) {
   fm.writeString(pfad, JSON.stringify(neu, null, 2))
 }
 
+// ───────────────────────── Eigene Änderungen (fällt aus / anderer Raum) ─────────────────────────
+// Gespeichert in iCloud Drive › Scriptable › stundenplan-aenderungen.json
+
+function aenderungsDatei() {
+  let fm
+  try { fm = FileManager.iCloud() } catch (e) { fm = FileManager.local() }
+  return { fm, pfad: fm.joinPath(fm.documentsDirectory(), "stundenplan-aenderungen.json") }
+}
+
+let _aenderungen = null
+function aenderungen() {
+  if (_aenderungen) return _aenderungen
+  _aenderungen = {}
+  try {
+    const { fm, pfad } = aenderungsDatei()
+    if (fm.fileExists(pfad)) {
+      if (fm.isFileStoredIniCloud(pfad) && !fm.isFileDownloaded(pfad)) fm.downloadFileFromiCloud(pfad)
+      else _aenderungen = JSON.parse(fm.readString(pfad)) || {}
+    }
+  } catch (e) { _aenderungen = {} }
+  return _aenderungen
+}
+
+function aenderungSetzen(t, neu) {
+  const alle = Object.assign({}, aenderungen())
+  const k = schluessel(t)
+  if (!neu || (!neu.ausfall && !neu.raum)) delete alle[k]
+  else alle[k] = neu
+  // Alte Einträge (über 30 Tage vergangen) aufräumen
+  const grenze = Date.now() / 1000 - 30 * 86400
+  for (const key of Object.keys(alle)) if (Number(key.split("|")[0]) < grenze) delete alle[key]
+  _aenderungen = alle
+  const { fm, pfad } = aenderungsDatei()
+  fm.writeString(pfad, JSON.stringify(alle, null, 2))
+}
+
+async function aendernMenue(t) {
+  const a = new Alert()
+  a.title = kursInfo(t.titel).kurz + " · " + datumKurz(t.start) + " " + uhrzeit(t.start)
+  a.message = t.titel + "\n" + t.raum + (t.alterRaum ? " (ursprünglich " + t.alterRaum + ")" : "") + (t.ausfall ? "\nFällt aus" : "")
+  a.addAction(t.ausfall ? "Findet doch statt" : "Fällt aus")
+  a.addAction("Raum ändern …")
+  if (t.ausfall || t.alterRaum) a.addDestructiveAction("Änderungen zurücksetzen")
+  a.addCancelAction("Abbrechen")
+  const i = await a.presentSheet()
+  if (i < 0) return false
+  const eigenerRaum = t.alterRaum ? t.raum : undefined
+  if (i === 0) {
+    aenderungSetzen(t, { ausfall: !t.ausfall, raum: eigenerRaum })
+  } else if (i === 1) {
+    const r = new Alert()
+    r.title = "Raum ändern"
+    r.message = "Gilt nur für diesen einen Termin. Widgets und Erinnerungen übernehmen den neuen Raum."
+    r.addTextField("z. B. 2.70.0.10", t.raum)
+    r.addAction("Speichern")
+    r.addCancelAction("Abbrechen")
+    if (await r.presentAlert() < 0) return false
+    const neu = r.textFieldValue(0).trim()
+    const original = t.alterRaum || t.raum
+    aenderungSetzen(t, { ausfall: !!t.ausfall, raum: neu && neu !== original ? neu : undefined })
+  } else {
+    aenderungSetzen(t, null)
+  }
+  return true
+}
+
+// Termin auswählen und ändern (aus dem Script-Menü)
+async function terminAendernMenue() {
+  const alle = await ladeAlle(true)
+  const heute = tagesBeginn(new Date())
+  const tage = []
+  for (let i = 0; i < 14 && tage.length < 7; i++) {
+    const d = new Date(heute)
+    d.setDate(heute.getDate() + i)
+    const ts = termineAm(alle, d)
+    if (ts.length) tage.push({ d, ts })
+  }
+  if (!tage.length) return
+  const ta = new Alert()
+  ta.title = "Welcher Tag?"
+  tage.forEach(x => ta.addAction(datumKurz(x.d)))
+  ta.addCancelAction("Abbrechen")
+  const ti = await ta.presentSheet()
+  if (ti < 0) return
+  const ts = tage[ti].ts
+  const ea = new Alert()
+  ea.title = "Welcher Termin?"
+  ts.forEach(t => ea.addAction((t.ausfall ? "✕ " : "") + uhrzeit(t.start) + " " + kursInfo(t.titel).kurz + " · " + t.raum))
+  ea.addCancelAction("Abbrechen")
+  const ei = await ea.presentSheet()
+  if (ei < 0) return
+  if (await aendernMenue(ts[ei])) await erinnerungenPlanen(true)
+}
+
+// ───────────────────────── Erinnerungen ─────────────────────────
+// Mitteilung vor jeder Veranstaltung. Geplant werden immer die nächsten 30 (iOS hat ein Limit),
+// neu geplant beim Start des Scripts und höchstens stündlich durch die Widgets.
+
+async function erinnerungenPlanen(sofort) {
+  const e = einstellungen()
+  let fm = FileManager.local()
+  const stempel = fm.joinPath(fm.cacheDirectory(), "stundenplan-erinnerungen-zeit.txt")
+  if (!sofort && fm.fileExists(stempel) && Date.now() - Number(fm.readString(stempel)) < 3600000) return
+  fm.writeString(stempel, String(Date.now()))
+  try {
+    const alte = (await Notification.allPending()).filter(n => (n.identifier || "").startsWith("sp-"))
+    if (alte.length) await Notification.removePending(alte.map(n => n.identifier))
+  } catch (err) {}
+  if (!e.erinnerungen) return
+  const vorlauf = e.vorlauf || 10
+  const jetzt = new Date()
+  const kommende = (await ladeAlle(false)).filter(t => t.start.getTime() - vorlauf * 60000 > jetzt.getTime()).slice(0, 30)
+  for (const t of kommende) {
+    const n = new Notification()
+    n.identifier = "sp-" + Math.floor(t.start.getTime() / 1000)
+    n.threadIdentifier = "stundenplan"
+    n.title = kursInfo(t.titel).kurz + " in " + vorlauf + " Min"
+    n.body = typInfo(t.typ).lang + " · " + t.raum + " · " + uhrzeit(t.start) + "–" + uhrzeit(t.ende)
+    n.sound = "event"
+    n.openURL = lageplanLinkTermin(t)
+    n.setTriggerDate(new Date(t.start.getTime() - vorlauf * 60000))
+    await n.schedule()
+  }
+}
+
+// ───────────────────────── Siri ─────────────────────────
+
+async function siriAntwort() {
+  const jetzt = new Date()
+  const t = naechsterTermin(await ladeAlle(false), jetzt)
+  let text
+  if (!t) text = "Du hast keine weiteren Termine."
+  else {
+    const r = raumAufteilen(t.raum)
+    const ort = r ? "Haus " + r.haus + ", Raum " + r.etage + (r.raum ? "." + r.raum : "") : "Raum " + t.raum
+    if (t.start <= jetzt) text = "Gerade läuft " + t.titel + " in " + ort + ", noch bis " + uhrzeit(t.ende) + "."
+    else {
+      const morgen = new Date(jetzt); morgen.setDate(jetzt.getDate() + 1)
+      const wann = gleicherTag(t.start, jetzt) ? "heute um " + uhrzeit(t.start)
+        : gleicherTag(t.start, morgen) ? "morgen um " + uhrzeit(t.start)
+        : "am " + WOCHENTAGE_VOLL[t.start.getDay()] + " um " + uhrzeit(t.start)
+      text = t.titel + ", " + typInfo(t.typ).lang + ", " + wann + " in " + ort + "."
+    }
+  }
+  Script.setShortcutOutput(text)
+  Speech.speak(text)
+}
+
 // ───────────────────────── Lageplan Golm ─────────────────────────
 
 // Einrichtungen laut Legende des Lageplans (Stand Mai 2025)
@@ -1210,6 +1379,47 @@ const EINRICHTUNGEN = {
 const GEBAEUDE = {"25": [0.3622, 0.4749], "28": [0.3706, 0.5459], "18": [0.3505, 0.6258], "14": [0.4879, 0.7238], "8": [0.6598, 0.5596], "11": [0.6606, 0.7432], "24": [0.6679, 0.7883], "19": [0.5668, 0.8721], "35": [0.6534, 0.8581], "20": [0.7211, 0.8428], "6": [0.7917, 0.5255], "5": [0.8661, 0.5624], "4": [0.8646, 0.6525], "1": [0.7804, 0.7095], "26": [0.5281, 0.4119], "10": [0.6594, 0.6776], "9": [0.7086, 0.6315], "2": [0.7602, 0.6604], "27": [0.4745, 0.5309], "29": [0.5251, 0.5677], "31": [0.5587, 0.7556], "30": [0.5462, 0.7166], "12": [0.9248, 0.5391], "17": [0.3888, 0.7199], "60": [0.8442, 0.1093], "13": [0.7916, 0.8074], "48": [0.2998, 0.6972], "32": [0.471, 0.6365], "70": [0.3853, 0.0464], "16": [0.3861, 0.813], "62": [0.0741, 0.2764], "7": [0.7796, 0.5907], "15": [0.4928, 0.7715]}
 
 const CAMPUS = { "1": "Am Neuen Palais", "2": "Golm", "3": "Griebnitzsee" }
+
+// GPS der Häuser (OpenStreetMap; ≈ aus dem Lageplan umgerechnet, meist < 20 m Abweichung).
+// Haus 60 und 62 fehlen bewusst (keine verlässliche Position).
+const GPS = {
+  "1": [52.407483, 12.977766], "2": [52.408040, 12.977722], "4": [52.407946, 12.978802],
+  "5": [52.408763, 12.979165], "6": [52.409130, 12.978347], "7": [52.408606, 12.978036],
+  "8": [52.409095, 12.977112], "9": [52.408388, 12.977198], "10": [52.407919, 12.976578],
+  "11": [52.407285, 12.976441], "12": [52.408935, 12.979743], "13": [52.406575, 12.977690],
+  "14": [52.407557, 12.974072], "15": [52.407182, 12.974515], "16": [52.406950, 12.973302],
+  "17": [52.407606, 12.973495], "18": [52.408674, 12.973316], "19": [52.406160, 12.975317],
+  "20": [52.406271, 12.976781], "24": [52.406796, 12.976390], "25": [52.410074, 12.973810],
+  "26": [52.410513, 12.975774], "27": [52.409526, 12.975206], "28": [52.409403, 12.973729],
+  "29": [52.409063, 12.975092], "30": [52.407654, 12.975229], "31": [52.407279, 12.975312],
+  "32": [52.408465, 12.974605], "35": [52.406365, 12.976121], "48": [52.408053, 12.972589],
+  "70": [52.413289, 12.974407],
+}
+
+function gpsVon(raum) {
+  const r = raumAufteilen(raum)
+  return r && r.campus === "2" ? GPS[r.haus] : null
+}
+
+// Geschätzte Gehzeit (Luftlinie × 1,3, 75 m/min); null = unbekannt, 0 = selbes Haus
+function gehminuten(von, zu) {
+  const a = raumAufteilen(von), b = raumAufteilen(zu)
+  if (!a || !b) return null
+  if (a.campus === b.campus && a.haus === b.haus) return 0
+  const p = gpsVon(von), q = gpsVon(zu)
+  if (!p || !q) return null
+  const rad = x => x * Math.PI / 180
+  const dp = rad(q[0] - p[0]), dl = rad(q[1] - p[1])
+  const h = Math.sin(dp / 2) ** 2 + Math.cos(rad(p[0])) * Math.cos(rad(q[0])) * Math.sin(dl / 2) ** 2
+  const m = 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)))
+  return Math.max(1, Math.round(m * 1.3 / 75))
+}
+
+// Apple Karten mit Fußweg zum Haus
+function routeLink(raum) {
+  const p = gpsVon(raum), r = raumAufteilen(raum)
+  return p ? "maps://?daddr=" + p[0] + "," + p[1] + "&dirflg=w&q=" + encodeURIComponent("Uni Potsdam Haus " + r.haus) : null
+}
 
 // "2.70.0.10" → { campus: "2", haus: "70", etage: "0", raum: "10" }
 function raumAufteilen(raum) {
@@ -1317,15 +1527,28 @@ async function zeigeLageplan(alle, parameter) {
       if (r.campus !== "2") ort += " · Campus " + (CAMPUS[r.campus] || r.campus) + " (nicht auf diesem Plan)"
       else if (!GEBAEUDE[r.haus]) ort += " · nicht auf dem Plan"
       if (r.campus === "2") {
-        markierungen.push({ haus: r.haus, label: nummer || ("Raum " + r.etage + "." + r.raum) })
+        if (!t.ausfall) markierungen.push({ haus: r.haus, label: nummer || ("Raum " + r.etage + "." + r.raum) })
         if (EINRICHTUNGEN[r.haus]) einrichtung = EINRICHTUNGEN[r.haus].map(htmlSchutz).join(" · ")
       }
     }
-    return `<div class="karte" style="background:${kurs.farbe}">
-      <div class="oben">${nummer ? `<span class="nr">${nummer}</span>` : ""}${htmlSchutz(typ.lang)} · ${uhrzeit(t.start)}–${uhrzeit(t.ende)}</div>
+    // Gehzeit vom vorherigen Termin, wenn das Haus wechselt
+    let weg = ""
+    if (i > 0 && !t.ausfall && !termine[i - 1].ausfall) {
+      const min = gehminuten(termine[i - 1].raum, t.raum)
+      if (min) {
+        const pause = Math.round((t.start - termine[i - 1].ende) / 60000)
+        weg = `<div class="weg">🚶 ca. ${min} Min zu Haus ${htmlSchutz(r.haus)}${pause > 0 ? ` (${pause} Min Pause)` : ""}</div>`
+      }
+    }
+    const route = t.ausfall ? null : routeLink(t.raum)
+    const aendern = "scriptable:///run/" + encodeURIComponent(Script.name()) + "?aendern=" + t.start.getTime()
+    return `${weg}<div class="karte${t.ausfall ? " aus" : ""}" style="background:${kurs.farbe}">
+      <div class="oben">${nummer ? `<span class="nr">${nummer}</span>` : ""}${htmlSchutz(typ.lang)} · ${uhrzeit(t.start)}–${uhrzeit(t.ende)}${t.ausfall ? ' <span class="marke">FÄLLT AUS</span>' : ""}</div>
       <div class="titel">${htmlSchutz(t.titel)}</div>
       <div class="ort">${ort}</div>
+      ${t.alterRaum ? `<div class="einr">Geändert, ursprünglich ${htmlSchutz(t.alterRaum)}</div>` : ""}
       ${einrichtung ? `<div class="einr">${einrichtung}</div>` : ""}
+      <div class="knoepfe">${route ? `<a class="k" href="${htmlSchutz(route)}">🚶 Route</a>` : ""}<a class="k" href="${htmlSchutz(aendern)}">✎ Ändern</a></div>
     </div>`
   }).join("")
 
@@ -1339,11 +1562,16 @@ async function zeigeLageplan(alle, parameter) {
   @media (prefers-color-scheme: dark) { body { background: #1C1C1E; color: #F1EFE8; } .plan { border-color: #3A3A3C; } }
   h1 { font-size: 22px; margin: 4px 0 12px; }
   .karte { border-radius: 14px; padding: 12px 14px; color: #fff; margin-bottom: 10px; }
+  .aus { opacity: .5; } .aus .titel { text-decoration: line-through; }
+  .marke { background: rgba(255,255,255,.25); border-radius: 8px; padding: 1px 6px; font-size: 11px; }
   .oben { font-size: 13px; opacity: .9; font-weight: 600; }
   .nr { display: inline-block; background: #fff; color: #E24B4A; border-radius: 10px; min-width: 20px; text-align: center; margin-right: 6px; }
   .titel { font-size: 18px; font-weight: 700; margin: 3px 0; }
   .ort { font-size: 15px; font-weight: 600; }
   .einr { font-size: 13px; opacity: .85; margin-top: 4px; }
+  .knoepfe { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .k { background: rgba(255,255,255,.22); color: #fff; text-decoration: none; border-radius: 16px; padding: 6px 12px; font-size: 14px; font-weight: 600; }
+  .weg { font-size: 13px; color: #888780; margin: -4px 0 8px 4px; }
   .plan { width: 100%; border-radius: 14px; border: 1px solid #D3D1C7; background: #fff; margin-top: 6px; }
   .leer { color: #888780; }
   a.knopf { display: block; text-align: center; margin: 14px 0 4px; padding: 12px; border-radius: 12px; background: #185FA5; color: #fff; text-decoration: none; font-weight: 600; }
@@ -1356,6 +1584,16 @@ ${karten || '<p class="leer">Keine Termine</p>'}
 ${planerLink ? `<a class="knopf" href="${htmlSchutz(planerLink)}">Im Planer öffnen</a>` : ""}
 </body></html>`
   const wv = new WebView()
+  // Links (Route, Ändern, Planer) nicht in der Ansicht laden, sondern an iOS weitergeben:
+  // maps:// öffnet Apple Karten, scriptable:// das Ändern-Menü, https den Browser.
+  wv.shouldAllowRequest = req => {
+    const u = req.url || ""
+    if (/^(https?|maps|scriptable):/i.test(u)) {
+      Safari.open(u)
+      return false
+    }
+    return true
+  }
   await wv.loadHTML(html)
   await wv.present(true)
 }
@@ -1382,10 +1620,11 @@ async function zeigeEinstellungen() {
     const linkName = e.link ? "Eigener Link" : "Standard (leere Planer-Seite)"
     const eintraege = [
       ["thema", "Farbschema: " + themaName],
-      ["link", "Planer-Link: " + linkName],
+      ["link", "Planer-Link (im Lageplan): " + linkName],
       ["inline", "Sperrbildschirm Zeile: " + VARIANTEN_NAMEN[e.inline || "naechste"]],
       ["rechteck", "Sperrbildschirm Rechteck: " + VARIANTEN_NAMEN[e.rechteck || "naechste"]],
       ["rund", "Sperrbildschirm Rund: " + VARIANTEN_NAMEN[e.rund || "countdown"]],
+      ["erinnerungen", "Erinnerungen: " + (e.erinnerungen ? "an (" + (e.vorlauf || 10) + " Min vorher)" : "aus")],
     ]
     const a = new Alert()
     a.title = "Einstellungen"
@@ -1398,6 +1637,13 @@ async function zeigeEinstellungen() {
     if (schluessel === "thema") {
       const w = await auswahlMenue("Farbschema", [["auto", "Automatisch"], ["hell", "Hell"], ["dunkel", "Dunkel"]], e.thema || "auto")
       if (w !== undefined) e.thema = w
+    } else if (schluessel === "erinnerungen") {
+      const w = await auswahlMenue("Erinnerung vor Veranstaltungen",
+        [["aus", "Aus"], [5, "5 Minuten vorher"], [10, "10 Minuten vorher"], [15, "15 Minuten vorher"],
+         [20, "20 Minuten vorher"], [30, "30 Minuten vorher"], [60, "60 Minuten vorher"]],
+        e.erinnerungen ? (e.vorlauf || 10) : "aus")
+      if (w === "aus") e.erinnerungen = false
+      else if (w !== undefined) { e.erinnerungen = true; e.vorlauf = w }
     } else if (schluessel === "link") {
       const l = new Alert()
       l.title = "Planer-Link"
@@ -1423,6 +1669,7 @@ async function zeigeEinstellungen() {
     }
     einstellungenSpeichern(e)
   }
+  await erinnerungenPlanen(true)
 }
 
 // ───────────────────────── Sperrbildschirm (iPhone, iOS 16+) ─────────────────────────
@@ -1456,8 +1703,7 @@ function raumTeile(raum) {
 // Tippen auf ein Sperrbildschirm-Widget öffnet den Lageplan des nächsten Termins
 function sperrWidget(termin) {
   const w = new ListWidget()
-  const link = termin ? lageplanLinkTermin(termin) : tippLink()
-  if (link) w.url = link
+  if (termin) w.url = lageplanLinkTermin(termin)
   return w
 }
 
@@ -1492,25 +1738,30 @@ function leerSperr(familie) {
   return w
 }
 
-// ── Zeile über der Uhr ──
+// ── Zeile über der Uhr ── (teilt sich den Platz mit dem Datum → so kurz wie möglich)
+function raumKurz(raum) {
+  const r = raumAufteilen(raum)
+  return r ? r.haus + "." + r.etage + (r.raum ? "." + r.raum : "") : raum
+}
+
 function sperrInline(alle, jetzt) {
   const t = naechsterTermin(alle, jetzt)
-  if (!t) return leerSperr("accessoryInline")
+  if (!t) { const w = sperrWidget(); w.addText("Frei"); return w }
   const variante = sperrVariante(["naechste", "raum", "countdown"], "naechste", "inline")
   const kurs = kursInfo(t.titel).kurz
   const laufend = t.start <= jetzt
+  const wann = gleicherTag(t.start, jetzt) ? uhrzeit(t.start) : WOCHENTAGE_LANG[t.start.getDay()] + " " + uhrzeit(t.start)
   let text
   if (variante === "raum") {
-    text = t.raum + " · " + kurs + (laufend ? " bis " + uhrzeit(t.ende) : " " + wannText(t, jetzt))
+    text = raumKurz(t.raum) + (laufend ? " bis " + uhrzeit(t.ende) : " · " + wann)
   } else if (variante === "countdown" && (laufend || gleicherTag(t.start, jetzt))) {
-    const min = Math.ceil(((laufend ? t.ende : t.start) - jetzt) / 60000)
-    text = kurs + (laufend ? " noch " : " in ") + minutenText(min)
+    const min = Math.max(0, Math.ceil(((laufend ? t.ende : t.start) - jetzt) / 60000))
+    const dauer = min < 60 ? min + " Min" : Math.floor(min / 60) + ":" + String(min % 60).padStart(2, "0") + " h"
+    text = kurs + (laufend ? " noch " : " in ") + dauer
   } else {
-    text = laufend ? "bis " + uhrzeit(t.ende) + " · " + kurs + " · " + t.raum : wannText(t, jetzt) + " " + kurs + " · " + t.raum
+    text = kurs + (laufend ? " bis " + uhrzeit(t.ende) : " " + wann)
   }
   const w = sperrWidget(t)
-  const symbol = SFSymbol.named(laufend ? "clock" : "calendar")
-  if (symbol) w.addImage(symbol.image)
   w.addText(text)
   return w
 }
@@ -1660,7 +1911,7 @@ const LAGEPLAN_PNG = "iVBORw0KGgoAAAANSUhEUgAABEIAAAXSCAMAAAArDbq8AAAAkFBMVEX///
 
 async function erstelleWidget(familie) {
   const jetzt = new Date()
-  const alle = (await ladeTermine()).map(viertelAnpassen).sort((a, b) => a.start - b.start)
+  const alle = await ladeAlle(false)
   const farben = themenFarben()
   let w
   if (familie === "accessoryInline") w = sperrInline(alle, jetzt)
@@ -1677,23 +1928,39 @@ async function erstelleWidget(familie) {
 const aufruf = args.queryParameters || {}
 if (config.runsInWidget) {
   Script.setWidget(await erstelleWidget(config.widgetFamily))
+  try { await erinnerungenPlanen(false) } catch (e) {}
+} else if (config.runsWithSiri) {
+  await siriAntwort()
+} else if (aufruf.aendern) {
+  // „Ändern“ im Lageplan
+  const alle = await ladeAlle(true)
+  const t = alle.find(x => x.start.getTime() === Number(aufruf.aendern))
+  if (t && await aendernMenue(t)) {
+    await erinnerungenPlanen(true)
+    await zeigeLageplan(await ladeAlle(true), { termin: aufruf.aendern })
+  }
 } else if (aufruf.termin || aufruf.tag) {
-  // Aus einem Widget heraus geöffnet: Lageplan zeigen
-  const alle = (await ladeTermine()).map(viertelAnpassen).sort((a, b) => a.start - b.start)
+  // Aus einem Widget oder einer Erinnerung heraus geöffnet: Lageplan zeigen
+  const alle = await ladeAlle(true)
   await zeigeLageplan(alle, aufruf)
 } else {
+  await erinnerungenPlanen(true)
   const start = new Alert()
   start.title = "Stundenplan"
   start.addAction("Widget-Vorschau")
   start.addAction("Einstellungen")
   start.addAction("Lageplan für heute")
+  start.addAction("Termin ändern (fällt aus / Raum)")
+  start.addAction("Im Planer öffnen")
   start.addCancelAction("Abbrechen")
   const wahl = await start.presentSheet()
   if (wahl === 1) await zeigeEinstellungen()
   if (wahl === 2) {
-    const alle = (await ladeTermine()).map(viertelAnpassen).sort((a, b) => a.start - b.start)
+    const alle = await ladeAlle(true)
     await zeigeLageplan(alle, { tag: new Date().setHours(0, 0, 0, 0) })
   }
+  if (wahl === 3) await terminAendernMenue()
+  if (wahl === 4) Safari.open(tippLink())
   if (wahl === 0) {
     // In der App: Vorschau-Größe auswählen
     const groessen = [

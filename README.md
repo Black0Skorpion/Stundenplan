@@ -23,13 +23,13 @@ hat ein eigenes Release, alte Versionen bleiben erhalten.
 | Extragroß (iPad) | ✓ | – | ✓ |
 | Sperrbildschirm (Zeile, Rechteck, rund – mit Varianten) | ✓ | – | ✓ |
 | Mensa Golm (OpenMensa), Tage blättern | ✓ Pfeile | ✓ Pfeile | Parameter/Stapel |
-| Abfahrten ab Golm Bhf & Science Park/Uni (VBB, Echtzeit) | ✓ | ✓ | – |
+| Abfahrten ab Golm Bhf & Science Park/Uni (VBB, Echtzeit) | ✓ | ✓ | ✓ eigenes Script |
 | Lageplan Golm mit markiertem Gebäude | ✓ | ✓ | ✓ |
-| Route zum Haus (zu Fuß) & Gehzeit zwischen Veranstaltungen | ✓ Apple Karten | ✓ Google Maps | – |
-| „Fällt aus“ / „Raum ändern“ für einzelne Termine | ✓ | ✓ | – |
-| Erinnerung vor Veranstaltungen (abschaltbar) | ✓ | ✓ mit Countdown | – |
+| Route zum Haus (zu Fuß) & Gehzeit zwischen Veranstaltungen | ✓ Apple Karten | ✓ Google Maps | ✓ Apple Karten |
+| „Fällt aus“ / „Raum ändern“ für einzelne Termine | ✓ | ✓ | ✓ |
+| Erinnerung vor Veranstaltungen (abschaltbar) | ✓ | ✓ mit Countdown | ✓ |
 | Live-Aktivität (Dynamic Island) | ✓ | – | – |
-| Siri / Kurzbefehle | ✓ | – | – |
+| Siri / Kurzbefehle | ✓ | – | ✓ („Hey Siri, Stundenplan“) |
 | ICS-Import, eigener Planer-Link | ✓ | ✓ | ✓ |
 
 Akademisches Viertel: Termine zur vollen Stunde (z. B. 8–10 Uhr) werden als 8:15–9:45 gezeigt.
@@ -78,7 +78,12 @@ Selbst bauen: Ordner in Android Studio öffnen → Run ▶. Kurznamen, Farben un
 
 - `ios/Stundenplan.js` – Stundenplan-Widgets inkl. Sperrbildschirm und Lageplan.
   In der App **Scriptable** ein Script anlegen, Inhalt einfügen, als Widget hinzufügen.
-  Einstellungen per Menü: Script in Scriptable starten → „Einstellungen“.
+  Menü (Script in Scriptable starten): Einstellungen (Farbschema, Planer-Link, Sperrbildschirm-Varianten,
+  Erinnerungen), Lageplan für heute, Termin ändern (fällt aus / Raum), Im Planer öffnen.
+  Im Lageplan pro Termin „Route“ (Apple Karten, zu Fuß) und „Ändern“; Gehzeit bei Hauswechsel.
+  „Hey Siri, Stundenplan“ sagt die nächste Veranstaltung an.
+- `ios/AbfahrtenGolm.js` – Abfahrten ab Golm Bhf und Science Park/Uni (klein/mittel/groß).
+  Parameter `zug` = nur Züge, `hell`/`dunkel` = Farbschema. Antippen zeigt alle Abfahrten der nächsten 90 Minuten.
 - `ios/MensaGolm.js` – Mensa-Widget. Tag per Widget-Parameter: leer (nächster Öffnungstag),
   `heute`, `morgen`, `+1`, `+2` … oder `mo`–`fr`; mehrere Widgets übereinander ergeben einen Stapel.
 
