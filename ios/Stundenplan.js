@@ -22,7 +22,7 @@ const CONFIG = {
   STANDARD_START: 8,   // früheste angezeigte Stunde
   STANDARD_ENDE: 18,   // späteste angezeigte Stunde
   THEMA: "auto",       // "auto" | "hell" | "dunkel"
-  TAP_URL: "https://planner.joshuan.dev", // öffnet beim Tippen aufs Widget ("" = Scriptable öffnen)
+  TAP_URL: "https://planner.joshuan.dev/de?s=ymoeYE_5okQN1490", // öffnet beim Tippen aufs Widget ("" = Scriptable öffnen)
 
   // Kurznamen und Farben pro Veranstaltung (vollständiger Titel aus dem Kalender)
   KURSE: {
