@@ -37,7 +37,7 @@ jobs:
             cp "$QUELLE" "tmp/$DATEI"
             gh release create "$TAG" "tmp/$DATEI" --title "$TITEL" \
               --notes "Frühere Version, gebaut aus ${COMMIT:0:7} (aus den gespeicherten Build-Dateien wiederhergestellt)." \
-              --target "$COMMIT" --latest=false 2>tmp/fehler.txt \
+              --latest=false 2>tmp/fehler.txt \
               && echo "::notice::$TAG angelegt" \
               || echo "::warning::Release $TAG fehlgeschlagen: $(cat tmp/fehler.txt | head -c 300)"
           done <<'LISTE'
