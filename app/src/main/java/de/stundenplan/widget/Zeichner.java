@@ -471,13 +471,15 @@ public final class Zeichner extends Leinwand {
         if (h < 34) {
             // Kurzer Termin (z. B. 45 Min.): Titel, darunter Art · Raum
             text(kurs[0], x + 2, y + 1, b - 4, 9, FETT, WEISS, LINKS, 1, 1f);
-            if (h >= 16) text(typ[1] + "\u00A0·\u00A0" + t.raum, x + 2, y + 9.5f, b - 4, 7, MEDIUM, weissGedimmt, LINKS, 1, 1f);
+            // Raum ist wichtiger als die Art – bei wenig Platz steht hier nur der Raum
+            if (h >= 16) text(t.raum, x + 2, y + 9.5f, b - 4, 7.5f, MEDIUM, weissGedimmt, LINKS, 1, 0.85f);
         } else if (h < 40 && b >= 40) {
             // Wenig Höhe (z. B. Woche auf 4×3 verkleinert): Titel, darunter Art und Raum in einer Zeile
             float pad = 3;
             String art = b >= 80 ? typ[0] : typ[1];
             text(kurs[0], x + pad, y + pad - 0.5f, b - 2 * pad, 10, FETT, WEISS, LINKS, 1, 1f);
-            text(art + "\u00A0·\u00A0" + t.raum, x + pad, y + pad + 11.5f, b - 2 * pad, 7.5f, MEDIUM, weissGedimmt, LINKS, 1, 1f);
+            // Raum zuerst, damit er bei Platzmangel nicht abgeschnitten wird
+            text(t.raum + "\u00A0·\u00A0" + art, x + pad, y + pad + 11.5f, b - 2 * pad, 7.5f, MEDIUM, weissGedimmt, LINKS, 1, 1f);
             if (h >= 36) {
                 text(uhrzeit(t.start) + "–" + uhrzeit(t.ende), x + pad, y + pad + 20.5f, b - 2 * pad, 7.5f, MEDIUM, weissGedimmt, LINKS, 1, 1f);
             }

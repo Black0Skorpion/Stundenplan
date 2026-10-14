@@ -525,7 +525,8 @@ function zeichneBlock(ctx, t, x, y, b, h) {
     const innenB = b - 2 * pad
     text(ctx, kurs.kurz, new Rect(x + pad, y + 1, innenB, 11), Font.boldSystemFont(9), weiss)
     if (h >= 16) {
-      text(ctx, typ.kurz + "\u00A0·\u00A0" + t.raum, new Rect(x + pad, y + 9.5, innenB, 9), Font.mediumSystemFont(7), weissGedimmt)
+      // Raum ist wichtiger als die Art – bei wenig Platz steht hier nur der Raum
+      text(ctx, t.raum, new Rect(x + pad, y + 9.5, innenB, 9), Font.mediumSystemFont(7.5), weissGedimmt)
     }
     return
   }
@@ -536,7 +537,8 @@ function zeichneBlock(ctx, t, x, y, b, h) {
     const innenB = b - 2 * pad
     const art = b >= 80 ? typ.lang : typ.kurz
     text(ctx, kurs.kurz, new Rect(x + pad, y + pad - 0.5, innenB, 12), Font.boldSystemFont(10), weiss)
-    text(ctx, art + "\u00A0·\u00A0" + t.raum, new Rect(x + pad, y + pad + 11.5, innenB, 9), Font.mediumSystemFont(7.5), weissGedimmt)
+    // Raum zuerst, damit er bei Platzmangel nicht abgeschnitten wird
+    text(ctx, t.raum + "\u00A0·\u00A0" + art, new Rect(x + pad, y + pad + 11.5, innenB, 9), Font.mediumSystemFont(7.5), weissGedimmt)
     if (h >= 36) {
       // Bei etwas mehr Platz: Uhrzeit als dritte Zeile
       text(ctx, uhrzeit(t.start) + "–" + uhrzeit(t.ende), new Rect(x + pad, y + pad + 20.5, innenB, 9), Font.mediumSystemFont(7.5), weissGedimmt)
