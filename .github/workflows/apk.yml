@@ -45,6 +45,5 @@ jobs:
             gh release create "$TAG" "Stundenplan-$VERSION.apk" \
               --title "Android-App $VERSION" \
               --notes "Stundenplan-App für Android, Version $VERSION. Auf dem Handy Stundenplan-$VERSION.apk antippen und installieren. Gebaut aus ${GITHUB_SHA::7}." \
-              --target "$GITHUB_SHA" \
               --latest
           fi

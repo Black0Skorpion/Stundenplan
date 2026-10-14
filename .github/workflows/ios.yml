@@ -79,6 +79,5 @@ jobs:
             gh release create "$TAG" "Stundenplan-$VERSION.ipa" \
               --title "iOS-App $VERSION" \
               --notes "Stundenplan-App für iPhone/iPad mit Widgets, Version $VERSION (Build $GITHUB_RUN_NUMBER). Installation: Stundenplan-$VERSION.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
-              --target "$GITHUB_SHA" \
               --latest=false
           fi
