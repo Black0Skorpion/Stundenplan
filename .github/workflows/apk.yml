@@ -6,6 +6,7 @@ on:
       - "ios-app/**"
       - "ios/**"
       - ".github/workflows/ios.yml"
+      - ".github/workflows/archiv.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,12 +31,20 @@ jobs:
         with:
           name: Stundenplan-APK
           path: Stundenplan.apk
-      - name: Als Release "aktuell" veröffentlichen
+      - name: Als Release mit Versionsnummer veröffentlichen (alte Versionen bleiben erhalten)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete aktuell --yes --cleanup-tag || true
-          gh release create aktuell Stundenplan.apk \
-            --title "Stundenplan-App (aktuell)" \
-            --notes "Automatisch gebaut aus ${GITHUB_SHA::7}. Auf dem Android-Handy Stundenplan.apk antippen und installieren." \
-            --target "$GITHUB_SHA"
+          VERSION=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          TAG="android-v$VERSION"
+          cp Stundenplan.apk "Stundenplan-$VERSION.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Gleiche Version neu gebaut: nur die Datei ersetzen
+            gh release upload "$TAG" "Stundenplan-$VERSION.apk" --clobber
+          else
+            gh release create "$TAG" "Stundenplan-$VERSION.apk" \
+              --title "Android-App $VERSION" \
+              --notes "Stundenplan-App für Android, Version $VERSION. Auf dem Handy Stundenplan-$VERSION.apk antippen und installieren. Gebaut aus ${GITHUB_SHA::7}." \
+              --target "$GITHUB_SHA" \
+              --latest
+          fi

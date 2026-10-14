@@ -1,0 +1,45 @@
+name: Alte Versionen als Releases sichern
+
+# Einmalig von Hand starten: holt frühere Builds aus den Artefakten und legt sie
+# als eigene Releases an. Bereits vorhandene Releases werden nicht verändert.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  sichern:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Releases anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Artefakt-ID | Tag | Titel | Dateiname | Commit
+          while IFS='|' read -r ID TAG TITEL DATEI COMMIT; do
+            [ -z "$ID" ] && continue
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "$TAG gibt es schon – übersprungen"
+              continue
+            fi
+            rm -rf tmp && mkdir tmp
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/$ID/zip" > tmp/a.zip
+            unzip -q tmp/a.zip -d tmp
+            QUELLE=$(ls tmp/*.ipa tmp/*.apk 2>/dev/null | head -1)
+            cp "$QUELLE" "tmp/$DATEI"
+            gh release create "$TAG" "tmp/$DATEI" --title "$TITEL" \
+              --notes "Frühere Version, gebaut aus ${COMMIT:0:7} (aus den gespeicherten Build-Dateien wiederhergestellt)." \
+              --target "$COMMIT" --latest=false
+          done <<'LISTE'
+          11927170928|ios-v0.1.0|iOS-App 0.1.0|Stundenplan-0.1.0.ipa|a78b10b67074020be639ff2bdb0081f45ba25870
+          11928112064|ios-v0.1.1|iOS-App 0.1.1|Stundenplan-0.1.1.ipa|67c3f0607fadb9cf550bc356dfde74484022b6dc
+          11932550761|ios-v0.1.2|iOS-App 0.1.2|Stundenplan-0.1.2.ipa|4689c46489034199ecdfbabc0925c72194cecc05
+          11932893834|ios-v0.2.0|iOS-App 0.2.0|Stundenplan-0.2.0.ipa|1141adb16cb7ad012db3f578f185c2ee86b0288c
+          11917381872|android-v1.0|Android-App 1.0|Stundenplan-1.0.apk|cd6cda798f0a32ffc49d5d0ed83b8f3a99caf58d
+          11932839925|android-v1.1|Android-App 1.1|Stundenplan-1.1.apk|0c5bd263514407103dc60bc105d6652e1b600314
+          LISTE
+          # Android 1.1 als „neueste Version“ markieren (Link …/releases/latest)
+          gh release edit android-v1.1 --latest

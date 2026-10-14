@@ -67,12 +67,18 @@ jobs:
           name: Stundenplan-IPA
           path: Stundenplan-*.ipa
 
-      - name: Als Release "ios-aktuell" veröffentlichen
+      - name: Als Release mit Versionsnummer veröffentlichen (alte Versionen bleiben erhalten)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete ios-aktuell --yes --cleanup-tag || true
-          gh release create ios-aktuell "Stundenplan-$VERSION.ipa" \
-            --title "iOS-App $VERSION" \
-            --notes "Stundenplan-App für iPhone/iPad mit Widgets, Version $VERSION (Build $GITHUB_RUN_NUMBER). Installation: Stundenplan-$VERSION.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
-            --latest=false
+          TAG="ios-v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Gleiche Version neu gebaut: nur die Datei ersetzen
+            gh release upload "$TAG" "Stundenplan-$VERSION.ipa" --clobber
+          else
+            gh release create "$TAG" "Stundenplan-$VERSION.ipa" \
+              --title "iOS-App $VERSION" \
+              --notes "Stundenplan-App für iPhone/iPad mit Widgets, Version $VERSION (Build $GITHUB_RUN_NUMBER). Installation: Stundenplan-$VERSION.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
+              --target "$GITHUB_SHA" \
+              --latest=false
+          fi
