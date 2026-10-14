@@ -88,32 +88,43 @@ struct SperrZeile: View {
     let jetzt: Date
     let variante: SperrVariante
 
+    // Die Zeile teilt sich den Platz mit dem Datum – deshalb so kurz wie möglich, ohne Symbol.
     var body: some View {
         if let t = termin {
-            let kurs = Kurse.info(t.titel).kurz
-            let laufend = t.laeuft(jetzt)
-            Label {
-                Text(text(t, kurs, laufend))
-            } icon: {
-                Image(systemName: laufend ? "clock" : "calendar")
-            }
+            Text(text(t))
         } else {
-            Text("Keine Termine")
+            Text("Frei")
         }
     }
 
-    private func text(_ t: Termin, _ kurs: String, _ laufend: Bool) -> String {
+    /// "2.70.0.10" → "70.0.10" (Campus weglassen)
+    private func raumKurz(_ raum: String) -> String {
+        guard let r = RaumTeile(raum) else { return raum }
+        return r.haus + "." + r.rest
+    }
+
+    /// "14:15" heute, sonst "Mo 8:15"
+    private func wann(_ t: Termin) -> String {
+        if Zeit.gleicherTag(t.start, jetzt) { return Zeit.uhrzeit(t.start) }
+        return Zeit.wochentageKurz[Zeit.wochentag(t.start)] + " " + Zeit.uhrzeit(t.start)
+    }
+
+    /// "25 Min" bzw. "1:10 h"
+    private func dauer(_ bis: Date) -> String {
+        let min = max(0, Int(ceil(bis.timeIntervalSince(jetzt) / 60)))
+        return min < 60 ? "\(min) Min" : "\(min / 60):" + String(format: "%02d", min % 60) + " h"
+    }
+
+    private func text(_ t: Termin) -> String {
+        let kurs = Kurse.info(t.titel).kurz
+        let laufend = t.laeuft(jetzt)
         switch variante {
         case .raum:
-            return t.raum + " · " + kurs + (laufend ? " bis " + Zeit.uhrzeit(t.ende) : " " + Zeit.wannText(t, jetzt))
+            return raumKurz(t.raum) + (laufend ? " bis " + Zeit.uhrzeit(t.ende) : " · " + wann(t))
         case .countdown where laufend || Zeit.gleicherTag(t.start, jetzt):
-            let ziel = laufend ? t.ende : t.start
-            let min = Int(ceil(ziel.timeIntervalSince(jetzt) / 60))
-            return kurs + (laufend ? " noch " : " in ") + Zeit.minutenText(max(0, min))
+            return kurs + (laufend ? " noch " : " in ") + dauer(laufend ? t.ende : t.start)
         default:
-            return laufend
-                ? "bis \(Zeit.uhrzeit(t.ende)) · \(kurs) · \(t.raum)"
-                : "\(Zeit.wannText(t, jetzt)) \(kurs) · \(t.raum)"
+            return kurs + (laufend ? " bis " + Zeit.uhrzeit(t.ende) : " " + wann(t))
         }
     }
 }
