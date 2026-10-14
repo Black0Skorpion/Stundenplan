@@ -11,7 +11,7 @@ public final class Konfig {
     public static final boolean AKADEMISCHES_VIERTEL = true;
     public static final int STANDARD_START = 8;   // früheste angezeigte Stunde (großes Widget)
     public static final int STANDARD_ENDE = 18;   // späteste angezeigte Stunde (großes Widget)
-    /** Wird beim Tippen aufs Widget geöffnet ("" = Stundenplan-App öffnen). */
+    /** Standard-Planer-Link (Lageplan → „Im Planer öffnen“). Widgets öffnen immer die App. */
     public static final String TAP_URL = "https://planner.joshuan.dev/de";
 
     /** Vollständiger Titel aus dem Kalender → { Kurzname, Farbe } */

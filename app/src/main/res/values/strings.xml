@@ -16,4 +16,6 @@
     <string name="mensa_beschreibung_gross">Ganzer Speiseplan mit Desserts</string>
     <string name="mensa_zurueck">Vorheriger Tag</string>
     <string name="mensa_weiter">Nächster Tag</string>
+    <string name="abfahrten_name">Abfahrten Golm</string>
+    <string name="abfahrten_beschreibung">Nächste Züge und Busse ab Golm Bhf und Science Park/Uni</string>
 </resources>

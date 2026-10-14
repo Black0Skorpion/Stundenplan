@@ -125,6 +125,8 @@ public final class Lageplan {
         return c.get(Calendar.HOUR_OF_DAY) + ":" + String.format(Locale.GERMANY, "%02d", c.get(Calendar.MINUTE));
     }
 
+    static String uhrzeitText(long t) { return uhrzeit(t); }
+
     static String datumKurz(long t) {
         Calendar c = Calendar.getInstance(Locale.GERMANY);
         c.setTimeInMillis(t);
@@ -171,6 +173,16 @@ public final class Lageplan {
         StringBuilder karten = new StringBuilder();
         for (int i = 0; i < termine.size(); i++) {
             Termin t = termine.get(i);
+            // Gehzeit vom vorherigen Termin, wenn das Haus wechselt
+            if (i > 0 && !t.ausfall && !termine.get(i - 1).ausfall) {
+                int min = Orte.gehminuten(termine.get(i - 1).raum, t.raum);
+                String[] rz = raumAufteilen(t.raum);
+                if (min > 0 && rz != null) {
+                    long pause = (t.start - termine.get(i - 1).ende) / 60000L;
+                    karten.append("<div class=\"weg\">🚶 ca. ").append(min).append(" Min zu Haus ").append(schutz(rz[1]))
+                            .append(pause > 0 ? " (" + pause + " Min Pause)" : "").append("</div>");
+                }
+            }
             String[] kurs = Konfig.kurs(t.titel);
             String[] typ = Konfig.typ(t.typ);
             String nummer = termine.size() > 1 ? String.valueOf(i + 1) : null;
@@ -184,20 +196,33 @@ public final class Lageplan {
                     ort += " · Campus " + (ci > 0 && ci < CAMPUS.length ? CAMPUS[ci] : r[0]) + " (nicht auf diesem Plan)";
                 } else {
                     if (!POS.containsKey(r[1])) ort += " · nicht auf dem Plan";
+                }
+                if ("2".equals(r[0]) && !t.ausfall) {
                     List<String> l = proHaus.get(r[1]);
                     if (l == null) { l = new ArrayList<>(); proHaus.put(r[1], l); }
                     l.add(nummer != null ? nummer : "Raum " + r[2] + "." + r[3]);
+                }
+                if ("2".equals(r[0])) {
                     String[] e = EIN.get(r[1]);
                     if (e != null) einr = schutz(String.join(" · ", e));
                 }
             }
-            karten.append("<div class=\"karte\" style=\"background:").append(kurs[1]).append("\">")
+            String route = t.ausfall ? null : Orte.routeUrl(t.raum);
+            karten.append("<div class=\"karte").append(t.ausfall ? " aus" : "").append("\" style=\"background:").append(kurs[1]).append("\">")
                     .append("<div class=\"oben\">").append(nummer != null ? "<span class=\"nr\">" + nummer + "</span>" : "")
-                    .append(schutz(typ[0])).append(" · ").append(uhrzeit(t.start)).append("–").append(uhrzeit(t.ende)).append("</div>")
+                    .append(schutz(typ[0])).append(" · ").append(uhrzeit(t.start)).append("–").append(uhrzeit(t.ende))
+                    .append(t.ausfall ? " <span class=\"marke\">FÄLLT AUS</span>" : "").append("</div>")
                     .append("<div class=\"titel\">").append(schutz(t.titel)).append("</div>")
                     .append("<div class=\"ort\">").append(ort).append("</div>")
+                    .append(t.alterRaum != null ? "<div class=\"einr\">Geändert, ursprünglich " + schutz(t.alterRaum) + "</div>" : "")
                     .append(einr.isEmpty() ? "" : "<div class=\"einr\">" + einr + "</div>")
-                    .append("</div>");
+                    .append("<div class=\"knoepfe\">")
+                    .append(route != null ? "<a class=\"k\" href=\"" + schutz(route) + "\">🚶 Route</a>" : "")
+                    .append("<a class=\"k\" href=\"aktion://ausfall/").append(i).append("\">")
+                    .append(t.ausfall ? "↩ Findet statt" : "✕ Fällt aus").append("</a>")
+                    .append("<a class=\"k\" href=\"aktion://raum/").append(i).append("\">✎ Raum ändern</a>")
+                    .append(t.ausfall || t.alterRaum != null ? "<a class=\"k\" href=\"aktion://zuruecksetzen/" + i + "\">⟲ Zurücksetzen</a>" : "")
+                    .append("</div></div>");
         }
         Bitmap markiert = markieren(plan, proHaus);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -212,7 +237,10 @@ public final class Lageplan {
                 + ".titel{font-size:18px;font-weight:700;margin:3px 0}.ort{font-size:15px;font-weight:600}.einr{font-size:13px;opacity:.85;margin-top:4px}"
                 + ".plan{width:100%;border-radius:14px;border:1px solid #D3D1C7;background:#fff;margin-top:6px}"
                 + "a.knopf{display:block;text-align:center;margin:14px 0 4px;padding:12px;border-radius:12px;background:#185FA5;color:#fff;text-decoration:none;font-weight:600}"
-                + ".hinweis{font-size:12px;color:#888780;text-align:center;margin-top:8px}.leer{color:#888780}</style></head><body>"
+                + ".hinweis{font-size:12px;color:#888780;text-align:center;margin-top:8px}.leer{color:#888780}"
+                + ".aus{opacity:.5}.aus .titel{text-decoration:line-through}.marke{background:rgba(255,255,255,.25);border-radius:8px;padding:1px 6px;font-size:11px}"
+                + ".knoepfe{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}.k{background:rgba(255,255,255,.22);color:#fff;text-decoration:none;border-radius:16px;padding:6px 12px;font-size:14px;font-weight:600}"
+                + ".weg{font-size:13px;color:#888780;margin:-4px 0 8px 4px}</style></head><body>"
                 + "<h1>" + schutz(titel) + "</h1>"
                 + (karten.length() > 0 ? karten.toString() : "<p class=\"leer\">Keine Termine</p>")
                 + "<img class=\"plan\" src=\"data:image/png;base64," + bild + "\">"

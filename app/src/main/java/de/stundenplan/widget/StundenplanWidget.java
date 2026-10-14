@@ -9,7 +9,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.net.Uri;
 import android.os.Bundle;
 import android.widget.RemoteViews;
 
@@ -55,7 +54,7 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
                 irgendeins = true;
             }
         }
-        if (irgendeins) planeNaechsteAktualisierung(ctx);
+        if (irgendeins || AbfahrtenWidget.vorhanden(ctx)) planeNaechsteAktualisierung(ctx);
     }
 
     /** Aktuelle Widget-Größe in dp: { Breite, Höhe }. */
@@ -90,7 +89,7 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
                         : Zeichner.MITTEL.equals(modus) ? R.layout.widget_mittel : R.layout.widget_gross;
                 RemoteViews rv = new RemoteViews(ctx.getPackageName(), layout);
                 rv.setImageViewBitmap(R.id.bild, bild);
-                PendingIntent planer = tippAktion(ctx);
+                PendingIntent planer = tippAktion(ctx); // öffnet die App
                 rv.setOnClickPendingIntent(R.id.wurzel, planer);
                 if (Zeichner.KLEIN.equals(modus) || Zeichner.MITTEL.equals(modus)) {
                     rv.setOnClickPendingIntent(R.id.zone_karte,
@@ -135,14 +134,9 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
         return Konfig.TAP_URL;
     }
 
+    /** Tippen auf Kopfzeile/leere Fläche: öffnet die App (nie direkt den Planer). */
     private static PendingIntent tippAktion(Context ctx) {
-        Intent i;
-        String link = planerLink(ctx);
-        if (link != null && !link.isEmpty()) {
-            i = new Intent(Intent.ACTION_VIEW, Uri.parse(link));
-        } else {
-            i = new Intent(ctx, MainActivity.class);
-        }
+        Intent i = new Intent(ctx, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return PendingIntent.getActivity(ctx, 0, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
@@ -176,6 +170,7 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
         for (Class<?> k : ALLE_GROESSEN) {
             if (mgr.getAppWidgetIds(new ComponentName(ctx, k)).length > 0) return;
         }
+        if (AbfahrtenWidget.vorhanden(ctx)) return;
         abbrechen(ctx);
     }
 }

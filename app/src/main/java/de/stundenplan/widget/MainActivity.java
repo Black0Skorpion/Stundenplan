@@ -8,7 +8,15 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.Spinner;
+import android.widget.AdapterView;
+import android.view.View;
+import android.os.Build;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -27,6 +35,8 @@ import java.util.List;
 public class MainActivity extends Activity {
 
     private static final int ICS_WAEHLEN = 1;
+    private static final int MITTEILUNGEN_ERLAUBEN = 2;
+    private CheckBox erinnerungAn;
     private LinearLayout vorschauen;
     private TextView quelle;
 
@@ -49,8 +59,10 @@ public class MainActivity extends Activity {
         info.setText("Widget hinzufügen: Startbildschirm gedrückt halten → Widgets → Stundenplan. "
                 + "Stundenplan: Klein (aktuelle Veranstaltung), Mittel (mit Tagesplan) und Groß (Woche).\n"
                 + "Mensa Golm: Klein, Mittel und Groß – mit den Pfeilen ‹ › oben rechts blättert man durch die Tage.\n"
+                + "Abfahrten Golm: nächste Züge und Busse ab Golm Bhf und Science Park/Uni.\n"
                 + "Alle Widgets lassen sich frei in der Größe ziehen (z. B. 4×3).\n"
-                + "Tippen auf eine Veranstaltung oder einen Wochentag zeigt den Lageplan Golm mit dem Gebäude.\n\n"
+                + "Tippen auf eine Veranstaltung oder einen Wochentag zeigt den Lageplan Golm mit dem Gebäude – "
+                + "dort gibt es auch die Route (Google Maps) und „Fällt aus“ / „Raum ändern“.\n\n"
                 + "Neuen Stundenplan übernehmen: im Planer als Kalender (.ics) exportieren und hier importieren.");
         info.setPadding(0, pad / 2, 0, pad / 2);
         inhalt.addView(info);
@@ -77,9 +89,52 @@ public class MainActivity extends Activity {
         });
         inhalt.addView(zuruecksetzen);
 
-        // Eigener Planer-Link: öffnet sich beim Tippen auf die Stundenplan-Widgets
+        Button lageplan = new Button(this);
+        lageplan.setText("Lageplan für heute");
+        lageplan.setOnClickListener(v -> startActivity(LageplanActivity.fuerTag(this, MensaDaten.tagesBeginn(System.currentTimeMillis()))));
+        inhalt.addView(lageplan);
+
+        // Erinnerungen vor Veranstaltungen
+        TextView erTitel = new TextView(this);
+        erTitel.setText("\nErinnerungen");
+        erTitel.setTextSize(18);
+        inhalt.addView(erTitel);
+        erinnerungAn = new CheckBox(this);
+        erinnerungAn.setText("Vor Veranstaltungen erinnern (mit Raum und Countdown)");
+        erinnerungAn.setChecked(Erinnerungen.an(this) && Erinnerungen.erlaubt(this));
+        inhalt.addView(erinnerungAn);
+        Spinner vorlauf = new Spinner(this);
+        String[] namen = new String[Erinnerungen.VORLAUF_OPTIONEN.length];
+        int gewaehlt = 1;
+        for (int i = 0; i < namen.length; i++) {
+            namen[i] = Erinnerungen.VORLAUF_OPTIONEN[i] + " Minuten vorher";
+            if (Erinnerungen.VORLAUF_OPTIONEN[i] == Erinnerungen.vorlauf(this)) gewaehlt = i;
+        }
+        vorlauf.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, namen));
+        vorlauf.setSelection(gewaehlt);
+        vorlauf.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                Erinnerungen.prefs(MainActivity.this).edit().putInt(Erinnerungen.VORLAUF, Erinnerungen.VORLAUF_OPTIONEN[position]).apply();
+                Erinnerungen.planen(MainActivity.this);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        inhalt.addView(vorlauf);
+        erinnerungAn.setOnCheckedChangeListener((knopf, an) -> {
+            if (an && Build.VERSION.SDK_INT >= 33 && !Erinnerungen.erlaubt(this)) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, MITTEILUNGEN_ERLAUBEN);
+                return;
+            }
+            Erinnerungen.prefs(this).edit().putBoolean(Erinnerungen.AN, an).apply();
+            Erinnerungen.planen(this);
+        });
+
+        // Eigener Planer-Link: Lageplan → „Im Planer öffnen“ (die Widgets öffnen immer die App)
         TextView linkTitel = new TextView(this);
-        linkTitel.setText("\nDein Planer-Link (im Planer über „Plan teilen“ kopieren):");
+        linkTitel.setText("\nDein Planer-Link (im Planer über „Plan teilen“ kopieren, öffnet sich im Lageplan):");
         inhalt.addView(linkTitel);
         EditText linkFeld = new EditText(this);
         linkFeld.setSingleLine(true);
@@ -113,7 +168,19 @@ public class MainActivity extends Activity {
         neuLaden();
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != MITTEILUNGEN_ERLAUBEN) return;
+        boolean ok = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        Erinnerungen.prefs(this).edit().putBoolean(Erinnerungen.AN, ok).apply();
+        erinnerungAn.setChecked(ok);
+        if (!ok) Toast.makeText(this, "Mitteilungen sind nicht erlaubt (Einstellungen → Apps → Stundenplan)", Toast.LENGTH_LONG).show();
+        Erinnerungen.planen(this);
+    }
+
     private void neuLaden() {
+        Erinnerungen.planen(this);
         boolean importiert = new File(getFilesDir(), Daten.ICS_DATEI).exists();
         quelle.setText(importiert ? "Quelle: importierte ICS-Datei" : "Quelle: eingebaute Termine (WiSe 26/27)");
         StundenplanWidget.alleAktualisieren(this);
@@ -143,6 +210,30 @@ public class MainActivity extends Activity {
             vorschauen.addView(bild, lp);
         }
         zeigeMensaVorschau(dunkel, d, jetzt);
+        zeigeAbfahrtenVorschau(dunkel, d, jetzt);
+    }
+
+    /** Abfahrten-Vorschau: im Hintergrund laden, dann anzeigen. */
+    private void zeigeAbfahrtenVorschau(boolean dunkel, float d, long jetzt) {
+        TextView ueberschrift = new TextView(this);
+        ueberschrift.setText("Abfahrten Golm (lädt …)");
+        ueberschrift.setTextSize(18);
+        vorschauen.addView(ueberschrift);
+        new Thread(() -> {
+            java.util.List<AbfahrtenDaten.Abfahrt> liste = AbfahrtenDaten.laden(this, true);
+            AbfahrtenWidget.alleAktualisieren(this, false);
+            runOnUiThread(() -> {
+                ueberschrift.setText("Abfahrten Golm");
+                float b = 340, h = 230;
+                ImageView bild = new ImageView(this);
+                bild.setImageBitmap(AbfahrtenZeichner.zeichnen(b, h, d, dunkel, jetzt, liste));
+                bild.setBackground(hintergrund(dunkel, d));
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Math.round(b * d), Math.round(h * d));
+                lp.gravity = Gravity.CENTER_HORIZONTAL;
+                lp.bottomMargin = Math.round(16 * d);
+                vorschauen.addView(bild, lp);
+            });
+        }).start();
     }
 
     /** Mensa-Vorschau: Speiseplan im Hintergrund laden, dann anzeigen. */

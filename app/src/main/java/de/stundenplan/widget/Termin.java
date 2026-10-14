@@ -6,7 +6,11 @@ public final class Termin {
     public final long ende;
     public final String titel;
     public final String typ;
-    public final String raum;
+    public String raum;
+    /** Von Hand als ausgefallen markiert */
+    public boolean ausfall = false;
+    /** Ursprünglicher Raum, falls von Hand geändert */
+    public String alterRaum = null;
 
     // Layout-Hilfswerte für das Wochenraster
     int spalte = 0;
@@ -24,5 +28,10 @@ public final class Termin {
 
     Termin mitZeiten(long neuStart, long neuEnde) {
         return new Termin(neuStart, neuEnde, titel, typ, raum);
+    }
+
+    /** Bleibt gleich, auch wenn der Raum geändert wird (wie in der iOS-App) */
+    public String schluessel() {
+        return (start / 1000L) + "|" + titel;
     }
 }

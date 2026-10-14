@@ -22,7 +22,17 @@ public final class Daten {
 
     public static final String ICS_DATEI = "stundenplan.ics";
 
+    /** Termine ohne ausgefallene (für Widgets und Erinnerungen) */
     public static List<Termin> laden(Context ctx) {
+        return laden(ctx, false);
+    }
+
+    /** Mit eigenen Änderungen (Raum/Ausfall); ausgefallene nur mit mitAusfaellen */
+    public static List<Termin> laden(Context ctx, boolean mitAusfaellen) {
+        return Aenderungen.anwenden(ctx, ladenRoh(ctx), mitAusfaellen);
+    }
+
+    private static List<Termin> ladenRoh(Context ctx) {
         List<Termin> roh = null;
         File f = new File(ctx.getFilesDir(), ICS_DATEI);
         if (f.exists()) {
