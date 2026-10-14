@@ -48,6 +48,7 @@ Kurznamen, Farben und der Standard-Link stehen in
 Die iOS-Version liegt unter `ios/Stundenplan.js`. In der App **Scriptable** ein neues Script anlegen,
 den Inhalt einfügen und als Widget (klein, mittel oder groß – auf dem iPad auch extragroß) auf den Home-Bildschirm legen.
 Eigener Planer-Link: oben im Script bei `CONFIG.TAP_URL` eintragen oder als Widget-Parameter.
+Sperrbildschirm-Widgets (Zeile, Rechteck, rund) mit Varianten per Parameter – Details im Kopf des Scripts.
 
 ## Mensa-Widget (iPhone/iPad, Scriptable)
 

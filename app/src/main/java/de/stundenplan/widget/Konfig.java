@@ -12,7 +12,7 @@ public final class Konfig {
     public static final int STANDARD_START = 8;   // früheste angezeigte Stunde (großes Widget)
     public static final int STANDARD_ENDE = 18;   // späteste angezeigte Stunde (großes Widget)
     /** Wird beim Tippen aufs Widget geöffnet ("" = Stundenplan-App öffnen). */
-    public static final String TAP_URL = "https://planner.joshuan.dev/de?s=ymoeYE_5okQN1490";
+    public static final String TAP_URL = "https://planner.joshuan.dev/de";
 
     /** Vollständiger Titel aus dem Kalender → { Kurzname, Farbe } */
     private static final Map<String, String[]> KURSE = new HashMap<>();

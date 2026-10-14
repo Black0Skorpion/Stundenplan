@@ -1,4 +1,4 @@
-// Stundenplan-Widget für Scriptable (klein, mittel, groß und – auf dem iPad – extragroß)
+// Stundenplan-Widget für Scriptable (klein, mittel, groß, iPad extragroß und Sperrbildschirm)
 // Design: kräftige, vollflächige Farben. Hell/Dunkel folgt automatisch dem iPhone.
 //
 // Größen: Klein (2×2) = aktuelle/nächste Veranstaltung, Mittel (4×2) = dazu der Tagesplan,
@@ -8,6 +8,11 @@
 //   hell   → immer heller Modus
 //   dunkel → immer dunkler Modus
 //   https://planner.joshuan.dev/de?s=…  → dein eigener Planer-Link, öffnet sich beim Tippen
+//
+// Sperrbildschirm-Widgets (iPhone): Variante ebenfalls über den Parameter wählen:
+//   Zeile über der Uhr:  naechste (Standard) · raum · countdown
+//   Rechteckig:          naechste (Standard) · raum · tag
+//   Rund:                countdown (Standard) · raum · zeit
 //
 // Eigener Planer-Link: Im Planer auf "Plan teilen" tippen, Link kopieren und entweder oben bei
 // CONFIG.TAP_URL eintragen (gilt für alle Widgets) oder als Widget-Parameter (nur dieses Widget).
@@ -26,7 +31,7 @@ const CONFIG = {
   STANDARD_START: 8,   // früheste angezeigte Stunde
   STANDARD_ENDE: 18,   // späteste angezeigte Stunde
   THEMA: "auto",       // "auto" | "hell" | "dunkel"
-  TAP_URL: "https://planner.joshuan.dev/de?s=ymoeYE_5okQN1490", // öffnet beim Tippen aufs Widget ("" = Scriptable öffnen)
+  TAP_URL: "https://planner.joshuan.dev/de", // öffnet beim Tippen aufs Widget ("" = Scriptable öffnen)
 
   // Kurznamen und Farben pro Veranstaltung (vollständiger Titel aus dem Kalender)
   KURSE: {
@@ -1100,6 +1105,230 @@ function extraGrossesWidget(alle, jetzt, farben) {
   return w
 }
 
+// ───────────────────────── Sperrbildschirm (iPhone, iOS 16+) ─────────────────────────
+// Varianten über den Widget-Parameter wählbar (siehe Kopf des Scripts).
+
+function sperrVariante(erlaubt, standard) {
+  const teile = (args.widgetParameter || "").trim().toLowerCase().split(/\s+/)
+  return teile.find(t => erlaubt.includes(t)) || standard
+}
+
+function naechsterTermin(alle, jetzt) {
+  return alle.find(t => t.start <= jetzt && t.ende > jetzt) || alle.find(t => t.start > jetzt) || null
+}
+
+// "14:15" (heute), "Morgen 8:15" oder "Mo 8:15"
+function wannText(t, jetzt) {
+  if (gleicherTag(t.start, jetzt)) return uhrzeit(t.start)
+  const morgen = new Date(jetzt)
+  morgen.setDate(morgen.getDate() + 1)
+  if (gleicherTag(t.start, morgen)) return "Morgen " + uhrzeit(t.start)
+  return WOCHENTAGE_LANG[t.start.getDay()] + " " + uhrzeit(t.start)
+}
+
+// "2.70.0.10" → { haus: "70", rest: "0.10" }
+function raumTeile(raum) {
+  const m = (raum || "").match(/^\d+\.([^.]+)\.(.+)$/)
+  return m ? { haus: m[1], rest: m[2] } : { haus: raum || "–", rest: "" }
+}
+
+function sperrWidget() {
+  const w = new ListWidget()
+  const link = tippLink()
+  if (link) w.url = link
+  return w
+}
+
+function sperrText(stack, inhalt, font, deckkraft, optionen) {
+  const t = stack.addText(inhalt)
+  t.font = font
+  t.textColor = Color.white()
+  t.textOpacity = deckkraft === undefined ? 1 : deckkraft
+  t.lineLimit = (optionen && optionen.zeilen) || 1
+  t.minimumScaleFactor = (optionen && optionen.skalierung) || 0.7
+  if (optionen && optionen.mitte) t.centerAlignText()
+  return t
+}
+
+// Zentrierte Zeile (für runde Widgets)
+function mittig(parent) {
+  const z = parent.addStack()
+  z.layoutHorizontally()
+  z.addSpacer()
+  const innen = z.addStack()
+  innen.layoutVertically()
+  z.addSpacer()
+  return innen
+}
+
+function leerSperr(familie) {
+  const w = sperrWidget()
+  if (familie === "accessoryInline") { w.addText("Keine Termine"); return w }
+  w.addAccessoryWidgetBackground = familie === "accessoryCircular"
+  const z = mittig(w)
+  sperrText(z, familie === "accessoryCircular" ? "–" : "Keine weiteren Termine", Font.semiboldSystemFont(13), 0.8, { mitte: true })
+  return w
+}
+
+// ── Zeile über der Uhr ──
+function sperrInline(alle, jetzt) {
+  const t = naechsterTermin(alle, jetzt)
+  if (!t) return leerSperr("accessoryInline")
+  const variante = sperrVariante(["naechste", "raum", "countdown"], "naechste")
+  const kurs = kursInfo(t.titel).kurz
+  const laufend = t.start <= jetzt
+  let text
+  if (variante === "raum") {
+    text = t.raum + " · " + kurs + (laufend ? " bis " + uhrzeit(t.ende) : " " + wannText(t, jetzt))
+  } else if (variante === "countdown" && (laufend || gleicherTag(t.start, jetzt))) {
+    const min = Math.ceil(((laufend ? t.ende : t.start) - jetzt) / 60000)
+    text = kurs + (laufend ? " noch " : " in ") + minutenText(min)
+  } else {
+    text = laufend ? "bis " + uhrzeit(t.ende) + " · " + kurs + " · " + t.raum : wannText(t, jetzt) + " " + kurs + " · " + t.raum
+  }
+  const w = sperrWidget()
+  const symbol = SFSymbol.named(laufend ? "clock" : "calendar")
+  if (symbol) w.addImage(symbol.image)
+  w.addText(text)
+  return w
+}
+
+// ── Rechteckig unter der Uhr ──
+function sperrRechteck(alle, jetzt) {
+  const variante = sperrVariante(["naechste", "raum", "tag"], "naechste")
+  const w = sperrWidget()
+  w.setPadding(2, 4, 2, 4)
+
+  if (variante === "tag") {
+    // Die nächsten (bis zu 3) Termine des Tages
+    const auswahl = tagesAuswahl(alle, jetzt)
+    if (!auswahl) return leerSperr("accessoryRectangular")
+    const rest = auswahl.termine.filter(t => t.ende > jetzt).slice(0, 3)
+    sperrText(w, auswahl.label.toUpperCase(), Font.boldSystemFont(10), 0.7)
+    for (const t of rest) {
+      const z = w.addStack()
+      z.layoutHorizontally()
+      const laufend = t.start <= jetzt
+      sperrText(z, uhrzeit(t.start), Font.semiboldMonospacedSystemFont ? Font.semiboldMonospacedSystemFont(12) : Font.semiboldSystemFont(12), laufend ? 1 : 0.8)
+      z.addSpacer(5)
+      sperrText(z, kursInfo(t.titel).kurz, Font.boldSystemFont(12), 1)
+      z.addSpacer(4)
+      sperrText(z, t.raum, Font.systemFont(12), 0.8)
+      z.addSpacer()
+    }
+    w.addSpacer()
+    return w
+  }
+
+  const t = naechsterTermin(alle, jetzt)
+  if (!t) return leerSperr("accessoryRectangular")
+  const kurs = kursInfo(t.titel)
+  const typ = typInfo(t.typ)
+  const laufend = t.start <= jetzt
+
+  if (variante === "raum") {
+    // Großer Raum, darüber Fach und Zeit
+    sperrText(w, kurs.kurz + " · " + (laufend ? "bis " + uhrzeit(t.ende) : wannText(t, jetzt)), Font.semiboldSystemFont(12), 0.8)
+    sperrText(w, t.raum, Font.boldSystemFont(24), 1, { skalierung: 0.6 })
+    sperrText(w, typ.lang, Font.systemFont(11), 0.7)
+    return w
+  }
+
+  // Standard: Status mit Live-Countdown, Fach, Raum und Zeit
+  const z1 = w.addStack()
+  z1.layoutHorizontally()
+  const bald = !laufend && gleicherTag(t.start, jetzt) && t.start - jetzt <= 60 * 60000
+  if (laufend || bald) {
+    sperrText(z1, laufend ? "JETZT · NOCH" : "BEGINNT IN", Font.boldSystemFont(10), 0.75)
+    z1.addSpacer(4)
+    const d = z1.addDate(laufend ? t.ende : t.start)
+    d.applyTimerStyle()
+    d.font = Font.boldSystemFont(10)
+    d.textColor = Color.white()
+    d.textOpacity = 0.75
+  } else {
+    sperrText(z1, wannText(t, jetzt).toUpperCase(), Font.boldSystemFont(10), 0.75)
+  }
+  z1.addSpacer()
+  sperrText(w, kurs.kurz + " · " + typ.lang, Font.boldSystemFont(15), 1, { skalierung: 0.75 })
+  sperrText(w, t.raum + " · " + uhrzeit(t.start) + "–" + uhrzeit(t.ende), Font.mediumSystemFont(13), 0.9, { skalierung: 0.75 })
+  return w
+}
+
+// Fortschrittsring für das runde Widget (Polygon, da Scriptable keine Bögen zeichnet)
+function ringBild(anteil) {
+  const g = 72
+  const ctx = new DrawContext()
+  ctx.size = new Size(g, g)
+  ctx.opaque = false
+  ctx.respectScreenScale = true
+  const r = g / 2 - 4
+  const zeichne = (bis, farbe) => {
+    const p = new Path()
+    const schritte = Math.max(2, Math.round(120 * bis))
+    for (let i = 0; i <= schritte; i++) {
+      const w = -Math.PI / 2 + 2 * Math.PI * bis * (i / schritte)
+      const pt = new Point(g / 2 + r * Math.cos(w), g / 2 + r * Math.sin(w))
+      if (i === 0) p.move(pt)
+      else p.addLine(pt)
+    }
+    ctx.addPath(p)
+    ctx.setStrokeColor(farbe)
+    ctx.setLineWidth(4.5)
+    ctx.strokePath()
+  }
+  zeichne(1, new Color("#FFFFFF", 0.25))
+  if (anteil > 0.005) zeichne(Math.min(1, anteil), Color.white())
+  return ctx.getImage()
+}
+
+// ── Rund ──
+function sperrKreis(alle, jetzt) {
+  const t = naechsterTermin(alle, jetzt)
+  if (!t) return leerSperr("accessoryCircular")
+  const variante = sperrVariante(["countdown", "raum", "zeit"], "countdown")
+  const kurs = kursInfo(t.titel).kurz
+  const laufend = t.start <= jetzt
+  const w = sperrWidget()
+  w.addAccessoryWidgetBackground = true
+  w.setPadding(4, 4, 4, 4)
+  w.addSpacer()
+
+  if (variante === "raum") {
+    // Gebäude groß, Raum klein: "70" / "0.10"
+    const r = raumTeile(t.raum)
+    const z = mittig(w)
+    sperrText(z, r.haus, Font.boldSystemFont(22), 1, { mitte: true, skalierung: 0.5 })
+    sperrText(z, r.rest, Font.semiboldSystemFont(11), 0.8, { mitte: true, skalierung: 0.6 })
+  } else if (variante === "zeit") {
+    const z = mittig(w)
+    sperrText(z, laufend ? "bis" : kurs, Font.semiboldSystemFont(10), 0.75, { mitte: true, skalierung: 0.6 })
+    sperrText(z, uhrzeit(laufend ? t.ende : t.start), Font.boldSystemFont(17), 1, { mitte: true, skalierung: 0.6 })
+    if (!laufend && !gleicherTag(t.start, jetzt)) sperrText(z, WOCHENTAGE_LANG[t.start.getDay()], Font.semiboldSystemFont(9), 0.7, { mitte: true })
+  } else {
+    // Countdown mit Ring: läuft gerade → Fortschritt der Veranstaltung
+    const heute = gleicherTag(t.start, jetzt)
+    if (laufend) w.backgroundImage = ringBild((jetzt - t.start) / (t.ende - t.start))
+    else if (heute && t.start - jetzt <= 60 * 60000) w.backgroundImage = ringBild(1 - (t.start - jetzt) / (60 * 60000))
+    const z = mittig(w)
+    sperrText(z, kurs, Font.semiboldSystemFont(9), 0.8, { mitte: true, skalierung: 0.6 })
+    if (laufend || heute) {
+      const d = z.addDate(laufend ? t.ende : t.start)
+      d.applyTimerStyle()
+      d.font = Font.boldSystemFont(13)
+      d.textColor = Color.white()
+      d.centerAlignText()
+      d.minimumScaleFactor = 0.6
+      d.lineLimit = 1
+    } else {
+      sperrText(z, uhrzeit(t.start), Font.boldSystemFont(14), 1, { mitte: true })
+      sperrText(z, WOCHENTAGE_LANG[t.start.getDay()], Font.semiboldSystemFont(9), 0.7, { mitte: true })
+    }
+  }
+  w.addSpacer()
+  return w
+}
+
 // ───────────────────────── Start ─────────────────────────
 
 async function erstelleWidget(familie) {
@@ -1107,7 +1336,10 @@ async function erstelleWidget(familie) {
   const alle = (await ladeTermine()).map(viertelAnpassen).sort((a, b) => a.start - b.start)
   const farben = themenFarben()
   let w
-  if (familie === "small") w = kleinesWidget(alle, jetzt, farben)
+  if (familie === "accessoryInline") w = sperrInline(alle, jetzt)
+  else if (familie === "accessoryRectangular") w = sperrRechteck(alle, jetzt)
+  else if (familie === "accessoryCircular") w = sperrKreis(alle, jetzt)
+  else if (familie === "small") w = kleinesWidget(alle, jetzt, farben)
   else if (familie === "medium") w = mittleresWidget(alle, jetzt, farben)
   else if (familie === "extraLarge") w = extraGrossesWidget(alle, jetzt, farben)
   else w = grossesWidget(alle, jetzt, farben)
@@ -1119,17 +1351,25 @@ if (config.runsInWidget) {
   Script.setWidget(await erstelleWidget(config.widgetFamily))
 } else {
   // In der App: Vorschau-Größe auswählen
+  const groessen = [
+    ["Klein (2×2)", "small", "presentSmall"],
+    ["Mittel (4×2)", "medium", "presentMedium"],
+    ["Groß (4×4)", "large", "presentLarge"],
+  ]
+  if (Device.isPad()) groessen.push(["Extragroß (8×4, iPad)", "extraLarge", "presentExtraLarge"])
+  groessen.push(["Sperrbildschirm: Zeile", "accessoryInline", "presentAccessoryInline"])
+  groessen.push(["Sperrbildschirm: Rechteck", "accessoryRectangular", "presentAccessoryRectangular"])
+  groessen.push(["Sperrbildschirm: Rund", "accessoryCircular", "presentAccessoryCircular"])
   const auswahl = new Alert()
   auswahl.title = "Vorschau"
-  auswahl.addAction("Klein (2×2)")
-  auswahl.addAction("Mittel (4×2)")
-  auswahl.addAction("Groß (4×4)")
-  if (Device.isPad()) auswahl.addAction("Extragroß (8×4, iPad)")
+  for (const [name] of groessen) auswahl.addAction(name)
   auswahl.addCancelAction("Abbrechen")
   const i = await auswahl.presentSheet()
-  if (i === 0) await (await erstelleWidget("small")).presentSmall()
-  if (i === 1) await (await erstelleWidget("medium")).presentMedium()
-  if (i === 2) await (await erstelleWidget("large")).presentLarge()
-  if (i === 3) await (await erstelleWidget("extraLarge")).presentExtraLarge()
+  if (i >= 0 && i < groessen.length) {
+    const [, familie, methode] = groessen[i]
+    const w = await erstelleWidget(familie)
+    if (typeof w[methode] === "function") await w[methode]()
+    else await w.presentSmall()
+  }
 }
 Script.complete()
