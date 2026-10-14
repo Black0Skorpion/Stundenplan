@@ -21,6 +21,9 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: Version lesen
+        run: echo "VERSION=$(tr -d '[:space:]' < ios-app/VERSION)" >> "$GITHUB_ENV"
+
       - name: Projekt erzeugen (XcodeGen)
         working-directory: ios-app
         run: |
@@ -39,6 +42,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             build > build.log 2>&1 || (grep -E "error:" -A3 build.log | head -150; tail -40 build.log; exit 1)
           grep -c "warning:" build.log || true
 
@@ -54,20 +59,20 @@ jobs:
           codesign -d --entitlements - "$APP" || true
           rm -rf Payload && mkdir Payload
           cp -R "$APP" Payload/
-          zip -qry ../Stundenplan.ipa Payload
-          ls -la ../Stundenplan.ipa
+          zip -qry "../Stundenplan-$VERSION.ipa" Payload
+          ls -la ../Stundenplan-*.ipa
 
       - uses: actions/upload-artifact@v4
         with:
           name: Stundenplan-IPA
-          path: Stundenplan.ipa
+          path: Stundenplan-*.ipa
 
       - name: Als Release "ios-aktuell" veröffentlichen
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete ios-aktuell --yes --cleanup-tag || true
-          gh release create ios-aktuell Stundenplan.ipa \
-            --title "iOS-App (aktuell)" \
-            --notes "Stundenplan-App für iPhone/iPad mit Widgets. Installation: Stundenplan.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
+          gh release create ios-aktuell "Stundenplan-$VERSION.ipa" \
+            --title "iOS-App $VERSION" \
+            --notes "Stundenplan-App für iPhone/iPad mit Widgets, Version $VERSION (Build $GITHUB_RUN_NUMBER). Installation: Stundenplan-$VERSION.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
             --latest=false

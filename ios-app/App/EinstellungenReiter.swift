@@ -59,7 +59,7 @@ struct EinstellungenReiter: View {
                 }
 
                 Section("Info") {
-                    LabeledContent("Version", value: (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "–")
+                    LabeledContent("Version", value: versionText)
                     Link("Speiseplan: OpenMensa", destination: Mensa.webseite)
                     Link("Planer: planner.joshuan.dev", destination: URL(string: Konfig.standardLink)!)
                 }
@@ -69,6 +69,13 @@ struct EinstellungenReiter: View {
                 if case .success(let url) = ergebnis { zustand.importiere(url) }
             }
         }
+    }
+
+    private var versionText: String {
+        let info = Bundle.main.infoDictionary
+        let v = info?["CFBundleShortVersionString"] as? String ?? "–"
+        let b = info?["CFBundleVersion"] as? String ?? "–"
+        return "\(v) (Build \(b))"
     }
 
     private func linkSpeichern(_ wert: String) {
