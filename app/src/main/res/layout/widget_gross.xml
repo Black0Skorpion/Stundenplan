@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wurzel"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_hintergrund"
+    android:clipToOutline="true">
+
+    <ImageView
+        android:id="@+id/bild"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/app_name"
+        android:scaleType="fitStart" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Kopfzeile → Planer -->
+        <FrameLayout
+            android:id="@+id/zone_kopf"
+            android:layout_width="match_parent"
+            android:layout_height="32dp" />
+
+        <!-- Wochentage → Lageplan mit allen Räumen des Tages -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:paddingStart="31dp"
+            android:paddingEnd="11dp"
+            android:paddingBottom="11dp">
+
+            <FrameLayout
+                android:id="@+id/zone_t1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp" />
+
+            <FrameLayout
+                android:id="@+id/zone_t2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp" />
+
+            <FrameLayout
+                android:id="@+id/zone_t3"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp" />
+
+            <FrameLayout
+                android:id="@+id/zone_t4"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp" />
+
+            <FrameLayout
+                android:id="@+id/zone_t5"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

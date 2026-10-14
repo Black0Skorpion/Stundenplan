@@ -84,16 +84,45 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
 
         for (int versuch = 0; versuch < 3; versuch++) {
             try {
-                Bitmap bild = Zeichner.zeichnen(modus, b, h, skala, dunkel, jetzt, alle);
-                RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget);
+                Zeichner.Ziele ziele = new Zeichner.Ziele();
+                Bitmap bild = Zeichner.zeichnenMitZielen(modus, b, h, skala, dunkel, jetzt, alle, ziele);
+                int layout = Zeichner.KLEIN.equals(modus) ? R.layout.widget_klein
+                        : Zeichner.MITTEL.equals(modus) ? R.layout.widget_mittel : R.layout.widget_gross;
+                RemoteViews rv = new RemoteViews(ctx.getPackageName(), layout);
                 rv.setImageViewBitmap(R.id.bild, bild);
-                rv.setOnClickPendingIntent(R.id.wurzel, tippAktion(ctx));
+                PendingIntent planer = tippAktion(ctx);
+                rv.setOnClickPendingIntent(R.id.wurzel, planer);
+                if (Zeichner.KLEIN.equals(modus) || Zeichner.MITTEL.equals(modus)) {
+                    rv.setOnClickPendingIntent(R.id.zone_karte,
+                            ziele.fokus != null ? lageplan(ctx, id, 1, LageplanActivity.fuerTermin(ctx, ziele.fokus)) : planer);
+                }
+                if (Zeichner.MITTEL.equals(modus)) {
+                    rv.setOnClickPendingIntent(R.id.zone_kopf, planer);
+                    int[] zeilen = {R.id.zone_z1, R.id.zone_z2, R.id.zone_z3, R.id.zone_z4};
+                    for (int i = 0; i < zeilen.length; i++) {
+                        rv.setOnClickPendingIntent(zeilen[i], i < ziele.zeilen.size()
+                                ? lageplan(ctx, id, 2 + i, LageplanActivity.fuerTermin(ctx, ziele.zeilen.get(i))) : planer);
+                    }
+                }
+                if (Zeichner.GROSS.equals(modus)) {
+                    rv.setOnClickPendingIntent(R.id.zone_kopf, planer);
+                    int[] tage = {R.id.zone_t1, R.id.zone_t2, R.id.zone_t3, R.id.zone_t4, R.id.zone_t5};
+                    for (int i = 0; i < tage.length; i++) {
+                        rv.setOnClickPendingIntent(tage[i], ziele.tagHatTermine[i]
+                                ? lageplan(ctx, id, 10 + i, LageplanActivity.fuerTag(ctx, ziele.tage[i])) : planer);
+                    }
+                }
                 mgr.updateAppWidget(id, rv);
                 return;
             } catch (RuntimeException e) {
                 skala *= 0.6f; // Bild zu groß → kleiner erneut versuchen
             }
         }
+    }
+
+    private static PendingIntent lageplan(Context ctx, int widgetId, int nr, Intent i) {
+        return PendingIntent.getActivity(ctx, widgetId * 20 + nr, i,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     static final String EINSTELLUNGEN = "einstellungen";

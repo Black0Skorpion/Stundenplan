@@ -49,7 +49,8 @@ public class MainActivity extends Activity {
         info.setText("Widget hinzufügen: Startbildschirm gedrückt halten → Widgets → Stundenplan. "
                 + "Stundenplan: Klein (aktuelle Veranstaltung), Mittel (mit Tagesplan) und Groß (Woche).\n"
                 + "Mensa Golm: Klein, Mittel und Groß – mit den Pfeilen ‹ › oben rechts blättert man durch die Tage.\n"
-                + "Alle Widgets lassen sich frei in der Größe ziehen (z. B. 4×3).\n\n"
+                + "Alle Widgets lassen sich frei in der Größe ziehen (z. B. 4×3).\n"
+                + "Tippen auf eine Veranstaltung oder einen Wochentag zeigt den Lageplan Golm mit dem Gebäude.\n\n"
                 + "Neuen Stundenplan übernehmen: im Planer als Kalender (.ics) exportieren und hier importieren.");
         info.setPadding(0, pad / 2, 0, pad / 2);
         inhalt.addView(info);

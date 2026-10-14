@@ -42,8 +42,23 @@ public final class Zeichner extends Leinwand {
     }
 
     /** Erzeugt das Widget-Bild. Der Hintergrund bleibt transparent (kommt aus dem Layout). */
+    /** Was im Widget zu sehen ist – für die Tippflächen (Lageplan). */
+    public static final class Ziele {
+        public Termin fokus;                          // Karte (klein/mittel)
+        public final List<Termin> zeilen = new ArrayList<>(); // Tagesliste (mittel)
+        public final long[] tage = new long[5];       // Wochentage (groß)
+        public final boolean[] tagHatTermine = new boolean[5];
+    }
+
+    private final Ziele ziele = new Ziele();
+
     public static Bitmap zeichnen(String modus, float breiteDp, float hoeheDp, float skala,
                                   boolean dunkel, long jetzt, List<Termin> alle) {
+        return zeichnenMitZielen(modus, breiteDp, hoeheDp, skala, dunkel, jetzt, alle, null);
+    }
+
+    public static Bitmap zeichnenMitZielen(String modus, float breiteDp, float hoeheDp, float skala,
+                                           boolean dunkel, long jetzt, List<Termin> alle, Ziele zielAus) {
         int bw = Math.max(1, Math.round(breiteDp * skala));
         int bh = Math.max(1, Math.round(hoeheDp * skala));
         Bitmap bild = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888);
@@ -53,6 +68,12 @@ public final class Zeichner extends Leinwand {
         if (KLEIN.equals(modus)) z.klein(breiteDp, hoeheDp);
         else if (MITTEL.equals(modus)) z.mittel(breiteDp, hoeheDp);
         else z.gross(breiteDp, hoeheDp);
+        if (zielAus != null) {
+            zielAus.fokus = z.ziele.fokus;
+            zielAus.zeilen.addAll(z.ziele.zeilen);
+            System.arraycopy(z.ziele.tage, 0, zielAus.tage, 0, 5);
+            System.arraycopy(z.ziele.tagHatTermine, 0, zielAus.tagHatTermine, 0, 5);
+        }
         return bild;
     }
 
@@ -235,6 +256,7 @@ public final class Zeichner extends Leinwand {
         text(tagImMonat(a.datum) + ". " + MONATE[monat(a.datum)], rand + halbe, rand + 0.6f, halbe, 11, NORMAL, gedimmt, RECHTS, 1, 1f);
 
         Termin fokus = fokusTermin(a);
+        ziele.fokus = fokus;
         karte(fokus, a, rand, rand + 14.4f + 6, b - 2 * rand, false);
 
         Termin danach = null;
@@ -269,6 +291,7 @@ public final class Zeichner extends Leinwand {
                 : tagImMonat(a.datum) + ". " + MONATE[monat(a.datum)];
         text(datum, rand + lw + 5, rand + 0.6f, linksB - lw - 5, 11, NORMAL, gedimmt, LINKS, 1, 0.85f);
         Termin fokus = fokusTermin(a);
+        ziele.fokus = fokus;
         karte(fokus, a, rand, rand + 14.4f + 6, linksB, true);
 
         // Rechts: Tagesplan
@@ -289,6 +312,7 @@ public final class Zeichner extends Leinwand {
         }
 
         float y = rand + 13.2f + 6;
+        ziele.zeilen.addAll(liste);
         for (Termin t : liste) {
             String[] kurs = Konfig.kurs(t.titel);
             String[] typ = Konfig.typ(t.typ);
@@ -345,6 +369,8 @@ public final class Zeichner extends Leinwand {
         for (int i = 0; i < 5; i++) {
             tage[i] = plusTage(montag, i);
             List<Termin> l = termineAm(tage[i]);
+            ziele.tage[i] = tage[i];
+            ziele.tagHatTermine[i] = !l.isEmpty();
             termine.add(l);
             for (Termin t : l) {
                 leer = false;

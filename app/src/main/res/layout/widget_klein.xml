@@ -11,5 +11,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:contentDescription="@string/app_name"
-        android:scaleType="fitCenter" />
+        android:scaleType="fitStart" />
+
+    <!-- Karte → Lageplan des Termins (Rest des Widgets → Planer) -->
+    <FrameLayout
+        android:id="@+id/zone_karte"
+        android:layout_width="match_parent"
+        android:layout_height="96dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="32dp"
+        android:layout_marginEnd="12dp" />
 </FrameLayout>

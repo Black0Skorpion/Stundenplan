@@ -37,6 +37,9 @@ Startbildschirm gedrückt halten → **Widgets** → **Stundenplan** → gewüns
 App „Stundenplan“ öffnen → **ICS-Datei importieren** → die im Planer exportierte `.ics` auswählen.
 **Eingebaute Termine verwenden** setzt auf die mitgelieferten Termine (WiSe 26/27) zurück.
 
+**Tippen:** Karte, Tageszeilen und Wochentage öffnen den Lageplan Golm mit markiertem Gebäude,
+Kopfzeile bzw. der Rest des Widgets öffnet den Planer.
+
 **Eigener Planer-Link:** In der App den über „Plan teilen“ kopierten Link einfügen und speichern –
 beim Tippen auf ein Stundenplan-Widget öffnet sich dann genau dieser Plan.
 
@@ -48,7 +51,9 @@ Kurznamen, Farben und der Standard-Link stehen in
 Die iOS-Version liegt unter `ios/Stundenplan.js`. In der App **Scriptable** ein neues Script anlegen,
 den Inhalt einfügen und als Widget (klein, mittel oder groß – auf dem iPad auch extragroß) auf den Home-Bildschirm legen.
 Eigener Planer-Link: oben im Script bei `CONFIG.TAP_URL` eintragen oder als Widget-Parameter.
-Sperrbildschirm-Widgets (Zeile, Rechteck, rund) mit Varianten per Parameter – Details im Kopf des Scripts.
+Sperrbildschirm-Widgets (Zeile, Rechteck, rund) mit Varianten. Einstellungen (Farbschema, Planer-Link,
+Varianten) bequem per Menü: Script in der Scriptable-App starten → „Einstellungen“.
+Tippen auf Raum/Karte/Wochentag öffnet den Lageplan Golm mit markiertem Gebäude.
 
 ## Mensa-Widget (iPhone/iPad, Scriptable)
 

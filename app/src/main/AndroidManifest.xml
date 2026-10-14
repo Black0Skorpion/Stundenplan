@@ -18,6 +18,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".LageplanActivity"
+            android:exported="false"
+            android:label="Lageplan Golm" />
+
         <receiver
             android:name=".WidgetKlein"
             android:exported="true"
