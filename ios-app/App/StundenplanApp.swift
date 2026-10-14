@@ -1,9 +1,40 @@
 import SwiftUI
 import UIKit
+import UserNotifications
+
+/// Tippen auf eine Erinnerung öffnet den Lageplan des Termins
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    static var oeffnen: ((URL) -> Void)?
+    static var wartend: URL?
+
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    // Auch anzeigen, wenn die App gerade offen ist
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .list])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let s = response.notification.request.content.userInfo["url"] as? String, let url = URL(string: s) {
+            DispatchQueue.main.async {
+                if let oeffnen = AppDelegate.oeffnen { oeffnen(url) } else { AppDelegate.wartend = url }
+            }
+        }
+        completionHandler()
+    }
+}
 
 @main
 struct StundenplanApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var zustand = AppZustand()
+    @Environment(\.scenePhase) private var phase
 
     var body: some Scene {
         WindowGroup {
@@ -19,6 +50,19 @@ struct StundenplanApp: App {
                 })
                 // Aus Widgets heraus geöffnet oder .ics-Datei geteilt
                 .onOpenURL { zustand.oeffne($0) }
+                .onAppear {
+                    AppDelegate.oeffnen = { [weak zustand] url in zustand?.oeffne(url) }
+                    if let url = AppDelegate.wartend {
+                        AppDelegate.wartend = nil
+                        zustand.oeffne(url)
+                    }
+                }
+                .onChange(of: phase) { _, neu in
+                    if neu == .active {
+                        zustand.neuLaden()
+                        Task { await Erinnerungen.planen() }
+                    }
+                }
         }
     }
 }
@@ -71,6 +115,8 @@ final class AppZustand: ObservableObject {
             }
         case "planer":
             UIApplication.shared.open(Speicher.planerLink)
+        case "plan":
+            reiter = .plan
         case "mensa":
             reiter = .mensa
         default:
@@ -93,6 +139,7 @@ final class AppZustand: ObservableObject {
         }
         Speicher.speichereTermine(neu)
         neuLaden()
+        Task { await Erinnerungen.planen() }
         reiter = .plan
         meldung = "\(neu.count) Termine importiert." + (Speicher.geteilt ? "" : " Hinweis: Die Widgets können den Import nicht sehen (keine App-Gruppe).")
     }
@@ -100,6 +147,7 @@ final class AppZustand: ObservableObject {
     func eingebauteVerwenden() {
         Speicher.eigeneLoeschen()
         neuLaden()
+        Task { await Erinnerungen.planen() }
         meldung = "Eingebaute Termine werden verwendet."
     }
 }

@@ -5,6 +5,8 @@ struct EinstellungenReiter: View {
     @EnvironmentObject var zustand: AppZustand
     @State private var link = Speicher.einstellungen().link
     @State private var importieren = false
+    @State private var erinnerungen = Speicher.einstellungen().erinnerungen
+    @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
 
     private var icsTypen: [UTType] {
         var t: [UTType] = [.calendarEvent]
@@ -44,8 +46,23 @@ struct EinstellungenReiter: View {
                 } header: {
                     Text("Planer-Link")
                 } footer: {
-                    Text("Im Planer auf „Plan teilen“ tippen, Link kopieren und hier einfügen. Öffnet sich beim Tippen auf die Kopfzeile der Widgets. Ohne eigenen Link öffnet sich die leere Planer-Seite.")
+                    Text("Im Planer auf „Plan teilen“ tippen, Link kopieren und hier einfügen. Öffnet sich in der App über „Planer“ (oben rechts) und im Lageplan. Ohne eigenen Link öffnet sich die leere Planer-Seite.")
                 }
+
+                Section {
+                    Toggle("Vor Veranstaltungen erinnern", isOn: $erinnerungen)
+                    if erinnerungen {
+                        Picker("Vorlauf", selection: $vorlauf) {
+                            ForEach(Erinnerungen.vorlaufOptionen, id: \.self) { Text("\($0) Minuten").tag($0) }
+                        }
+                    }
+                } header: {
+                    Text("Erinnerungen")
+                } footer: {
+                    Text("Mitteilung mit Raum vor jeder Veranstaltung, z. B. „GdP in 10 Min“. Tippen öffnet den Lageplan. Läuft nur auf dem iPhone, ohne Server.")
+                }
+                .onChange(of: erinnerungen) { _, an in erinnerungenAendern(an) }
+                .onChange(of: vorlauf) { _, _ in speichereErinnerungen() }
 
                 Section {
                     LabeledContent("Datenaustausch", value: Speicher.geteilt ? "aktiv" : "nicht verfügbar")
@@ -69,6 +86,29 @@ struct EinstellungenReiter: View {
                 if case .success(let url) = ergebnis { zustand.importiere(url) }
             }
         }
+    }
+
+    private func erinnerungenAendern(_ an: Bool) {
+        guard an else {
+            speichereErinnerungen()
+            return
+        }
+        Task { @MainActor in
+            if await Erinnerungen.erlaubnisAnfragen() {
+                speichereErinnerungen()
+            } else {
+                erinnerungen = false
+                zustand.meldung = "Mitteilungen sind nicht erlaubt. Bitte in den iOS-Einstellungen → Mitteilungen → Stundenplan einschalten."
+            }
+        }
+    }
+
+    private func speichereErinnerungen() {
+        var e = Speicher.einstellungen()
+        e.erinnerungen = erinnerungen
+        e.vorlaufMinuten = vorlauf
+        Speicher.speichere(e)
+        Task { await Erinnerungen.planen() }
     }
 
     private var versionText: String {

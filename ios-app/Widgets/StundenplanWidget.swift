@@ -19,6 +19,9 @@ struct StundenplanProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: StundenplanEinstellung, in context: Context) async -> Timeline<StundenplanEintrag> {
+        // Erinnerungen nachplanen (iOS behält nur 64) – nur mit gemeinsamem Speicher,
+        // sonst kennt das Widget die Einstellung aus der App nicht.
+        if Speicher.geteilt { await Erinnerungen.planen() }
         let jetzt = Date()
         let alle = Speicher.termine()
         // Wechsel (Beginn/Ende) und alle 15 Minuten für die rote Jetzt-Linie
@@ -83,7 +86,7 @@ struct LeerHinweis: View {
     }
 }
 
-/// "Heute  Di, 13. Okt" – Tippen öffnet den Planer
+/// "Heute  Di, 13. Okt"
 struct TagesKopf: View {
     let auswahl: Plan.TagesAuswahl
     let farben: Farben
@@ -99,7 +102,6 @@ struct TagesKopf: View {
             Spacer(minLength: 0)
         }
         .lineLimit(1)
-        .verlinkt(Ziele.planer)
     }
 }
 
@@ -127,7 +129,6 @@ struct WochenKopf: View {
         }
         .lineLimit(1)
         .frame(height: 16)
-        .verlinkt(Ziele.planer)
     }
 }
 
@@ -195,7 +196,7 @@ struct KleinAnsicht: View {
         } else {
             LeerHinweis(text: "Keine weiteren Termine", farben: farben)
                 .padding(12)
-                .widgetURL(Ziele.planer)
+                .widgetURL(Ziele.app)
         }
     }
 }
@@ -238,7 +239,7 @@ struct MittelAnsicht: View {
         } else {
             LeerHinweis(text: "Keine weiteren Termine", farben: farben)
                 .padding(12)
-                .widgetURL(Ziele.planer)
+                .widgetURL(Ziele.app)
         }
     }
 }

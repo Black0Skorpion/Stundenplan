@@ -77,7 +77,7 @@ struct SperrAnsicht: View {
         if variante == .tag, let auswahl = Plan.tagesAuswahl(eintrag.termine, jetzt) {
             return Ziele.tag(auswahl.datum)
         }
-        return naechster.map(Ziele.termin) ?? Ziele.planer
+        return naechster.map(Ziele.termin) ?? Ziele.app
     }
 }
 

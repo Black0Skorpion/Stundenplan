@@ -11,6 +11,8 @@ enum Ziele {
         URL(string: "stundenplan://lageplan?tag=\(Int(Zeit.tagesBeginn(d).timeIntervalSince1970))")!
     }
     static let planer = URL(string: "stundenplan://planer")!
+    /// Öffnet einfach die App (Reiter „Plan“) – Widgets verlinken nie direkt auf den Planer
+    static let app = URL(string: "stundenplan://plan")!
     static let mensa = URL(string: "stundenplan://mensa")!
 }
 

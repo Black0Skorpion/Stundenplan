@@ -110,6 +110,19 @@ enum Speicher {
 
     struct Einstellungen: Codable {
         var link: String = ""
+        /// Mitteilung vor jeder Veranstaltung
+        var erinnerungen: Bool = false
+        var vorlaufMinuten: Int = 10
+
+        init() {}
+
+        // Fehlende Felder (ältere Versionen) bekommen Standardwerte
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            link = try c.decodeIfPresent(String.self, forKey: .link) ?? ""
+            erinnerungen = try c.decodeIfPresent(Bool.self, forKey: .erinnerungen) ?? false
+            vorlaufMinuten = try c.decodeIfPresent(Int.self, forKey: .vorlaufMinuten) ?? 10
+        }
     }
 
     static func einstellungen() -> Einstellungen {
