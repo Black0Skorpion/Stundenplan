@@ -1,0 +1,21 @@
+name: VBB-Test
+on:
+  push:
+    paths: [".github/workflows/vbbtest.yml"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for host in v6.vbb.transport.rest v6.bvg.transport.rest; do
+            for stop in 900220010 900220365; do
+              for hdr in "plain" "app"; do
+                if [ $hdr = app ]; then H=(-H "Accept: application/json" -H "User-Agent: Stundenplan-App (iOS)"); else H=(); fi
+                r=$(curl -s -o body.json -w "%{http_code} %{time_total}s" --max-time 40 "${H[@]}" "https://$host/stops/$stop/departures?duration=90&results=25&remarks=false" || echo "curl-fehler $?")
+                n=$(python3 -c "import json;print(len(json.load(open('body.json'))['departures']))" 2>/dev/null || head -c 150 body.json | tr '\n' ' ')
+                echo "::warning::$host $stop $hdr -> $r | $n"
+                sleep 2
+              done
+            done
+          done
