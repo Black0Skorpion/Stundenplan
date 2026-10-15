@@ -81,3 +81,21 @@ jobs:
               --notes "Stundenplan-App für iPhone/iPad mit Widgets, Version $VERSION (Build $GITHUB_RUN_NUMBER). Installation: Stundenplan-$VERSION.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
               --latest=false
           fi
+
+      - name: Datei in releases/ios/ ablegen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp "Stundenplan-$VERSION.ipa" "$RUNNER_TEMP/"
+          NAME=$(basename "Stundenplan-$VERSION.ipa")
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            mkdir -p releases/ios
+            cp "$RUNNER_TEMP/$NAME" releases/ios/
+            git add releases/ios
+            git diff --cached --quiet && break
+            git commit -q -m "iOS-App $VERSION in releases/ios abgelegt"
+            git push -q origin HEAD:main && break
+            sleep 5
+          done

@@ -9,6 +9,7 @@ on:
       - ".github/workflows/archiv.yml"
       - ".github/workflows/aufraeumen.yml"
       - "README.md"
+      - "releases/**"
   workflow_dispatch:
 
 permissions:
@@ -38,6 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           TAG="android-v$VERSION"
           cp Stundenplan.apk "Stundenplan-$VERSION.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -49,3 +51,21 @@ jobs:
               --notes "Stundenplan-App für Android, Version $VERSION. Auf dem Handy Stundenplan-$VERSION.apk antippen und installieren. Gebaut aus ${GITHUB_SHA::7}." \
               --latest
           fi
+
+      - name: Datei in releases/android/ ablegen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp "Stundenplan-$VERSION.apk" "$RUNNER_TEMP/"
+          NAME=$(basename "Stundenplan-$VERSION.apk")
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            mkdir -p releases/android
+            cp "$RUNNER_TEMP/$NAME" releases/android/
+            git add releases/android
+            git diff --cached --quiet && break
+            git commit -q -m "Android-App $VERSION in releases/android abgelegt"
+            git push -q origin HEAD:main && break
+            sleep 5
+          done

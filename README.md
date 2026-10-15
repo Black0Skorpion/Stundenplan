@@ -7,8 +7,13 @@ des WiSe 26/27.
 
 ## Download
 
-Alle Versionen: **[Releases](https://github.com/Black0Skorpion/Stundenplan/releases)** – jede Version
-hat ein eigenes Release, alte Versionen bleiben erhalten.
+Alle Versionen liegen nach Plattform getrennt in Ordnern – alte Versionen bleiben erhalten:
+
+- **iPhone/iPad:** [`releases/ios/`](releases/ios)
+- **Android:** [`releases/android/`](releases/android)
+
+Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion/Stundenplan/releases)
+(Tags `ios-v…` und `android-v…`).
 
 | Plattform | Datei | Release |
 |---|---|---|
