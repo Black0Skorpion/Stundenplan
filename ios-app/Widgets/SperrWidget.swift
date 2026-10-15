@@ -69,15 +69,8 @@ struct SperrAnsicht: View {
             }
         }
         .containerBackground(for: .widget) { Color.clear }
-        .widgetURL(ziel(variante, naechster, jetzt))
-    }
-
-    /// Tippen: Lageplan des Termins bzw. (Tagesübersicht) des ganzen Tages
-    private func ziel(_ variante: SperrVariante, _ naechster: Termin?, _ jetzt: Date) -> URL {
-        if variante == .tag, let auswahl = Plan.tagesAuswahl(eintrag.termine, jetzt) {
-            return Ziele.tag(auswahl.datum)
-        }
-        return naechster.map(Ziele.termin) ?? Ziele.app
+        // Tippen öffnet die App auf der Seite „Plan“
+        .widgetURL(Ziele.app)
     }
 }
 

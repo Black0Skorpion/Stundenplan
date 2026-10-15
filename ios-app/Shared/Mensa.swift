@@ -1,12 +1,11 @@
 import Foundation
 import SwiftUI
 
-/// Speiseplan der Mensa Golm über OpenMensa (frei, ohne Anmeldung).
+/// Speiseplan der Mensa am gewählten Campus über OpenMensa (frei, ohne Anmeldung).
 enum Mensa {
-    static let id = 61
-    static let name = "Mensa Golm"
-    static let api = "https://openmensa.org/api/v2/canteens/\(id)"
-    static let webseite = URL(string: "https://openmensa.org/c/\(id)")!
+    static func api(_ c: Campus) -> String { "https://openmensa.org/api/v2/canteens/\(c.mensaID)" }
+    static func webseite(_ c: Campus = Campus.aktuell) -> URL { URL(string: "https://openmensa.org/c/\(c.mensaID)")! }
+    static var name: String { Campus.aktuell.mensaName }
     /// Ab dieser Stunde zeigt "Automatisch" schon den nächsten Öffnungstag.
     static let umschaltenUm = 15
 
@@ -42,9 +41,13 @@ enum Mensa {
         let prices: [String: Double?]?
     }
 
-    private static func laden(_ pfad: String, cache: String) async -> Data? {
-        let cacheURL = Speicher.datei("mensa-\(cache).json")
-        guard let url = URL(string: api + pfad) else { return nil }
+    private static func cacheDatei(_ c: Campus, _ name: String) -> URL {
+        Speicher.datei("mensa-\(c.mensaID)-\(name).json")
+    }
+
+    private static func laden(_ pfad: String, cache: String, campus: Campus) async -> Data? {
+        let cacheURL = cacheDatei(campus, cache)
+        guard let url = URL(string: api(campus) + pfad) else { return nil }
         if let (daten, status) = await Netz.laden(url) {
             if status == 404 { return Data("[]".utf8) }   // kein Speiseplan für diesen Tag
             try? daten.write(to: cacheURL, options: .atomic)
@@ -55,14 +58,14 @@ enum Mensa {
     }
 
     /// Nur der zwischengespeicherte Stand (zum sofortigen Anzeigen beim Öffnen)
-    static func speiseplanAusCache(_ tag: Date) -> Speiseplan? {
-        guard let d = try? Data(contentsOf: Speicher.datei("mensa-\(Zeit.isoDatum(tag)).json")),
+    static func speiseplanAusCache(_ tag: Date, campus: Campus = Campus.aktuell) -> Speiseplan? {
+        guard let d = try? Data(contentsOf: cacheDatei(campus, Zeit.isoDatum(tag))),
               let liste = try? JSONDecoder().decode([ApiGericht].self, from: d) else { return nil }
         return aufbereiten(liste)
     }
 
-    static func tage() async -> [Tag] {
-        if let d = await laden("/days", cache: "tage"),
+    static func tage(campus: Campus = Campus.aktuell) async -> [Tag] {
+        if let d = await laden("/days", cache: "tage", campus: campus),
            let liste = try? JSONDecoder().decode([ApiTag].self, from: d), !liste.isEmpty {
             return liste.compactMap { t in Zeit.ausIso(t.date).map { Tag(datum: $0, geschlossen: t.closed) } }
                 .sorted { $0.datum < $1.datum }
@@ -77,9 +80,9 @@ enum Mensa {
     }
 
     /// nil = nicht erreichbar (und nichts zwischengespeichert)
-    static func speiseplan(_ tag: Date) async -> Speiseplan? {
+    static func speiseplan(_ tag: Date, campus: Campus = Campus.aktuell) async -> Speiseplan? {
         let iso = Zeit.isoDatum(tag)
-        guard let d = await laden("/days/\(iso)/meals", cache: iso),
+        guard let d = await laden("/days/\(iso)/meals", cache: iso, campus: campus),
               let liste = try? JSONDecoder().decode([ApiGericht].self, from: d) else { return nil }
         return aufbereiten(liste)
     }

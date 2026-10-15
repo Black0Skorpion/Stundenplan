@@ -68,6 +68,8 @@ struct StundenplanAnsicht: View {
             }
         }
         .containerBackground(for: .widget) { farben.bg }
+        // Tippen irgendwo im Widget öffnet die App auf der Seite „Plan“
+        .widgetURL(Ziele.app)
     }
 }
 
@@ -145,7 +147,7 @@ struct WochenTeil: View {
             if woche.leer {
                 LeerHinweis(text: "Keine Termine in dieser Woche", farben: farben)
             } else {
-                WochenRaster(woche: woche, jetzt: eintrag.date)
+                WochenRaster(woche: woche, jetzt: eintrag.date, links: false)
             }
         }
     }
@@ -192,11 +194,9 @@ struct KleinAnsicht: View {
                 .lineLimit(1)
             }
             .padding(12)
-            .widgetURL(Ziele.termin(fokus))
         } else {
             LeerHinweis(text: "Keine weiteren Termine", farben: farben)
                 .padding(12)
-                .widgetURL(Ziele.app)
         }
     }
 }
@@ -218,7 +218,6 @@ struct MittelAnsicht: View {
                     VStack(alignment: .leading, spacing: 6) {
                         TagesKopf(auswahl: auswahl, farben: farben)
                         TerminKarte(termin: fokus, istHeute: auswahl.istHeute, jetzt: jetzt, ausfuehrlich: true)
-                            .verlinkt(Ziele.termin(fokus))
                         Spacer(minLength: 0)
                     }
                     .frame(width: linksB)
@@ -228,7 +227,7 @@ struct MittelAnsicht: View {
                             .font(.system(size: 11))
                             .foregroundStyle(farben.gedimmt)
                         TagesListe(termine: auswahl.termine, jetzt: jetzt, farben: farben,
-                                   maxZeilen: max(1, Int((innenH - 20) / 33)))
+                                   maxZeilen: max(1, Int((innenH - 20) / 33)), links: false)
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -239,7 +238,6 @@ struct MittelAnsicht: View {
         } else {
             LeerHinweis(text: "Keine weiteren Termine", farben: farben)
                 .padding(12)
-                .widgetURL(Ziele.app)
         }
     }
 }
@@ -274,14 +272,13 @@ struct ExtraGrossAnsicht: View {
                     if let auswahl = Plan.tagesAuswahl(eintrag.termine, jetzt), let fokus = Plan.fokus(auswahl, jetzt) {
                         TagesKopf(auswahl: auswahl, farben: farben)
                         TerminKarte(termin: fokus, istHeute: auswahl.istHeute, jetzt: jetzt, ausfuehrlich: true)
-                            .verlinkt(Ziele.termin(fokus))
                         let n = auswahl.termine.count
                         Text((auswahl.istHeute ? "Heute · " : auswahl.label + " · ") + "\(n) " + (n == 1 ? "Termin" : "Termine"))
                             .font(.system(size: 11))
                             .foregroundStyle(farben.gedimmt)
                             .padding(.top, 6)
                         TagesListe(termine: auswahl.termine, jetzt: jetzt, farben: farben,
-                                   maxZeilen: max(1, Int((innenH - 170) / 33)))
+                                   maxZeilen: max(1, Int((innenH - 170) / 33)), links: false)
                         Spacer(minLength: 0)
                     } else {
                         LeerHinweis(text: "Keine weiteren Termine", farben: farben)

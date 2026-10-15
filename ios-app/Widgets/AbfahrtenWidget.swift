@@ -5,6 +5,8 @@ struct AbfahrtenEintrag: TimelineEntry {
     let date: Date
     let liste: [Abfahrten.Abfahrt]?
     let thema: ThemaOption
+    var campus: Campus = .golm
+    var favoriten: [String] = []
 }
 
 struct AbfahrtenProvider: AppIntentTimelineProvider {
@@ -18,26 +20,31 @@ struct AbfahrtenProvider: AppIntentTimelineProvider {
                               linie: "605", produkt: "bus", richtung: "Potsdam, Charlottenhof Bhf", gleis: nil,
                               haltestelle: "Science Park/Uni", ausfall: false),
         ]
-        return AbfahrtenEintrag(date: jetzt, liste: beispiel, thema: .automatisch)
+        return AbfahrtenEintrag(date: jetzt, liste: beispiel, thema: .automatisch, favoriten: ["RB21"])
     }
 
     func snapshot(for configuration: AbfahrtenEinstellung, in context: Context) async -> AbfahrtenEintrag {
         if context.isPreview { return placeholder(in: context) }
-        return AbfahrtenEintrag(date: Date(), liste: await laden(configuration), thema: configuration.thema)
+        let campus = configuration.campus.campus
+        return AbfahrtenEintrag(date: Date(), liste: await laden(configuration, campus), thema: configuration.thema,
+                                campus: campus, favoriten: Abfahrten.favoriten)
     }
 
     func timeline(for configuration: AbfahrtenEinstellung, in context: Context) async -> Timeline<AbfahrtenEintrag> {
-        let liste = await laden(configuration)
+        let campus = configuration.campus.campus
+        let favoriten = Abfahrten.favoriten
+        let liste = await laden(configuration, campus)
         // Jede Minute ein Eintrag (Minuten-Anzeige), nach 15 Minuten neu laden
         let jetzt = Date()
         let eintraege = (0..<15).map { i in
-            AbfahrtenEintrag(date: jetzt.addingTimeInterval(Double(i) * 60), liste: liste, thema: configuration.thema)
+            AbfahrtenEintrag(date: jetzt.addingTimeInterval(Double(i) * 60), liste: liste, thema: configuration.thema,
+                             campus: campus, favoriten: favoriten)
         }
         return Timeline(entries: eintraege, policy: .after(jetzt.addingTimeInterval(15 * 60)))
     }
 
-    private func laden(_ c: AbfahrtenEinstellung) async -> [Abfahrten.Abfahrt]? {
-        guard let l = await Abfahrten.laden() else { return nil }
+    private func laden(_ c: AbfahrtenEinstellung, _ campus: Campus) async -> [Abfahrten.Abfahrt]? {
+        guard let l = await Abfahrten.laden(campus: campus) else { return nil }
         return c.nurZuege ? l.filter(\.istZug) : l
     }
 }
@@ -47,8 +54,8 @@ struct AbfahrtenWidget: Widget {
         AppIntentConfiguration(kind: "Abfahrten", intent: AbfahrtenEinstellung.self, provider: AbfahrtenProvider()) { e in
             AbfahrtenAnsicht(eintrag: e)
         }
-        .configurationDisplayName("Abfahrten Golm")
-        .description("Nächste Züge und Busse ab Golm Bhf und Science Park/Uni.")
+        .configurationDisplayName("Abfahrten")
+        .description("Nächste Züge und Busse am Campus. Priorisierte Linien (in der App festlegen) sind immer dabei.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
     }
@@ -65,7 +72,9 @@ struct AbfahrtenAnsicht: View {
         let anzahl = familie == .systemSmall ? 3 : familie == .systemMedium ? 4 : 10
         VStack(alignment: .leading, spacing: familie == .systemSmall ? 5 : 6) {
             HStack {
-                Text(familie == .systemSmall ? "Ab Golm" : "Abfahrten Golm")
+                Text(familie == .systemSmall ? "Ab \(eintrag.campus.kurz)" : "Abfahrten \(eintrag.campus.kurz)")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(farben.akzent)
                 Spacer()
@@ -74,12 +83,14 @@ struct AbfahrtenAnsicht: View {
                     .foregroundStyle(farben.gedimmt)
             }
             if let liste = eintrag.liste {
-                let sichtbar = Array(liste.filter { $0.zeit > jetzt.addingTimeInterval(-30) }.prefix(anzahl))
+                let sichtbar = Abfahrten.auswahl(liste.filter { $0.zeit > jetzt.addingTimeInterval(-30) },
+                                                 anzahl: anzahl, favoriten: eintrag.favoriten)
                 if sichtbar.isEmpty {
                     LeerHinweis(text: "Keine Abfahrten", farben: farben)
                 } else {
                     ForEach(sichtbar) { a in
-                        AbfahrtZeile(abfahrt: a, jetzt: jetzt, farben: farben, kompakt: familie == .systemSmall)
+                        AbfahrtZeile(abfahrt: a, jetzt: jetzt, farben: farben, kompakt: familie == .systemSmall,
+                                     favorit: Abfahrten.istFavorit(a, eintrag.favoriten))
                     }
                     Spacer(minLength: 0)
                 }

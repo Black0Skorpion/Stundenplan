@@ -87,6 +87,39 @@ final class AppZustand: ObservableObject {
     @Published var alleTermine: [Termin] = Speicher.termine(mitAusfaellen: true)
     @Published var lageplan: LageplanAnfrage?
     @Published var meldung: String?
+    /// Campus für Abfahrten und Mensa (Einstellungen, Abfahrten- und Mensa-Reiter)
+    @Published var campusWahl: CampusWahl = Speicher.einstellungen().campus {
+        didSet {
+            guard campusWahl != oldValue else { return }
+            var e = Speicher.einstellungen()
+            e.campus = campusWahl
+            Speicher.speichere(e)
+        }
+    }
+    /// Priorisierte Linien, z. B. ["RB20"]
+    @Published var favoriten: [String] = Speicher.einstellungen().favoriten {
+        didSet {
+            guard favoriten != oldValue else { return }
+            var e = Speicher.einstellungen()
+            e.favoriten = favoriten
+            Speicher.speichere(e)
+        }
+    }
+
+    /// Tatsächlich verwendeter Campus (bei „Automatisch“ aus dem Stundenplan)
+    var campus: Campus { campusWahl.fest ?? Campus.automatisch(termine, Date()) }
+
+    func istFavorit(_ linie: String) -> Bool {
+        favoriten.contains { $0.caseInsensitiveCompare(linie) == .orderedSame }
+    }
+
+    func favoritUmschalten(_ linie: String) {
+        if istFavorit(linie) {
+            favoriten.removeAll { $0.caseInsensitiveCompare(linie) == .orderedSame }
+        } else {
+            favoriten.append(linie)
+        }
+    }
 
     func neuLaden() {
         termine = Speicher.termine()
@@ -131,6 +164,7 @@ final class AppZustand: ObservableObject {
         case "planer":
             UIApplication.shared.open(Speicher.planerLink)
         case "plan":
+            lageplan = nil
             reiter = .plan
         case "mensa":
             reiter = .mensa

@@ -69,11 +69,37 @@ struct SperrEinstellung: WidgetConfigurationIntent {
     var variante: SperrVariante
 }
 
+// ───────────────────────── Campus ─────────────────────────
+
+enum CampusOption: String, AppEnum, CaseIterable {
+    case app, golm, neuesPalais, griebnitzsee
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Campus"
+    static var caseDisplayRepresentations: [CampusOption: DisplayRepresentation] = [
+        .app: "Wie in der App",
+        .golm: "Golm",
+        .neuesPalais: "Am Neuen Palais",
+        .griebnitzsee: "Griebnitzsee",
+    ]
+
+    var campus: Campus {
+        switch self {
+        case .app: return Campus.aktuell
+        case .golm: return .golm
+        case .neuesPalais: return .neuesPalais
+        case .griebnitzsee: return .griebnitzsee
+        }
+    }
+}
+
 // ───────────────────────── Abfahrten ─────────────────────────
 
 struct AbfahrtenEinstellung: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Abfahrten Golm"
-    static var description = IntentDescription("Nächste Züge und Busse ab Golm.")
+    static var title: LocalizedStringResource = "Abfahrten"
+    static var description = IntentDescription("Nächste Züge und Busse am Campus.")
+
+    @Parameter(title: "Campus", default: .app)
+    var campus: CampusOption
 
     @Parameter(title: "Nur Züge", default: false)
     var nurZuege: Bool
@@ -122,8 +148,11 @@ enum MensaTagOption: String, AppEnum, CaseIterable {
 }
 
 struct MensaEinstellung: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Mensa Golm"
-    static var description = IntentDescription("Speiseplan der Mensa Golm. Mit den Pfeilen blätterst du durch die Tage.")
+    static var title: LocalizedStringResource = "Mensa"
+    static var description = IntentDescription("Speiseplan der Mensa am Campus. Mit den Pfeilen blätterst du durch die Tage.")
+
+    @Parameter(title: "Campus", default: .app)
+    var campus: CampusOption
 
     @Parameter(title: "Tag", default: .automatisch)
     var tag: MensaTagOption

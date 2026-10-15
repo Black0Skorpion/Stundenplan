@@ -310,7 +310,12 @@ struct TagesListe: View {
 
 /// "ca. 6 Min zu Haus 70 (15 Min Pause)" – nur bei Hauswechsel
 func wegText(_ a: Termin, _ b: Termin) -> String? {
-    guard !a.ausfall, !b.ausfall, let min = Orte.gehminuten(von: a.raum, zu: b.raum), min > 0,
+    guard !a.ausfall, !b.ausfall else { return nil }
+    if Orte.campusWechsel(von: a.raum, zu: b.raum), let ziel = Campus.aus(raum: b.raum) {
+        let pause = Int(b.start.timeIntervalSince(a.ende) / 60)
+        return "Campuswechsel nach \(ziel.name) (\(pause) Min Zeit)"
+    }
+    guard let min = Orte.gehminuten(von: a.raum, zu: b.raum), min > 0,
           let r = RaumTeile(b.raum) else { return nil }
     let pause = Int(b.start.timeIntervalSince(a.ende) / 60)
     return "ca. \(min) Min zu Haus \(r.haus)" + (pause > 0 ? " (\(pause) Min Pause)" : "")

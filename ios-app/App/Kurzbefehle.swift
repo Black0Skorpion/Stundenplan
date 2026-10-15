@@ -33,21 +33,23 @@ struct HeutigerPlan: AppIntent {
     }
 }
 
-/// „Hey Siri, nächster Zug ab Golm in Stundenplan“
+/// „Hey Siri, nächste Abfahrt in Stundenplan“ – am gewählten Campus, priorisierte Linien zuerst
 struct NaechsteAbfahrt: AppIntent {
-    static var title: LocalizedStringResource = "Abfahrten ab Golm"
-    static var description = IntentDescription("Nennt die nächsten Abfahrten ab Golm.")
+    static var title: LocalizedStringResource = "Abfahrten am Campus"
+    static var description = IntentDescription("Nennt die nächsten Abfahrten am gewählten Campus.")
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let liste = await Abfahrten.laden(), !liste.isEmpty else {
+        let campus = Campus.aktuell
+        guard let liste = await Abfahrten.laden(campus: campus), !liste.isEmpty else {
             return .result(dialog: "Die Abfahrten konnten gerade nicht geladen werden.")
         }
         let jetzt = Date()
-        let teile = liste.filter { !$0.ausfall && $0.zeit > jetzt }.prefix(3).map { a -> String in
+        let kommend = liste.filter { !$0.ausfall && $0.zeit > jetzt }
+        let teile = Abfahrten.auswahl(kommend, anzahl: 3, favoriten: Abfahrten.favoriten).map { a -> String in
             let min = max(0, Int(a.zeit.timeIntervalSince(jetzt) / 60))
             return "\(a.linie) nach \(Abfahrten.kurzRichtung(a.richtung)) in \(min) Minuten"
         }
-        return .result(dialog: "\(teile.joined(separator: ", ")).")
+        return .result(dialog: "Ab \(campus.kurz): \(teile.joined(separator: ", ")).")
     }
 }
 
@@ -78,7 +80,7 @@ struct StundenplanKurzbefehle: AppShortcutsProvider {
                 "Nächste Abfahrt in \(.applicationName)",
                 "\(.applicationName) Abfahrten",
             ],
-            shortTitle: "Abfahrten Golm",
+            shortTitle: "Abfahrten",
             systemImageName: "tram"
         )
     }

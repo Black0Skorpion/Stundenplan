@@ -156,6 +156,10 @@ enum Speicher {
         var liveAktivitaet: Bool = true
         /// Karten-App für Routen und Haltestellen
         var karten: KartenApp = .apple
+        /// Campus für Abfahrten und Mensa
+        var campus: CampusWahl = .automatisch
+        /// Priorisierte Linien (z. B. "RB20") – stehen in den Abfahrten oben
+        var favoriten: [String] = []
 
         init() {}
 
@@ -167,6 +171,8 @@ enum Speicher {
             vorlaufMinuten = try c.decodeIfPresent(Int.self, forKey: .vorlaufMinuten) ?? 10
             liveAktivitaet = try c.decodeIfPresent(Bool.self, forKey: .liveAktivitaet) ?? true
             karten = (try? c.decodeIfPresent(KartenApp.self, forKey: .karten)) ?? .apple
+            campus = (try? c.decodeIfPresent(CampusWahl.self, forKey: .campus)) ?? .automatisch
+            favoriten = (try? c.decodeIfPresent([String].self, forKey: .favoriten)) ?? []
         }
     }
 

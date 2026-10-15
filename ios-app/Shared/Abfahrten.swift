@@ -1,17 +1,14 @@
 import Foundation
 import SwiftUI
 
-/// Abfahrten ab Golm über die freie VBB-Schnittstelle (v6.vbb.transport.rest, ohne Anmeldung).
+/// Abfahrten am gewählten Campus über die freie VBB-Schnittstelle (v6.vbb.transport.rest, ohne Anmeldung).
 enum Abfahrten {
     struct Haltestelle: Hashable {
         let id: String
         let name: String
+        /// Suchbegriff für Apple Karten / Google Maps
+        let suche: String
     }
-
-    static let haltestellen = [
-        Haltestelle(id: "900220010", name: "Golm Bhf"),
-        Haltestelle(id: "900220365", name: "Science Park/Uni"),
-    ]
 
     struct Abfahrt: Codable, Hashable, Identifiable {
         let id: String
@@ -59,17 +56,17 @@ enum Abfahrten {
         let frisch: Bool
     }
 
-    /// Beide Haltestellen zusammen, nach Zeit sortiert (für Widgets und Siri).
-    static func laden(minuten: Int = 90) async -> [Abfahrt]? {
-        await aktualisieren(minuten: minuten).liste
+    /// Alle Haltestellen des Campus zusammen, nach Zeit sortiert (für Widgets und Siri).
+    static func laden(minuten: Int = 90, campus: Campus = Campus.aktuell) async -> [Abfahrt]? {
+        await aktualisieren(minuten: minuten, campus: campus).liste
     }
 
     /// Wie `laden`, sagt aber zusätzlich, ob die Daten frisch sind (für die App).
-    static func aktualisieren(minuten: Int = 90) async -> Ergebnis {
+    static func aktualisieren(minuten: Int = 90, campus: Campus = Campus.aktuell) async -> Ergebnis {
         var alle: [Abfahrt] = []
         var irgendwasGeladen = false
         await withTaskGroup(of: [Abfahrt]?.self) { gruppe in
-            for h in haltestellen {
+            for h in campus.haltestellen {
                 gruppe.addTask { await laden(h, minuten: minuten) }
             }
             for await teil in gruppe {
@@ -80,23 +77,25 @@ enum Abfahrten {
             }
         }
         if !irgendwasGeladen {
-            return Ergebnis(liste: ausCache(), frisch: false)
+            return Ergebnis(liste: ausCache(campus), frisch: false)
         }
-        // Dieselbe Fahrt hält oft an beiden Haltestellen – nur einmal zeigen (die frühere)
+        // Dieselbe Fahrt hält oft an mehreren Haltestellen – nur einmal zeigen (die frühere)
         var gesehen = Set<String>()
         let ergebnis = alle.sorted { $0.zeit < $1.zeit }.filter { gesehen.insert($0.id).inserted }
-        Speicher.schreiben(ergebnis, "abfahrten.json")
+        Speicher.schreiben(ergebnis, datei(campus))
         return Ergebnis(liste: ergebnis, frisch: true)
     }
 
+    private static func datei(_ campus: Campus) -> String { "abfahrten-\(campus.rawValue).json" }
+
     /// Letzter gespeicherter Stand (ohne bereits abgefahrene)
-    static func ausCache() -> [Abfahrt]? {
-        Speicher.lesen([Abfahrt].self, "abfahrten.json")?.filter { $0.zeit > Date().addingTimeInterval(-60) }
+    static func ausCache(_ campus: Campus = Campus.aktuell) -> [Abfahrt]? {
+        Speicher.lesen([Abfahrt].self, datei(campus))?.filter { $0.zeit > Date().addingTimeInterval(-60) }
     }
 
     /// Wann der gespeicherte Stand geladen wurde
-    static var stand: Date? {
-        (try? FileManager.default.attributesOfItem(atPath: Speicher.datei("abfahrten.json").path))?[.modificationDate] as? Date
+    static func stand(_ campus: Campus = Campus.aktuell) -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: Speicher.datei(datei(campus)).path))?[.modificationDate] as? Date
     }
 
     /// Quellen: VBB, ersatzweise BVG (gleiche Haltestellen-Nummern, gleiches Datenformat)
@@ -121,6 +120,22 @@ enum Abfahrten {
                            richtung: a.direction ?? "", gleis: a.platform ?? a.plannedPlatform,
                            haltestelle: h.name, ausfall: a.cancelled ?? false)
         }
+    }
+
+    // ───────────── Priorisierte Linien ─────────────
+
+    static var favoriten: [String] { Speicher.einstellungen().favoriten }
+
+    static func istFavorit(_ a: Abfahrt, _ favoriten: [String]) -> Bool {
+        favoriten.contains { $0.caseInsensitiveCompare(a.linie) == .orderedSame }
+    }
+
+    /// Für knappe Anzeigen (Widgets): priorisierte Linien kommen auf jeden Fall rein,
+    /// der Rest wird aufgefüllt; angezeigt wird weiter nach Zeit sortiert.
+    static func auswahl(_ liste: [Abfahrt], anzahl: Int, favoriten: [String]) -> [Abfahrt] {
+        let fav = liste.filter { istFavorit($0, favoriten) }.prefix(max(1, anzahl / 2))
+        let rest = liste.filter { a in !fav.contains(a) }.prefix(anzahl - fav.count)
+        return (Array(fav) + Array(rest)).sorted { $0.zeit < $1.zeit }
     }
 
     // ───────────── Darstellung ─────────────
@@ -150,6 +165,8 @@ struct AbfahrtZeile: View {
     let jetzt: Date
     let farben: Farben
     var kompakt = false
+    /// Priorisierte Linie (Stern vor der Richtung)
+    var favorit = false
 
     var body: some View {
         let a = abfahrt
@@ -163,10 +180,17 @@ struct AbfahrtZeile: View {
                 .frame(width: kompakt ? 32 : 38, height: kompakt ? 16 : 18)
                 .background(RoundedRectangle(cornerRadius: 4).fill(Abfahrten.farbe(a)))
             VStack(alignment: .leading, spacing: 0) {
-                Text(Abfahrten.kurzRichtung(a.richtung))
-                    .font(.system(size: kompakt ? 11 : 12, weight: .semibold))
-                    .foregroundStyle(farben.vorder)
-                    .strikethrough(a.ausfall)
+                HStack(spacing: 3) {
+                    if favorit {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: kompakt ? 8 : 9))
+                            .foregroundStyle(Color(hex: 0xE0A100))
+                    }
+                    Text(Abfahrten.kurzRichtung(a.richtung))
+                        .font(.system(size: kompakt ? 11 : 12, weight: .semibold))
+                        .foregroundStyle(farben.vorder)
+                        .strikethrough(a.ausfall)
+                }
                 if !kompakt {
                     Text(a.haltestelle + (a.gleis.map { " · Gl. \($0)" } ?? ""))
                         .font(.system(size: 9))

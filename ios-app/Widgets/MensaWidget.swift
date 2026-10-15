@@ -13,6 +13,19 @@ struct MensaEintrag: TimelineEntry {
     let plan2: Mensa.Speiseplan?
     let thema: ThemaOption
     let versatz: Int
+    var campus: Campus = .golm
+}
+
+/// Überschrift „Mensa Golm“ usw. – wird von der Widget-Ansicht gesetzt
+private struct MensaTitelSchluessel: EnvironmentKey {
+    static let defaultValue = "Mensa"
+}
+
+extension EnvironmentValues {
+    var mensaTitel: String {
+        get { self[MensaTitelSchluessel.self] }
+        set { self[MensaTitelSchluessel.self] = newValue }
+    }
 }
 
 struct MensaProvider: AppIntentTimelineProvider {
@@ -46,17 +59,18 @@ struct MensaProvider: AppIntentTimelineProvider {
     private func laden(_ c: MensaEinstellung, _ context: Context) async -> MensaEintrag {
         let jetzt = Date()
         let versatz = Speicher.mensaVersatz()
-        let tage = await Mensa.tage()
+        let campus = c.campus.campus
+        let tage = await Mensa.tage(campus: campus)
         let tag = Mensa.waehle(c.tag.auswahl, tage, jetzt, versatz: versatz)
-        let plan = tag.geschlossen ? nil : await Mensa.speiseplan(tag.datum)
+        let plan = tag.geschlossen ? nil : await Mensa.speiseplan(tag.datum, campus: campus)
         var tag2: Mensa.Tag? = nil
         var plan2: Mensa.Speiseplan? = nil
         if context.family == .systemExtraLarge {
             let t2 = Mensa.naechsterOffener(tage, nach: tag)
             tag2 = t2
-            plan2 = await Mensa.speiseplan(t2.datum)
+            plan2 = await Mensa.speiseplan(t2.datum, campus: campus)
         }
-        return MensaEintrag(date: jetzt, tag: tag, plan: plan, tag2: tag2, plan2: plan2, thema: c.thema, versatz: versatz)
+        return MensaEintrag(date: jetzt, tag: tag, plan: plan, tag2: tag2, plan2: plan2, thema: c.thema, versatz: versatz, campus: campus)
     }
 }
 
@@ -67,8 +81,8 @@ struct MensaWidget: Widget {
         AppIntentConfiguration(kind: "Mensa", intent: MensaEinstellung.self, provider: MensaProvider()) { eintrag in
             MensaAnsicht(eintrag: eintrag)
         }
-        .configurationDisplayName("Mensa Golm")
-        .description("Speiseplan mit Preisen für Studierende. Pfeile oben rechts blättern durch die Tage.")
+        .configurationDisplayName("Mensa")
+        .description("Speiseplan mit Preisen für Studierende. Pfeile oben rechts blättern durch die Tage – oder mehrere Mensa-Widgets (Tag „+1“, „+2“ …) stapeln und wischen.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
         .contentMarginsDisabled()
     }
@@ -100,6 +114,7 @@ struct MensaAnsicht: View {
                     .padding(12)
             }
         }
+        .environment(\.mensaTitel, eintrag.campus.mensaName)
         .containerBackground(for: .widget) { farben.bg }
         .widgetURL(Ziele.mensa)
     }
@@ -107,27 +122,31 @@ struct MensaAnsicht: View {
 
 // ───────────────────────── Bausteine ─────────────────────────
 
-/// Pfeile zum Blättern (interaktiv ab iOS 17)
+/// Pfeile zum Blättern (interaktiv ab iOS 17). Die Tippfläche ist deutlich größer als das Symbol.
 struct MensaPfeile: View {
     let farben: Farben
     let versatz: Int
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
             Button(intent: MensaBlaettern(richtung: -1)) {
                 Image(systemName: "chevron.left")
-                    .frame(width: 22, height: 18)
+                    .frame(width: 34, height: 30)
+                    .contentShape(Rectangle())
             }
             .disabled(versatz <= 0)
             .opacity(versatz <= 0 ? 0.35 : 1)
             Button(intent: MensaBlaettern(richtung: 1)) {
                 Image(systemName: "chevron.right")
-                    .frame(width: 22, height: 18)
+                    .frame(width: 34, height: 30)
+                    .contentShape(Rectangle())
             }
         }
         .buttonStyle(.plain)
-        .font(.system(size: 12, weight: .bold))
+        .font(.system(size: 15, weight: .bold))
         .foregroundStyle(farben.akzent)
+        .padding(.vertical, -6)     // größere Tippfläche, ohne die Zeile höher zu machen
+        .padding(.trailing, -8)
     }
 }
 
@@ -138,10 +157,11 @@ struct MensaKopf: View {
     let pfeile: Bool
     let versatz: Int
     var kurz = false
+    @Environment(\.mensaTitel) private var titel
 
     var body: some View {
         HStack(spacing: 4) {
-            Text(kurz ? "Mensa" : Mensa.name)
+            Text(kurz ? "Mensa" : titel)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(farben.akzent)
             Spacer(minLength: 2)

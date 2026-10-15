@@ -9,6 +9,7 @@ struct EinstellungenReiter: View {
     @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
     @State private var live = Speicher.einstellungen().liveAktivitaet
     @State private var karten = Speicher.einstellungen().karten
+    @State private var neueLinie = ""
 
     private var icsTypen: [UTType] {
         var t: [UTType] = [.calendarEvent]
@@ -81,6 +82,39 @@ struct EinstellungenReiter: View {
                 .onChange(of: vorlauf) { _, _ in speichereErinnerungen() }
 
                 Section {
+                    Picker("Campus", selection: $zustand.campusWahl) {
+                        ForEach(CampusWahl.allCases) { Text($0.name).tag($0) }
+                    }
+                    if zustand.campusWahl == .automatisch {
+                        LabeledContent("Gerade", value: zustand.campus.name)
+                    }
+                } header: {
+                    Text("Campus")
+                } footer: {
+                    Text("Gilt für Abfahrten und Mensa (auch in den Widgets, wenn dort „Wie in der App“ eingestellt ist). „Automatisch“ nimmt den Campus der laufenden bzw. nächsten Veranstaltung. Der Lageplan zeigt immer den Campus des jeweiligen Raums.")
+                }
+
+                Section {
+                    ForEach(zustand.favoriten, id: \.self) { l in
+                        Label(l, systemImage: "star.fill")
+                    }
+                    .onDelete { zustand.favoriten.remove(atOffsets: $0) }
+                    HStack {
+                        TextField("Linie, z. B. RB20", text: $neueLinie)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .onSubmit(linieHinzufuegen)
+                        Button("Hinzufügen", action: linieHinzufuegen)
+                            .disabled(neueLinie.trimmingCharacters(in: .whitespaces).isEmpty)
+                            .buttonStyle(.borderless)
+                    }
+                } header: {
+                    Text("Priorisierte Linien")
+                } footer: {
+                    Text("Diese Linien stehen in den Abfahrten oben und kommen im Widget immer mit rein. Zum Entfernen nach links wischen. Geht auch direkt in den Abfahrten: Linie gedrückt halten.")
+                }
+
+                Section {
                     Picker("Karten-App", selection: $karten) {
                         ForEach(KartenApp.allCases) { Text($0.name).tag($0) }
                     }
@@ -108,7 +142,7 @@ struct EinstellungenReiter: View {
 
                 Section("Info") {
                     LabeledContent("Version", value: versionText)
-                    Link("Speiseplan: OpenMensa", destination: Mensa.webseite)
+                    Link("Speiseplan: OpenMensa", destination: Mensa.webseite(zustand.campus))
                     Link("Planer: planner.joshuan.dev", destination: URL(string: Konfig.standardLink)!)
                 }
             }
@@ -117,6 +151,13 @@ struct EinstellungenReiter: View {
                 if case .success(let url) = ergebnis { zustand.importiere(url) }
             }
         }
+    }
+
+    private func linieHinzufuegen() {
+        let l = neueLinie.trimmingCharacters(in: .whitespaces)
+        guard !l.isEmpty else { return }
+        if !zustand.istFavorit(l) { zustand.favoriten.append(l) }
+        neueLinie = ""
     }
 
     private func erinnerungenAendern(_ an: Bool) {

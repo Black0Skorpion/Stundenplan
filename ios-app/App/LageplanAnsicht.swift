@@ -11,7 +11,7 @@ struct LageplanReiter: View {
                 LageplanAnsicht(titel: auswahl.label + " · " + Zeit.datumKurz(auswahl.datum),
                                 schluessel: Plan.termineAm(zustand.alleTermine, auswahl.datum).map(\.schluessel))
             } else {
-                LageplanAnsicht(titel: "Lageplan Golm", schluessel: [])
+                LageplanAnsicht(titel: "Lageplan", schluessel: [])
             }
         }
     }
@@ -22,7 +22,9 @@ struct LageplanAnsicht: View {
     let schluessel: [String]
     @EnvironmentObject var zustand: AppZustand
     @Environment(\.colorScheme) private var schema
-    @State private var vollbild = false
+    @State private var vollbild: Campus?
+    /// Plan, der ohne Termine (bzw. zusätzlich) angezeigt wird
+    @State private var gewaehlterCampus: Campus?
     @State private var raumAendern: Termin?
     @State private var neuerRaum = ""
 
@@ -34,7 +36,9 @@ struct LageplanAnsicht: View {
     var body: some View {
         let farben = Farben.fuer(dunkel: schema == .dark)
         let liste = termine
-        let markierungen = Lageplan.markierungen(liste.filter { !$0.ausfall })
+        let aktiv = liste.filter { !$0.ausfall }
+        let nummern = aktiv.count > 1
+        let plaene = planListe(aktiv)
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if liste.isEmpty {
@@ -42,17 +46,25 @@ struct LageplanAnsicht: View {
                 }
                 ForEach(Array(liste.enumerated()), id: \.element.id) { i, t in
                     if i > 0, let weg = wegText(liste[i - 1], t) {
-                        Label(weg, systemImage: "figure.walk")
+                        Label(weg, systemImage: Orte.campusWechsel(von: liste[i - 1].raum, zu: t.raum) ? "tram" : "figure.walk")
                             .font(.footnote.weight(.medium))
                             .foregroundStyle(farben.gedimmt)
                             .padding(.leading, 4)
                     }
                     karte(t, nummer: liste.count > 1 ? i + 1 : nil)
                 }
-                PlanBild(markierungen: markierungen)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(farben.gedimmt.opacity(0.3)))
-                    .onTapGesture { vollbild = true }
+                ForEach(plaene) { campus in
+                    if plaene.count > 1 || liste.isEmpty {
+                        Text("Campus \(campus.name)")
+                            .font(.headline)
+                            .foregroundStyle(farben.vorder)
+                            .padding(.top, 4)
+                    }
+                    PlanBild(campus: campus, markierungen: Lageplan.markierungen(aktiv, campus: campus, nummern: nummern))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(farben.gedimmt.opacity(0.3)))
+                        .onTapGesture { vollbild = campus }
+                }
                 Text("Zum Vergrößern auf den Plan tippen.")
                     .font(.caption)
                     .foregroundStyle(farben.gedimmt)
@@ -71,8 +83,23 @@ struct LageplanAnsicht: View {
         .background(farben.bg)
         .navigationTitle(titel)
         .navigationBarTitleDisplayMode(.inline)
-        .fullScreenCover(isPresented: $vollbild) {
-            ZoomPlan(markierungen: markierungen) { vollbild = false }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Picker("Plan", selection: Binding(get: { gewaehlterCampus }, set: { gewaehlterCampus = $0 })) {
+                        Text("Passend zu den Terminen").tag(Campus?.none)
+                        ForEach(Campus.allCases) { c in
+                            Text(c.name).tag(Campus?.some(c))
+                        }
+                    }
+                } label: {
+                    Label("Campus-Plan", systemImage: "map")
+                }
+            }
+        }
+        .fullScreenCover(item: $vollbild) { campus in
+            ZoomPlan(campus: campus, markierungen: Lageplan.markierungen(termine.filter { !$0.ausfall }, campus: campus,
+                                                                        nummern: termine.filter { !$0.ausfall }.count > 1)) { vollbild = nil }
         }
         .alert("Raum ändern", isPresented: Binding(get: { raumAendern != nil }, set: { if !$0 { raumAendern = nil } })) {
             TextField("z. B. 2.70.0.10", text: $neuerRaum)
@@ -88,6 +115,13 @@ struct LageplanAnsicht: View {
         } message: {
             Text("Gilt nur für diesen einen Termin. Widgets und Erinnerungen übernehmen den neuen Raum.")
         }
+    }
+
+    /// Pläne in der Reihenfolge der Termine; ohne Termine der gewählte bzw. aktuelle Campus
+    private func planListe(_ aktiv: [Termin]) -> [Campus] {
+        if let g = gewaehlterCampus { return [g] }
+        let liste = Lageplan.campusListe(aktiv)
+        return liste.isEmpty ? [zustand.campus] : liste
     }
 
     private func karte(_ t: Termin, nummer: Int?) -> some View {
@@ -169,11 +203,13 @@ extension View {
 
 /// Lageplan mit roten Ringen um die markierten Häuser
 struct PlanBild: View {
+    let campus: Campus
     let markierungen: [Lageplan.Markierung]
-    private let bild = UIImage(named: "lageplan_golm") ?? UIImage()
 
     var body: some View {
-        let seitenverhaeltnis = bild.size.height > 0 ? bild.size.width / bild.size.height : 1090.0 / 1490.0
+        let bild = UIImage(named: Lageplan.bild(campus)) ?? UIImage()
+        let positionen = Lageplan.positionen(campus)
+        let seitenverhaeltnis = bild.size.height > 0 ? bild.size.width / bild.size.height : Lageplan.seitenverhaeltnis(campus)
         Image(uiImage: bild)
             .resizable()
             .aspectRatio(seitenverhaeltnis, contentMode: .fit)
@@ -183,7 +219,7 @@ struct PlanBild: View {
                     let b = geo.size.width, h = geo.size.height
                     let ring = b * 0.085
                     ForEach(markierungen) { m in
-                        if let p = Lageplan.positionen[m.haus] {
+                        if let p = positionen[m.haus] {
                             let x = p.0 * b, y = p.1 * h
                             Circle()
                                 .fill(Palette.jetzt.opacity(0.22))
@@ -208,6 +244,7 @@ struct PlanBild: View {
 
 /// Vollbild mit Zoom (zwei Finger) und Verschieben
 struct ZoomPlan: View {
+    let campus: Campus
     let markierungen: [Lageplan.Markierung]
     let schliessen: () -> Void
     @State private var skala: CGFloat = 1
@@ -218,7 +255,7 @@ struct ZoomPlan: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.white.ignoresSafeArea()
-            PlanBild(markierungen: markierungen)
+            PlanBild(campus: campus, markierungen: markierungen)
                 .scaleEffect(skala)
                 .offset(versatz)
                 .gesture(

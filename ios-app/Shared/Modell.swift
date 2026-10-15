@@ -227,7 +227,8 @@ struct RaumTeile {
         let t = text.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
         guard t.count >= 3 else { return nil }
         campus = t[0]
-        haus = t[1]
+        // "08" → "8" (Lagepläne nummerieren ohne führende Null)
+        haus = Int(t[1]).map(String.init) ?? t[1]
         etage = t[2]
         raum = t.dropFirst(3).joined(separator: ".")
     }
