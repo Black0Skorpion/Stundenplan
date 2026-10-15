@@ -20,11 +20,29 @@ const FARBEN = {
 
 // ───────────────────────── Daten ─────────────────────────
 
+// Quellen: VBB, ersatzweise BVG (gleiche Haltestellen-Nummern). Die freien Dienste haken
+// gelegentlich – deshalb mehrere Versuche.
+const QUELLEN = ["https://v6.vbb.transport.rest", "https://v6.bvg.transport.rest"]
+
+async function ladeRoh(h) {
+  for (let q = 0; q < QUELLEN.length; q++) {
+    // Im Widget bleibt wenig Zeit → weniger Versuche
+    const versuche = config.runsInWidget ? 1 : (q === 0 ? 3 : 2)
+    for (let i = 0; i < versuche; i++) {
+      try {
+        const r = new Request(QUELLEN[q] + "/stops/" + h.id + "/departures?duration=90&results=25&remarks=false")
+        r.timeoutInterval = 8
+        const d = await r.loadJSON()
+        if (d && Array.isArray(d.departures)) return d
+      } catch (e) {}
+      await new Promise(fertig => Timer.schedule(1500 * (i + 1), false, fertig))
+    }
+  }
+  throw new Error("keine Daten")
+}
+
 async function ladeHaltestelle(h) {
-  const r = new Request("https://v6.vbb.transport.rest/stops/" + h.id + "/departures?duration=90&results=25&remarks=false")
-  r.timeoutInterval = 12
-  const d = await r.loadJSON()
-  if (!d || !Array.isArray(d.departures)) throw new Error("keine Daten")
+  const d = await ladeRoh(h)
   return d.departures.map(a => {
     const geplant = new Date(a.plannedWhen || a.when)
     return {

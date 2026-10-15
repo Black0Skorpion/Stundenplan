@@ -48,12 +48,28 @@ public final class AbfahrtenDaten {
         }
     }
 
+    /** Quellen: VBB, ersatzweise BVG (gleiche Haltestellen-Nummern, gleiches Format) */
+    private static final String[] QUELLEN = {"https://v6.vbb.transport.rest", "https://v6.bvg.transport.rest"};
+
+    /** Bis zu 3 Versuche bei der VBB, dann 2 bei der BVG – die freien Dienste haken gelegentlich. */
     private static List<Abfahrt> ladenVon(String id, String name) {
+        for (int q = 0; q < QUELLEN.length; q++) {
+            int versuche = q == 0 ? 3 : 2;
+            for (int i = 0; i < versuche; i++) {
+                List<Abfahrt> l = ladenVon(QUELLEN[q], id, name);
+                if (l != null) return l;
+                try { Thread.sleep(1500L * (i + 1)); } catch (InterruptedException e) { return null; }
+            }
+        }
+        return null;
+    }
+
+    private static List<Abfahrt> ladenVon(String quelle, String id, String name) {
         try {
-            HttpURLConnection con = (HttpURLConnection) new URL("https://v6.vbb.transport.rest/stops/" + id
+            HttpURLConnection con = (HttpURLConnection) new URL(quelle + "/stops/" + id
                     + "/departures?duration=90&results=25&remarks=false").openConnection();
-            con.setConnectTimeout(10_000);
-            con.setReadTimeout(12_000);
+            con.setConnectTimeout(8_000);
+            con.setReadTimeout(10_000);
             con.setRequestProperty("Accept", "application/json");
             con.setRequestProperty("User-Agent", "Stundenplan-Widget (Android)");
             if (con.getResponseCode() >= 400) return null;

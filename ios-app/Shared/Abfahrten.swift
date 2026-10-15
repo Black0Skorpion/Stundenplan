@@ -52,8 +52,20 @@ enum Abfahrten {
         return f.date(from: s)
     }
 
-    /// Beide Haltestellen zusammen, nach Zeit sortiert. nil = nicht erreichbar und nichts zwischengespeichert.
+    struct Ergebnis {
+        /// Abfahrten (frisch geladen oder letzter Stand); nil = gar nichts vorhanden
+        let liste: [Abfahrt]?
+        /// true = gerade erfolgreich geladen, false = nur der gespeicherte Stand
+        let frisch: Bool
+    }
+
+    /// Beide Haltestellen zusammen, nach Zeit sortiert (für Widgets und Siri).
     static func laden(minuten: Int = 90) async -> [Abfahrt]? {
+        await aktualisieren(minuten: minuten).liste
+    }
+
+    /// Wie `laden`, sagt aber zusätzlich, ob die Daten frisch sind (für die App).
+    static func aktualisieren(minuten: Int = 90) async -> Ergebnis {
         var alle: [Abfahrt] = []
         var irgendwasGeladen = false
         await withTaskGroup(of: [Abfahrt]?.self) { gruppe in
@@ -68,22 +80,38 @@ enum Abfahrten {
             }
         }
         if !irgendwasGeladen {
-            return Speicher.lesen([Abfahrt].self, "abfahrten.json")?.filter { $0.zeit > Date().addingTimeInterval(-60) }
+            return Ergebnis(liste: ausCache(), frisch: false)
         }
         // Dieselbe Fahrt hält oft an beiden Haltestellen – nur einmal zeigen (die frühere)
         var gesehen = Set<String>()
         let ergebnis = alle.sorted { $0.zeit < $1.zeit }.filter { gesehen.insert($0.id).inserted }
         Speicher.schreiben(ergebnis, "abfahrten.json")
-        return ergebnis
+        return Ergebnis(liste: ergebnis, frisch: true)
     }
 
+    /// Letzter gespeicherter Stand (ohne bereits abgefahrene)
+    static func ausCache() -> [Abfahrt]? {
+        Speicher.lesen([Abfahrt].self, "abfahrten.json")?.filter { $0.zeit > Date().addingTimeInterval(-60) }
+    }
+
+    /// Wann der gespeicherte Stand geladen wurde
+    static var stand: Date? {
+        (try? FileManager.default.attributesOfItem(atPath: Speicher.datei("abfahrten.json").path))?[.modificationDate] as? Date
+    }
+
+    /// Quellen: VBB, ersatzweise BVG (gleiche Haltestellen-Nummern, gleiches Datenformat)
+    static let quellen = ["https://v6.vbb.transport.rest", "https://v6.bvg.transport.rest"]
+
     private static func laden(_ h: Haltestelle, minuten: Int) async -> [Abfahrt]? {
-        guard let url = URL(string: "https://v6.vbb.transport.rest/stops/\(h.id)/departures?duration=\(minuten)&results=25&remarks=false") else { return nil }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 12
-        guard let (d, antwort) = try? await URLSession.shared.data(for: req),
-              ((antwort as? HTTPURLResponse)?.statusCode ?? 200) < 400,
-              let api = try? JSONDecoder().decode(ApiAntwort.self, from: d) else { return nil }
+        var api: ApiAntwort?
+        for (i, quelle) in quellen.enumerated() {
+            guard let url = URL(string: "\(quelle)/stops/\(h.id)/departures?duration=\(minuten)&results=25&remarks=false"),
+                  let (d, status) = await Netz.laden(url, versuche: Netz.imWidget ? 1 : (i == 0 ? 3 : 2)), status < 400,
+                  let a = try? JSONDecoder().decode(ApiAntwort.self, from: d) else { continue }
+            api = a
+            break
+        }
+        guard let api else { return nil }
         return api.departures.compactMap { a in
             guard let geplant = datum(a.plannedWhen) ?? datum(a.when) else { return nil }
             let zeit = datum(a.when) ?? geplant

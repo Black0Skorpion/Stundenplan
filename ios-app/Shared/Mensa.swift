@@ -45,18 +45,20 @@ enum Mensa {
     private static func laden(_ pfad: String, cache: String) async -> Data? {
         let cacheURL = Speicher.datei("mensa-\(cache).json")
         guard let url = URL(string: api + pfad) else { return nil }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 15
-        do {
-            let (daten, antwort) = try await URLSession.shared.data(for: req)
-            let status = (antwort as? HTTPURLResponse)?.statusCode ?? 200
-            if status == 404 { return Data("[]".utf8) }
-            guard status < 400 else { throw URLError(.badServerResponse) }
+        if let (daten, status) = await Netz.laden(url) {
+            if status == 404 { return Data("[]".utf8) }   // kein Speiseplan für diesen Tag
             try? daten.write(to: cacheURL, options: .atomic)
             return daten
-        } catch {
-            return try? Data(contentsOf: cacheURL)
         }
+        // Offline bzw. Dienst gestört: letzten Stand verwenden
+        return try? Data(contentsOf: cacheURL)
+    }
+
+    /// Nur der zwischengespeicherte Stand (zum sofortigen Anzeigen beim Öffnen)
+    static func speiseplanAusCache(_ tag: Date) -> Speiseplan? {
+        guard let d = try? Data(contentsOf: Speicher.datei("mensa-\(Zeit.isoDatum(tag)).json")),
+              let liste = try? JSONDecoder().decode([ApiGericht].self, from: d) else { return nil }
+        return aufbereiten(liste)
     }
 
     static func tage() async -> [Tag] {
