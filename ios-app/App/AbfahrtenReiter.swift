@@ -10,6 +10,13 @@ struct AbfahrtenReiter: View {
     @State private var fehler = false
     @State private var nurZuege = false
 
+    /// Google Maps mit der Haltestelle (öffnet die Google-Maps-App, falls installiert, sonst die Webseite).
+    /// Dort lassen sich über die Haltestelle die nächsten Abfahrten ansehen.
+    private static let mapsZiele: [(name: String, url: URL)] = [
+        ("Golm Bhf", URL(string: "https://www.google.com/maps/search/?api=1&query=Bahnhof%20Potsdam-Golm")!),
+        ("Science Park/Uni", URL(string: "https://www.google.com/maps/search/?api=1&query=Wissenschaftspark%20Golm%20Bushaltestelle%20Potsdam")!),
+    ]
+
     var body: some View {
         let farben = Farben.fuer(dunkel: schema == .dark)
         NavigationStack {
@@ -28,6 +35,9 @@ struct AbfahrtenReiter: View {
                             Label("Aktualisieren fehlgeschlagen – der VBB-Dienst antwortet gerade nicht.", systemImage: "exclamationmark.triangle")
                                 .foregroundStyle(Palette.jetzt)
                             Button("Erneut versuchen") { Task { await laden() } }
+                            mapsKnoepfe
+                        } footer: {
+                            Text("In Google Maps die Haltestelle antippen, um die nächsten Abfahrten zu sehen.")
                         }
                     }
                     Section {
@@ -58,6 +68,17 @@ struct AbfahrtenReiter: View {
             }
             .refreshable { await laden() }
             .navigationTitle("Abfahrten")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(Self.mapsZiele, id: \.name) { ziel in
+                            Link(destination: ziel.url) { Label(ziel.name, systemImage: "mappin.and.ellipse") }
+                        }
+                    } label: {
+                        Label("In Google Maps öffnen", systemImage: "map")
+                    }
+                }
+            }
         }
         .task {
             await laden()
@@ -70,6 +91,16 @@ struct AbfahrtenReiter: View {
         }
         .onChange(of: phase) { _, neu in
             if neu == .active { Task { await laden() } }
+        }
+    }
+
+    /// Ein Knopf je Haltestelle: "Golm Bhf in Google Maps" …
+    @ViewBuilder
+    private var mapsKnoepfe: some View {
+        ForEach(Self.mapsZiele, id: \.name) { ziel in
+            Link(destination: ziel.url) {
+                Label("\(ziel.name) in Google Maps", systemImage: "map")
+            }
         }
     }
 
