@@ -154,6 +154,8 @@ enum Speicher {
         var vorlaufMinuten: Int = 10
         /// Live-Aktivität (Dynamic Island) für die laufende Veranstaltung
         var liveAktivitaet: Bool = true
+        /// Karten-App für Routen und Haltestellen
+        var karten: KartenApp = .apple
 
         init() {}
 
@@ -164,6 +166,7 @@ enum Speicher {
             erinnerungen = try c.decodeIfPresent(Bool.self, forKey: .erinnerungen) ?? false
             vorlaufMinuten = try c.decodeIfPresent(Int.self, forKey: .vorlaufMinuten) ?? 10
             liveAktivitaet = try c.decodeIfPresent(Bool.self, forKey: .liveAktivitaet) ?? true
+            karten = (try? c.decodeIfPresent(KartenApp.self, forKey: .karten)) ?? .apple
         }
     }
 

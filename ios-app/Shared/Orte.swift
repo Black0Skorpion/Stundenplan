@@ -43,10 +43,9 @@ enum Orte {
         return max(1, Int((meter(ka, kb) * 1.3 / 75).rounded()))
     }
 
-    /// Apple Karten mit Fußweg zum Haus
+    /// Fußweg zum Haus in der gewählten Karten-App (Apple Karten oder Google Maps)
     static func kartenURL(_ raum: String) -> URL? {
         guard let k = koordinate(raum), let r = RaumTeile(raum) else { return nil }
-        let name = "Uni Potsdam Haus \(r.haus)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        return URL(string: "https://maps.apple.com/?daddr=\(k.lat),\(k.lon)&dirflg=w&q=\(name)")
+        return Karten.route(lat: k.lat, lon: k.lon, name: "Uni Potsdam Haus \(r.haus)")
     }
 }

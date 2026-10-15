@@ -10,12 +10,13 @@ struct AbfahrtenReiter: View {
     @State private var fehler = false
     @State private var nurZuege = false
 
-    /// Google Maps mit der Haltestelle (öffnet die Google-Maps-App, falls installiert, sonst die Webseite).
+    /// Haltestelle in der gewählten Karten-App (Einstellungen → Karten).
     /// Dort lassen sich über die Haltestelle die nächsten Abfahrten ansehen.
-    private static let mapsZiele: [(name: String, url: URL)] = [
-        ("Golm Bhf", URL(string: "https://www.google.com/maps/search/?api=1&query=Bahnhof%20Potsdam-Golm")!),
-        ("Science Park/Uni", URL(string: "https://www.google.com/maps/search/?api=1&query=Wissenschaftspark%20Golm%20Bushaltestelle%20Potsdam")!),
-    ]
+    private var mapsZiele: [(name: String, url: URL)] {
+        [("Golm Bhf", "Bahnhof Potsdam-Golm"),
+         ("Science Park/Uni", "Haltestelle Science Park/Universität Potsdam Golm")]
+            .compactMap { ziel in Karten.suche(ziel.1).map { (name: ziel.0, url: $0) } }
+    }
 
     var body: some View {
         let farben = Farben.fuer(dunkel: schema == .dark)
@@ -37,7 +38,7 @@ struct AbfahrtenReiter: View {
                             Button("Erneut versuchen") { Task { await laden() } }
                             mapsKnoepfe
                         } footer: {
-                            Text("In Google Maps die Haltestelle antippen, um die nächsten Abfahrten zu sehen.")
+                            Text("In \(Karten.app.name) die Haltestelle antippen, um die nächsten Abfahrten zu sehen.")
                         }
                     }
                     Section {
@@ -71,11 +72,11 @@ struct AbfahrtenReiter: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        ForEach(Self.mapsZiele, id: \.name) { ziel in
+                        ForEach(mapsZiele, id: \.name) { ziel in
                             Link(destination: ziel.url) { Label(ziel.name, systemImage: "mappin.and.ellipse") }
                         }
                     } label: {
-                        Label("In Google Maps öffnen", systemImage: "map")
+                        Label("In \(Karten.app.name) öffnen", systemImage: "map")
                     }
                 }
             }
@@ -94,12 +95,12 @@ struct AbfahrtenReiter: View {
         }
     }
 
-    /// Ein Knopf je Haltestelle: "Golm Bhf in Google Maps" …
+    /// Ein Knopf je Haltestelle: "Golm Bhf in Apple Karten" …
     @ViewBuilder
     private var mapsKnoepfe: some View {
-        ForEach(Self.mapsZiele, id: \.name) { ziel in
+        ForEach(mapsZiele, id: \.name) { ziel in
             Link(destination: ziel.url) {
-                Label("\(ziel.name) in Google Maps", systemImage: "map")
+                Label("\(ziel.name) in \(Karten.app.name)", systemImage: "map")
             }
         }
     }

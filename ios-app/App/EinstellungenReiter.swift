@@ -8,6 +8,7 @@ struct EinstellungenReiter: View {
     @State private var erinnerungen = Speicher.einstellungen().erinnerungen
     @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
     @State private var live = Speicher.einstellungen().liveAktivitaet
+    @State private var karten = Speicher.einstellungen().karten
 
     private var icsTypen: [UTType] {
         var t: [UTType] = [.calendarEvent]
@@ -78,6 +79,21 @@ struct EinstellungenReiter: View {
                 }
                 .onChange(of: erinnerungen) { _, an in erinnerungenAendern(an) }
                 .onChange(of: vorlauf) { _, _ in speichereErinnerungen() }
+
+                Section {
+                    Picker("Karten-App", selection: $karten) {
+                        ForEach(KartenApp.allCases) { Text($0.name).tag($0) }
+                    }
+                } header: {
+                    Text("Karten")
+                } footer: {
+                    Text("Wird für die Route im Lageplan und die Haltestellen im Abfahrten-Reiter verwendet. Google Maps öffnet die App, falls installiert, sonst die Webseite.")
+                }
+                .onChange(of: karten) { _, neu in
+                    var e = Speicher.einstellungen()
+                    e.karten = neu
+                    Speicher.speichere(e)
+                }
 
                 Section {
                     LabeledContent("Datenaustausch", value: Speicher.geteilt ? "aktiv" : "nicht verfügbar")
