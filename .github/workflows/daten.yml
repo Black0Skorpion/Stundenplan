@@ -14,24 +14,12 @@ jobs:
       - run: |
           mkdir -p out && cd out
           h() { curl -sL --max-time 120 -A "Mozilla/5.0" -o "$1" "$2"; echo "::warning::$1 $(stat -c %s "$1" 2>/dev/null) $(file -b "$1" | head -c 60)"; }
-          h np_legende.pdf "https://www.uni-potsdam.de/fileadmin/projects/studium/docs/04_beratung_service/06_psychologische_beratung/lageplan_legende_neues_palais.pdf"
-          h s3_lageplan.bin "https://dialog-box-prod-bucket.s3.eu-central-1.amazonaws.com/files/potsdam/e93fe774-56b3-448e-bf07-1c6fc9a94375_1769691302073_Lageplan_Uni_Potsdam"
-          h np_2025.pdf "https://www.uni-potsdam.de/fileadmin/projects/zessko-13/Schreibberatung/Beratungen/2025_Lageplan_mit_Legende_Neues_Palais.pdf"
-          h gr_2025.pdf "https://www.uni-potsdam.de/fileadmin/projects/zessko-13/Schreibberatung/Beratungen/2025_Lageplan_mit_Legende_Griebnitzsee.pdf"
-          h gr_2022.pdf "https://www.cs.uni-potsdam.de/dcfs2023/docs/2022-11_Campus_Griebnitzsee_Lageplan_mit_Legende.pdf"
-          h gr_2024.pdf "https://www.uni-potsdam.de/fileadmin/projects/gebf2024/Lageplan_Campus_Griebnitzsee.pdf"
-          h mensen.json "https://openmensa.org/api/v2/canteens?near%5Blat%5D=52.40&near%5Blng%5D=13.05&near%5Bdist%5D=25"
-          for q in "Griebnitzsee" "Neues%20Palais" "Park%20Sanssouci" "Golm"; do
-            curl -s --max-time 40 "https://v6.vbb.transport.rest/locations?query=$q&results=8&addresses=false&poi=false" -o "vbb_$q.json"; echo "::warning::vbb $q $(head -c 120 vbb_$q.json)"
+          for srv in https://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter https://maps.mail.ru/osm/tools/overpass/api/interpreter; do
+            OQ='[out:json][timeout:90];(nwr["building"](around:900,52.4005,13.0140);nwr["building"](around:800,52.3935,13.1290););out tags center;'
+            curl -s --max-time 120 -A "Stundenplan-Datensammlung (github.com/Black0Skorpion/Stundenplan)" -H "Accept: application/json" --data-urlencode "data=$OQ" "$srv" -o osm.json
+            echo "::warning::osm $srv $(stat -c %s osm.json) $(head -c 80 osm.json)"
+            head -c 20 osm.json | grep -q '{' && break
           done
-          curl -sL --max-time 300 -o gtfs.zip "https://www.vbb.de/vbbgtfs" && unzip -o -q gtfs.zip stops.txt routes.txt 2>/dev/null
-          echo "::warning::gtfs $(stat -c %s gtfs.zip) stops $(wc -l < stops.txt 2>/dev/null)"
-          grep -i -E "Griebnitzsee|Neues Palais|Park Sanssouci|Golm|Campus|Universität|Kaiser-Friedrich|Am Neuen Palais|Prof.-Dr.-Helmert|Stahnsdorfer" stops.txt > stops_auszug.txt || true
-          grep -E "RB20|RB21|RB22|RB23|RE1\b|S7\b|S1\b" routes.txt > routes_auszug.txt || true
-          rm -f gtfs.zip stops.txt routes.txt
-          OQ='[out:json][timeout:60];(way["building"](around:900,52.4005,13.0140);way["building"](around:700,52.3935,13.1290););out tags center;'
-          curl -s --max-time 120 -X POST --data-urlencode "data=$OQ" https://overpass-api.de/api/interpreter -o osm.json
-          echo "::warning::osm $(stat -c %s osm.json)"
           ls -la
       - run: |
           cd out
