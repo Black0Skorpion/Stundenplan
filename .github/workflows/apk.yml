@@ -2,12 +2,14 @@ name: APK bauen
 
 on:
   push:
+    branches: [main]
     paths-ignore:
       - "ios-app/**"
       - "ios/**"
       - ".github/workflows/ios.yml"
       - ".github/workflows/archiv.yml"
       - ".github/workflows/aufraeumen.yml"
+      - ".github/workflows/daten.yml"
       - "README.md"
       - "releases/**"
   workflow_dispatch:
