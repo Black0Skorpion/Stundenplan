@@ -13,7 +13,10 @@ final class PulsModell: ObservableObject {
         var titel: String
         /// Gewählte Gruppe (nil = noch nicht gewählt; bei nur einer Gruppe automatisch)
         var gruppe: String?
+        /// Ausgeblendete wiederkehrende Termine (Regel.schluessel), z. B. Zusatzübungen, zu denen man nicht geht
+        var ausgeblendet: [String]?
         var id: String { publishid }
+        var ausgeblendetSet: Set<String> { Set(ausgeblendet ?? []) }
     }
 
     struct Auswahl: Codable {
@@ -42,11 +45,17 @@ final class PulsModell: ObservableObject {
 
     private init() {
         auswahl = Speicher.lesen(Auswahl.self, "puls-auswahl.json") ?? Auswahl()
-        cache = Speicher.lesen([String: Puls.Veranstaltung].self, "puls-cache.json") ?? [:]
+        // v2: gleiche Termine in mehreren Räumen werden zusammengefasst – ältere Zwischenspeicher neu laden
+        cache = Speicher.lesen([String: Puls.Veranstaltung].self, "puls-cache-v2.json") ?? [:]
         stand = Speicher.lesen(Stand.self, "puls-stand.json") ?? Stand()
     }
 
-    private func cacheSpeichern() { Speicher.schreiben(cache, "puls-cache.json") }
+    private func cacheSpeichern() { Speicher.schreiben(cache, "puls-cache-v2.json") }
+
+    /// Fehlende Veranstaltungen im Zwischenspeicher nachladen (z. B. nach einem Update)
+    func fehlendeLaden() async {
+        for k in auswahl.kurse where cache[k.publishid] == nil { _ = await laden(k.publishid) }
+    }
 
     // ───────────── Laden ─────────────
 
@@ -94,6 +103,18 @@ final class PulsModell: ObservableObject {
         auswahl.kurse[i].gruppe = gruppe
     }
 
+    func istAusgeblendet(_ publishid: String, _ r: Puls.Regel) -> Bool {
+        auswahl.kurse.first(where: { $0.publishid == publishid })?.ausgeblendetSet.contains(r.schluessel) ?? false
+    }
+
+    /// Wiederkehrenden Termin aus dem Stundenplan nehmen bzw. wieder aufnehmen (bleibt in der Modulwahl sichtbar)
+    func ausblendenUmschalten(_ publishid: String, _ r: Puls.Regel) {
+        guard let i = auswahl.kurse.firstIndex(where: { $0.publishid == publishid }) else { return }
+        var menge = auswahl.kurse[i].ausgeblendetSet
+        if menge.contains(r.schluessel) { menge.remove(r.schluessel) } else { menge.insert(r.schluessel) }
+        auswahl.kurse[i].ausgeblendet = menge.sorted()
+    }
+
     func setzeSemester(_ code: String) {
         guard code != auswahl.semester else { return }
         auswahl.semester = code
@@ -105,7 +126,7 @@ final class PulsModell: ObservableObject {
     /// Termine einer Veranstaltung mit gewählter (oder angegebener) Gruppe
     func einzeltermine(_ k: Kurs, gruppe: String? = nil) -> [Puls.EinzelTermin] {
         guard let v = cache[k.publishid] else { return [] }
-        return Puls.termine(v, gruppe: gruppe ?? k.gruppe)
+        return Puls.termine(v, gruppe: gruppe ?? k.gruppe, ohne: k.ausgeblendetSet)
     }
 
     func termine() -> [Termin] {
@@ -114,17 +135,30 @@ final class PulsModell: ObservableObject {
         }.sorted { $0.start < $1.start }
     }
 
-    /// Überschneidungen einer Gruppe mit den anderen gewählten Veranstaltungen (Titel der anderen)
-    func ueberschneidungen(_ k: Kurs, gruppe: String) -> [String] {
-        let eigene = einzeltermine(k, gruppe: gruppe)
-        var treffer = Set<String>()
-        for anderer in auswahl.kurse where anderer.publishid != k.publishid && anderer.gruppe != nil {
-            let fremd = einzeltermine(anderer)
-            if eigene.contains(where: { e in fremd.contains { f in e.start < f.ende && f.start < e.ende } }) {
-                treffer.insert(Kurse.info(anderer.titel).kurz)
+    struct Ueberschneidung {
+        /// Durch die Gruppe selbst (Übung/Tutorium dieser Gruppe)
+        var gruppe: [String] = []
+        /// Durch Termine, die für alle Gruppen gelten (meist die Vorlesung) – hängt nicht an der Gruppenwahl
+        var allgemein: [String] = []
+    }
+
+    /// Überschneidungen mit den anderen gewählten Fächern (nur deren gewählte Gruppen, ohne Ausgeblendetes)
+    func ueberschneidungen(_ k: Kurs, gruppe: String) -> Ueberschneidung {
+        guard let v = cache[k.publishid], let g = v.gruppen.first(where: { $0.nummer == gruppe }) else { return Ueberschneidung() }
+        let aus = k.ausgeblendetSet
+        let eigen = Puls.termine(regeln: v.eigenes(g).filter { !aus.contains($0.schluessel) })
+        let gemeinsam = v.gruppen.count > 1 ? Puls.termine(regeln: v.gemeinsam.filter { !aus.contains($0.schluessel) }) : []
+        func treffer(_ termine: [Puls.EinzelTermin]) -> [String] {
+            var namen = Set<String>()
+            for anderer in auswahl.kurse where anderer.publishid != k.publishid && anderer.gruppe != nil {
+                let fremd = einzeltermine(anderer)
+                if termine.contains(where: { e in fremd.contains { f in e.start < f.ende && f.start < e.ende } }) {
+                    namen.insert(Kurse.info(anderer.titel).kurz)
+                }
             }
+            return namen.sorted()
         }
-        return treffer.sorted()
+        return Ueberschneidung(gruppe: treffer(eigen), allgemein: treffer(gemeinsam))
     }
 
     var fehlendeGruppen: [Kurs] { auswahl.kurse.filter { $0.gruppe == nil } }

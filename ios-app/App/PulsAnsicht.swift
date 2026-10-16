@@ -12,6 +12,7 @@ struct PulsAuswahlAnsicht: View {
     @State private var meldung: String?
     @State private var laedt: String?
     @State private var optionen = false
+    @State private var verzeichnis = false
     @State private var link = ""
 
     var body: some View {
@@ -43,10 +44,20 @@ struct PulsAuswahlAnsicht: View {
             }
         }
         .sheet(isPresented: $optionen) { NavigationStack { PulsOptionenAnsicht() } }
+        .sheet(isPresented: $verzeichnis) {
+            NavigationStack { PulsVerzeichnisAnsicht(pfad: "", titel: "Vorlesungsverzeichnis") }
+                .environment(\.zumPlan, ZumPlan { id in
+                    verzeichnis = false
+                    if let id { fokus = id }
+                })
+        }
         .alert(meldung ?? "", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
             Button("OK", role: .cancel) {}
         }
-        .task { await katalog.bereitstellen(puls.auswahl.semester) }
+        .task {
+            await puls.fehlendeLaden()
+            await katalog.bereitstellen(puls.auswahl.semester)
+        }
     }
 
     private var liste: some View {
@@ -79,13 +90,11 @@ struct PulsAuswahlAnsicht: View {
             } header: {
                 Text("Deine Fächer")
             } footer: {
-                Text("Fach antippen: alle Gruppen erscheinen grau im Plan – Gruppe im Plan oder hier antippen. Zum Entfernen nach links wischen.")
+                Text("Fach antippen: alle Gruppen erscheinen grau im Plan – Gruppe im Plan oder hier antippen. Termin im Plan gedrückt halten: aus dem Stundenplan ausblenden (z. B. Zusatzübungen). Zum Entfernen nach links wischen.")
             }
 
             Section {
-                NavigationLink {
-                    PulsVerzeichnisAnsicht(pfad: "", titel: "Vorlesungsverzeichnis")
-                } label: {
+                Button { verzeichnis = true } label: {
                     Label("Im Vorlesungsverzeichnis stöbern", systemImage: "list.bullet.indent")
                 }
                 HStack {
@@ -215,7 +224,7 @@ struct PulsOptionenAnsicht: View {
 
 /// Ein Kästchen im Vorschau-Plan
 struct PlanerBlock: Identifiable, Hashable {
-    enum Zustand: Hashable { case fest, option, konflikt }
+    enum Zustand: Hashable { case fest, option, konflikt, ausgeblendet }
     let id: String
     let publishid: String
     let gruppe: String?
@@ -226,6 +235,7 @@ struct PlanerBlock: Identifiable, Hashable {
     let art: String
     let raum: String
     let farbe: Color
+    let regel: Puls.Regel
     var zustand: Zustand
     var spalte = 0
     var spalten = 1
@@ -251,13 +261,15 @@ struct PlanerRaster: View {
         for k in puls.auswahl.kurse {
             guard let v = puls.cache[k.publishid] else { continue }
             let info = Kurse.info(k.titel)
+            let aus = k.ausgeblendetSet
             func hinzu(_ regeln: [Puls.Regel], gruppe: String?, zustand: PlanerBlock.Zustand) {
                 for (i, r) in regeln.enumerated() where !r.rhythmus.lowercased().contains("einzel") {
                     guard let tag = Self.tagNummer[String(r.tag.prefix(2))] else { continue }
-                    liste.append(PlanerBlock(id: "\(k.publishid)-\(gruppe ?? "g")-\(i)-\(r.hashValue)", publishid: k.publishid, gruppe: gruppe,
+                    let z: PlanerBlock.Zustand = zustand == .fest && aus.contains(r.schluessel) ? .ausgeblendet : zustand
+                    liste.append(PlanerBlock(id: "\(k.publishid)-\(gruppe ?? "g")-\(i)-\(r.schluessel)", publishid: k.publishid, gruppe: gruppe,
                                              tag: tag, von: Self.minuten(r.von), bis: Self.minuten(r.bis),
                                              kurz: info.kurz, art: Kurse.typ(r.art).kurz, raum: r.raum,
-                                             farbe: info.farbe, zustand: zustand))
+                                             farbe: info.farbe, regel: r, zustand: z))
                 }
             }
             if v.gruppen.count <= 1 {
@@ -277,7 +289,7 @@ struct PlanerRaster: View {
         }
         // Überschneidungen zwischen festen Terminen verschiedener Fächer markieren
         for i in liste.indices where liste[i].zustand == .fest {
-            for j in liste.indices where j != i && liste[j].zustand != .option && liste[j].publishid != liste[i].publishid {
+            for j in liste.indices where j != i && (liste[j].zustand == .fest || liste[j].zustand == .konflikt) && liste[j].publishid != liste[i].publishid {
                 if liste[i].tag == liste[j].tag && liste[i].von < liste[j].bis && liste[j].von < liste[i].bis {
                     liste[i].zustand = .konflikt
                 }
@@ -358,6 +370,15 @@ struct PlanerRaster: View {
                                 }
                             }
                         }
+                        .contextMenu {
+                            if b.zustand == .option, let g = b.gruppe {
+                                Button("Gruppe \(g) wählen", systemImage: "checkmark.circle") { puls.waehle(b.publishid, gruppe: g) }
+                            } else if b.zustand == .ausgeblendet {
+                                Button("Wieder im Stundenplan zeigen", systemImage: "eye") { puls.ausblendenUmschalten(b.publishid, b.regel) }
+                            } else {
+                                Button("Aus dem Stundenplan ausblenden", systemImage: "eye.slash") { puls.ausblendenUmschalten(b.publishid, b.regel) }
+                            }
+                        }
                 }
                 if liste.isEmpty {
                     Text("Hier erscheint dein Wochenplan.")
@@ -377,8 +398,12 @@ private struct BlockAnsicht: View {
     var body: some View {
         let b = block
         let option = b.zustand == .option
+        let aus = b.zustand == .ausgeblendet
         VStack(alignment: .leading, spacing: 0) {
-            Text(b.kurz).font(.system(size: 9, weight: .bold)).lineLimit(1)
+            HStack(spacing: 2) {
+                if aus { Image(systemName: "eye.slash").font(.system(size: 7)) }
+                Text(b.kurz).font(.system(size: 9, weight: .bold)).lineLimit(1).strikethrough(aus)
+            }
             Text(option ? "G\(b.gruppe ?? "") \(b.art)" : b.art).font(.system(size: 8, weight: .medium)).lineLimit(1)
             Text(b.raum).font(.system(size: 7)).lineLimit(1).opacity(0.85)
         }
@@ -386,15 +411,15 @@ private struct BlockAnsicht: View {
         .padding(.horizontal, 2)
         .padding(.vertical, 1)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .foregroundStyle(option ? Color.secondary : .white)
+        .foregroundStyle(option || aus ? Color.secondary : .white)
         .background(
             RoundedRectangle(cornerRadius: 4)
-                .fill(option ? Color.gray.opacity(0.16) : b.farbe.opacity(fokus || !option ? 1 : 0.8))
+                .fill(option ? Color.gray.opacity(0.16) : (aus ? b.farbe.opacity(0.15) : b.farbe))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(b.zustand == .konflikt ? Palette.jetzt : (option ? Color.gray.opacity(0.55) : (fokus ? Color.primary.opacity(0.6) : .clear)),
-                              style: StrokeStyle(lineWidth: b.zustand == .konflikt ? 2 : 1, dash: option ? [3, 2] : []))
+                .strokeBorder(b.zustand == .konflikt ? Palette.jetzt : (option ? Color.gray.opacity(0.55) : (aus ? b.farbe.opacity(0.6) : (fokus ? Color.primary.opacity(0.6) : .clear))),
+                              style: StrokeStyle(lineWidth: b.zustand == .konflikt ? 2 : 1, dash: option || aus ? [3, 2] : []))
         )
         .contentShape(Rectangle())
     }
@@ -422,11 +447,27 @@ private struct KursZeile: View {
                         } else {
                             Text("Gruppe wählen (\(v.gruppen.count) zur Auswahl)").font(.caption.weight(.semibold)).foregroundStyle(Palette.jetzt)
                         }
+                        // Überschneidung der Vorlesung (gilt für alle Gruppen, also kein Grund für eine andere Gruppe)
+                        if let g = v.gruppen.first {
+                            let allgemein = puls.ueberschneidungen(kurs, gruppe: kurs.gruppe ?? g.nummer).allgemein
+                            if !allgemein.isEmpty {
+                                Label("Vorlesung überschneidet sich mit " + allgemein.joined(separator: ", "), systemImage: "exclamationmark.triangle")
+                                    .font(.caption2).foregroundStyle(Palette.jetzt)
+                            }
+                        }
+                        let n = kurs.ausgeblendet?.count ?? 0
+                        if n > 0 {
+                            Label("\(n) Termin\(n == 1 ? "" : "e") ausgeblendet", systemImage: "eye.slash")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 Spacer()
                 NavigationLink { PulsKursAnsicht(publishid: kurs.publishid) } label: {
                     Image(systemName: "info.circle")
+                        .font(.title3)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
                 .fixedSize()
@@ -439,7 +480,8 @@ private struct KursZeile: View {
                     HStack(spacing: 6) {
                         ForEach(v.gruppen) { g in
                             let gewaehlt = kurs.gruppe == g.nummer
-                            let konflikt = !puls.ueberschneidungen(kurs, gruppe: g.nummer).isEmpty
+                            // Nur Überschneidungen durch die Gruppe selbst – nicht durch die gemeinsame Vorlesung
+                            let konflikt = !puls.ueberschneidungen(kurs, gruppe: g.nummer).gruppe.isEmpty
                             Button {
                                 withAnimation { puls.waehle(kurs.publishid, gruppe: g.nummer) }
                             } label: {
@@ -482,8 +524,18 @@ struct PulsKursAnsicht: View {
                     Text(v.titel)
                 }
                 if !v.gemeinsam.isEmpty && v.gruppen.count > 1 {
-                    Section("Für alle Gruppen") {
-                        ForEach(v.gemeinsam, id: \.self) { RegelZeile(regel: $0) }
+                    let allgemein = puls.ueberschneidungen(kurs, gruppe: kurs.gruppe ?? v.gruppen[0].nummer).allgemein
+                    Section {
+                        ForEach(v.gemeinsam, id: \.self) { r in
+                            RegelZeile(regel: r, publishid: publishid)
+                        }
+                    } header: {
+                        Text("Für alle Gruppen")
+                    } footer: {
+                        if !allgemein.isEmpty {
+                            Text("Überschneidet sich mit " + allgemein.joined(separator: ", ") + " – unabhängig von der Gruppe.")
+                                .foregroundStyle(Palette.jetzt)
+                        }
                     }
                 }
                 Section {
@@ -497,9 +549,9 @@ struct PulsKursAnsicht: View {
                                     .foregroundStyle(kurs.gruppe == g.nummer ? Color.accentColor : .secondary)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(v.gruppen.count > 1 ? "Gruppe \(g.nummer)" : "Termine").fontWeight(.semibold)
-                                    ForEach(v.gruppen.count > 1 ? v.eigenes(g) : g.regeln, id: \.self) { RegelZeile(regel: $0) }
-                                    if !konflikte.isEmpty {
-                                        Label("Überschneidung mit " + konflikte.joined(separator: ", "), systemImage: "exclamationmark.triangle")
+                                    ForEach(v.gruppen.count > 1 ? v.eigenes(g) : g.regeln, id: \.self) { RegelZeile(regel: $0, publishid: publishid) }
+                                    if !konflikte.gruppe.isEmpty {
+                                        Label("Überschneidung mit " + konflikte.gruppe.joined(separator: ", "), systemImage: "exclamationmark.triangle")
                                             .font(.caption)
                                             .foregroundStyle(Palette.jetzt)
                                     }
@@ -510,6 +562,8 @@ struct PulsKursAnsicht: View {
                     }
                 } header: {
                     Text(v.gruppen.count > 1 ? "Gruppe wählen" : "Termine")
+                } footer: {
+                    Text("Auge antippen: Termin aus dem Stundenplan ausblenden bzw. wieder zeigen. Ausgeblendetes bleibt hier und in der Modulwahl durchgestrichen sichtbar.")
                 }
                 Section {
                     Button("Veranstaltung entfernen", role: .destructive) {
@@ -529,22 +583,58 @@ struct PulsKursAnsicht: View {
 
 private struct RegelZeile: View {
     let regel: Puls.Regel
+    var publishid: String? = nil
+    @ObservedObject private var puls = PulsModell.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(regel.kurz).font(.subheadline)
-            let zeitraum = regel.rhythmus.lowercased().contains("einzel")
-                ? "Einzeltermin"
-                : "\(regel.rhythmus), \(regel.beginn ?? "") – \(regel.ende ?? "")"
-            Text(zeitraum + (regel.ausfaelle.isEmpty ? "" : " · \(regel.ausfaelle.count) Ausfälle"))
-                .font(.caption).foregroundStyle(.secondary)
-            if !regel.lehrperson.isEmpty {
-                Text(regel.lehrperson).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+        let aus = publishid.map { puls.istAusgeblendet($0, regel) } ?? false
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(regel.kurz).font(.subheadline).strikethrough(aus)
+                let zeitraum = regel.rhythmus.lowercased().contains("einzel")
+                    ? "Einzeltermin"
+                    : "\(regel.rhythmus), \(regel.beginn ?? "") – \(regel.ende ?? "")"
+                Text(zeitraum + (regel.ausfaelle.isEmpty ? "" : " · \(regel.ausfaelle.count) Ausfälle") + (aus ? " · ausgeblendet" : ""))
+                    .font(.caption).foregroundStyle(.secondary)
+                if !regel.lehrperson.isEmpty {
+                    Text(regel.lehrperson).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                if let b = regel.bemerkung, !b.isEmpty {
+                    Text(b).font(.caption).foregroundStyle(.secondary)
+                }
             }
-            if let b = regel.bemerkung, !b.isEmpty {
-                Text(b).font(.caption).foregroundStyle(.secondary)
+            .opacity(aus ? 0.55 : 1)
+            if let publishid {
+                Spacer()
+                Button {
+                    puls.ausblendenUmschalten(publishid, regel)
+                } label: {
+                    Image(systemName: aus ? "eye.slash" : "eye")
+                        .foregroundStyle(aus ? .secondary : Color.accentColor)
+                        .frame(width: 40, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
             }
         }
+    }
+}
+
+/// „Zum Plan“ aus dem Vorlesungsverzeichnis (schließt das Blatt; optional mit neuem Fach im Fokus)
+struct ZumPlan {
+    let aktion: (String?) -> Void
+    init(_ aktion: @escaping (String?) -> Void) { self.aktion = aktion }
+    func callAsFunction(_ id: String? = nil) { aktion(id) }
+}
+
+private struct ZumPlanSchluessel: EnvironmentKey {
+    static let defaultValue: ZumPlan? = nil
+}
+
+extension EnvironmentValues {
+    var zumPlan: ZumPlan? {
+        get { self[ZumPlanSchluessel.self] }
+        set { self[ZumPlanSchluessel.self] = newValue }
     }
 }
 
@@ -557,6 +647,8 @@ struct PulsVerzeichnisAnsicht: View {
     @State private var fehler = false
     @State private var laedt: String?
     @State private var meldung: String?
+    @State private var zuletzt: String?
+    @Environment(\.zumPlan) private var zumPlan
 
     var body: some View {
         List {
@@ -589,6 +681,14 @@ struct PulsVerzeichnisAnsicht: View {
         }
         .navigationTitle(titel)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let zumPlan {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button { zumPlan(zuletzt) } label: { Label("Zum Plan", systemImage: "calendar") }
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+        }
         .task { if eintraege == nil { await laden() } }
         .alert(meldung ?? "", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
             Button("OK", role: .cancel) {}
@@ -605,5 +705,6 @@ struct PulsVerzeichnisAnsicht: View {
         laedt = id
         meldung = await puls.hinzufuegen(id)
         laedt = nil
+        if meldung == nil { zuletzt = id }
     }
 }

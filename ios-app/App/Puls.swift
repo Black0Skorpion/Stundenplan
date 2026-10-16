@@ -21,12 +21,20 @@ enum Puls {
         var lehrperson: String
         var ausfaelle: [String]  // "26.10.2026", …
         var bemerkung: String?
+        /// Gleicher Termin in weiteren Räumen (PULS führt die Gruppe dann doppelt)
+        var weitereRaeume: [String]?
 
         /// Kurzform für die Auswahl: "Übung · Do 12:00–14:00 · 2.70.0.10"
         var kurz: String {
             let wann = rhythmus.lowercased().contains("einzel") ? (beginn ?? tag) : tag
-            return "\(art) · \(wann) \(von)–\(bis)" + (raum.isEmpty ? "" : " · \(raum)")
+            return "\(art) · \(wann) \(von)–\(bis)" + (raum.isEmpty ? "" : " · \(raeume)")
         }
+
+        /// "2.70.0.05 / 2.70.0.10"
+        var raeume: String { ([raum] + (weitereRaeume ?? [])).joined(separator: " / ") }
+
+        /// Erkennt denselben wiederkehrenden Termin wieder (zum Ausblenden), unabhängig vom Raum
+        var schluessel: String { "\(art)|\(tag)|\(von)|\(bis)|\(rhythmus)|\(beginn ?? "")" }
     }
 
     struct Gruppe: Codable, Hashable, Identifiable {
@@ -219,7 +227,19 @@ enum Puls {
                     raum: raumKurz(z[6]), lehrperson: z[7],
                     ausfaelle: z.count > 8 ? daten(z[8]) : [], bemerkung: nil))
             }
-            if !regeln.isEmpty { gruppen.append(Gruppe(nummer: nummer, regeln: regeln)) }
+            // Gleicher Termin in mehreren Räumen → eine Zeile mit weiteren Räumen
+            var zusammen: [Regel] = []
+            for r in regeln {
+                if let i = zusammen.firstIndex(where: { $0.schluessel == r.schluessel && $0.ende == r.ende }) {
+                    if r.raum != zusammen[i].raum && !(zusammen[i].weitereRaeume ?? []).contains(r.raum) {
+                        zusammen[i].weitereRaeume = (zusammen[i].weitereRaeume ?? []) + [r.raum]
+                    }
+                    zusammen[i].ausfaelle = Array(Set(zusammen[i].ausfaelle).intersection(r.ausfaelle)).sorted()
+                } else {
+                    zusammen.append(r)
+                }
+            }
+            if !zusammen.isEmpty { gruppen.append(Gruppe(nummer: nummer, regeln: zusammen)) }
         }
         return Veranstaltung(publishid: publishid, titel: titel, art: art, semester: semester,
                              gruppen: gruppen, moodle: moodle, belegfrist: belegfrist)
@@ -322,11 +342,15 @@ enum Puls {
             .map { EinzelTermin(start: $0, ende: $0.addingTimeInterval(dauer), art: r.art, raum: r.raum) }
     }
 
-    /// Alle Termine einer gewählten Gruppe
-    static func termine(_ v: Veranstaltung, gruppe: String?) -> [EinzelTermin] {
+    /// Alle Termine einer gewählten Gruppe (ohne ausgeblendete Regeln)
+    static func termine(_ v: Veranstaltung, gruppe: String?, ohne ausgeblendet: Set<String> = []) -> [EinzelTermin] {
         let g = v.gruppen.first(where: { $0.nummer == gruppe }) ?? v.gruppen.first
+        return termine(regeln: (g?.regeln ?? []).filter { !ausgeblendet.contains($0.schluessel) })
+    }
+
+    static func termine(regeln: [Regel]) -> [EinzelTermin] {
         var gesehen = Set<String>()
-        return (g?.regeln ?? []).flatMap(termine)
+        return regeln.flatMap(termine)
             .filter { gesehen.insert("\($0.start.timeIntervalSince1970)|\($0.art)").inserted }
             .sorted { $0.start < $1.start }
     }
