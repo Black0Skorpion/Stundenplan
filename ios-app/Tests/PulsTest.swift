@@ -31,7 +31,7 @@ struct PulsTest {
             }
             print("\n== \(v.titel) [\(v.art), \(v.semester)] Gruppen: \(v.gruppen.count) Moodle: \(v.moodle != nil) Frist: \(v.belegfrist ?? "-")")
             for r in v.gemeinsam { print("   gemeinsam: \(r.kurz) \(r.rhythmus) \(r.beginn ?? "")–\(r.ende ?? "") Ausfälle: \(r.ausfaelle)") }
-            for g in v.gruppen { print("   Gruppe \(g.nummer): " + v.eigenes(g).map(\.kurz).joined(separator: " | ")) }
+            for g in v.gruppen { print("   Gruppe \(g.nummer): " + Puls.slots(v.eigenes(g)).map(\.kurz).joined(separator: " | ")) }
             let t = Puls.termine(v, gruppe: v.gruppen.first?.nummer)
             print("   Termine Gruppe 1: \(t.count), erste: " + t.prefix(4).map { "\(f.string(from: $0.start)) \($0.art) \($0.raum)" }.joined(separator: "; "))
             if t.isEmpty { fehler += 1 }

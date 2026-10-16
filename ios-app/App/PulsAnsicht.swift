@@ -263,12 +263,14 @@ struct PlanerRaster: View {
             let info = Kurse.info(k.titel)
             let aus = k.ausgeblendetSet
             func hinzu(_ regeln: [Puls.Regel], gruppe: String?, zustand: PlanerBlock.Zustand) {
-                for (i, r) in regeln.enumerated() where !r.rhythmus.lowercased().contains("einzel") {
+                // Zeilen desselben Slots (Raumwechsel im Semester) nur einmal zeigen
+                for (i, slot) in Puls.slots(regeln).enumerated() where !slot.regel.rhythmus.lowercased().contains("einzel") {
+                    let r = slot.regel
                     guard let tag = Self.tagNummer[String(r.tag.prefix(2))] else { continue }
                     let z: PlanerBlock.Zustand = zustand == .fest && aus.contains(r.schluessel) ? .ausgeblendet : zustand
                     liste.append(PlanerBlock(id: "\(k.publishid)-\(gruppe ?? "g")-\(i)-\(r.schluessel)", publishid: k.publishid, gruppe: gruppe,
                                              tag: tag, von: Self.minuten(r.von), bis: Self.minuten(r.bis),
-                                             kurz: info.kurz, art: Kurse.typ(r.art).kurz, raum: r.raum,
+                                             kurz: info.kurz, art: Kurse.typ(r.art).kurz, raum: slot.alle.count > 1 ? "\(r.raum) …" : r.raum,
                                              farbe: info.farbe, regel: r, zustand: z))
                 }
             }
@@ -487,8 +489,8 @@ private struct KursZeile: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text("Gruppe \(g.nummer)").font(.caption.weight(.bold))
-                                    ForEach(v.eigenes(g).prefix(2), id: \.self) { r in
-                                        Text("\(r.tag) \(r.von)–\(r.bis)").font(.caption2)
+                                    ForEach(Puls.slots(v.eigenes(g)).prefix(2)) { slot in
+                                        Text("\(slot.regel.tag) \(slot.regel.von)–\(slot.regel.bis)").font(.caption2)
                                     }
                                     if konflikt { Text("Überschneidung").font(.caption2.weight(.semibold)) }
                                 }
@@ -526,8 +528,8 @@ struct PulsKursAnsicht: View {
                 if !v.gemeinsam.isEmpty && v.gruppen.count > 1 {
                     let allgemein = puls.ueberschneidungen(kurs, gruppe: kurs.gruppe ?? v.gruppen[0].nummer).allgemein
                     Section {
-                        ForEach(v.gemeinsam, id: \.self) { r in
-                            RegelZeile(regel: r, publishid: publishid)
+                        ForEach(Puls.slots(v.gemeinsam)) { slot in
+                            RegelZeile(slot: slot, publishid: publishid)
                         }
                     } header: {
                         Text("Für alle Gruppen")
@@ -549,7 +551,7 @@ struct PulsKursAnsicht: View {
                                     .foregroundStyle(kurs.gruppe == g.nummer ? Color.accentColor : .secondary)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(v.gruppen.count > 1 ? "Gruppe \(g.nummer)" : "Termine").fontWeight(.semibold)
-                                    ForEach(v.gruppen.count > 1 ? v.eigenes(g) : g.regeln, id: \.self) { RegelZeile(regel: $0, publishid: publishid) }
+                                    ForEach(Puls.slots(v.gruppen.count > 1 ? v.eigenes(g) : g.regeln)) { RegelZeile(slot: $0, publishid: publishid) }
                                     if !konflikte.gruppe.isEmpty {
                                         Label("Überschneidung mit " + konflikte.gruppe.joined(separator: ", "), systemImage: "exclamationmark.triangle")
                                             .font(.caption)
@@ -582,19 +584,23 @@ struct PulsKursAnsicht: View {
 }
 
 private struct RegelZeile: View {
-    let regel: Puls.Regel
+    let slot: Puls.Slot
     var publishid: String? = nil
     @ObservedObject private var puls = PulsModell.shared
 
     var body: some View {
+        let regel = slot.regel
         let aus = publishid.map { puls.istAusgeblendet($0, regel) } ?? false
+        let ausfaelle = slot.alle.reduce(0) { $0 + $1.ausfaelle.count }
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(regel.kurz).font(.subheadline).strikethrough(aus)
+                Text(slot.kurz).font(.subheadline).strikethrough(aus)
+                let beginn = slot.alle.compactMap(\.beginn).first ?? ""
+                let ende = slot.alle.compactMap(\.ende).last ?? ""
                 let zeitraum = regel.rhythmus.lowercased().contains("einzel")
                     ? "Einzeltermin"
-                    : "\(regel.rhythmus), \(regel.beginn ?? "") – \(regel.ende ?? "")"
-                Text(zeitraum + (regel.ausfaelle.isEmpty ? "" : " · \(regel.ausfaelle.count) Ausfälle") + (aus ? " · ausgeblendet" : ""))
+                    : "\(regel.rhythmus), \(beginn) – \(ende)"
+                Text(zeitraum + (ausfaelle == 0 ? "" : " · \(ausfaelle) Ausfälle") + (aus ? " · ausgeblendet" : ""))
                     .font(.caption).foregroundStyle(.secondary)
                 if !regel.lehrperson.isEmpty {
                     Text(regel.lehrperson).font(.caption).foregroundStyle(.secondary).lineLimit(1)

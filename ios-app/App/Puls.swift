@@ -33,8 +33,11 @@ enum Puls {
         /// "2.70.0.05 / 2.70.0.10"
         var raeume: String { ([raum] + (weitereRaeume ?? [])).joined(separator: " / ") }
 
-        /// Erkennt denselben wiederkehrenden Termin wieder (zum Ausblenden), unabhängig vom Raum
-        var schluessel: String { "\(art)|\(tag)|\(von)|\(bis)|\(rhythmus)|\(beginn ?? "")" }
+        /// Derselbe Zeitslot (zum Ausblenden und Zusammenfassen), unabhängig von Raum und Zeitraum –
+        /// PULS teilt einen Slot auf, wenn der Raum mitten im Semester wechselt. Einzeltermine: mit Datum.
+        var schluessel: String {
+            "\(art)|\(tag)|\(von)|\(bis)|\(rhythmus)" + (rhythmus.lowercased().contains("einzel") ? "|\(beginn ?? "")" : "")
+        }
     }
 
     struct Gruppe: Codable, Hashable, Identifiable {
@@ -67,6 +70,48 @@ enum Puls {
             let rest = g.regeln.filter { !gem.contains($0) }
             return rest.isEmpty ? g.regeln : rest
         }
+    }
+
+    /// Ein wöchentlicher Zeitslot zur Anzeige – fasst Zeilen zusammen, die sich nur im Raum/Zeitraum
+    /// unterscheiden (z. B. „Mi 8–10 · 2.70.0.05 bis 28.10., dann 2.70.0.10“)
+    struct Slot: Identifiable, Hashable {
+        let regel: Regel
+        let alle: [Regel]
+        var id: String { regel.schluessel }
+
+        var raumText: String {
+            let teile = alle.sorted { ($0.beginn.flatMap(Puls.tagDatum) ?? .distantPast) < ($1.beginn.flatMap(Puls.tagDatum) ?? .distantPast) }
+            var raeume: [String] = []
+            for r in teile where !raeume.contains(r.raeume) { raeume.append(r.raeume) }
+            if raeume.count <= 1 { return raeume.first ?? "" }
+            // Raumwechsel im Semester: mit Datum, ab wann
+            return teile.enumerated().map { i, r in i == 0 ? r.raeume : "ab \(r.beginn.map { String($0.prefix(6)) } ?? "?") \(r.raeume)" }
+                .joined(separator: ", ")
+        }
+
+        var kurz: String {
+            let r = regel
+            let wann = r.rhythmus.lowercased().contains("einzel") ? (r.beginn ?? r.tag) : r.tag
+            return "\(r.art) · \(wann) \(r.von)–\(r.bis)" + (raumText.isEmpty ? "" : " · \(raumText)")
+        }
+    }
+
+    static func slots(_ regeln: [Regel]) -> [Slot] {
+        var reihenfolge: [String] = []
+        var gruppen: [String: [Regel]] = [:]
+        for r in regeln {
+            if gruppen[r.schluessel] == nil { reihenfolge.append(r.schluessel) }
+            gruppen[r.schluessel, default: []].append(r)
+        }
+        return reihenfolge.map { k in Slot(regel: gruppen[k]![0], alle: gruppen[k]!) }
+    }
+
+    static func tagDatum(_ s: String) -> Date? {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.timeZone = zone
+        f.dateFormat = "dd.MM.yyyy"
+        return f.date(from: s)
     }
 
     /// Ein Eintrag im Vorlesungsverzeichnis (Ordner oder Veranstaltung)
@@ -230,7 +275,7 @@ enum Puls {
             // Gleicher Termin in mehreren Räumen → eine Zeile mit weiteren Räumen
             var zusammen: [Regel] = []
             for r in regeln {
-                if let i = zusammen.firstIndex(where: { $0.schluessel == r.schluessel && $0.ende == r.ende }) {
+                if let i = zusammen.firstIndex(where: { $0.schluessel == r.schluessel && $0.beginn == r.beginn && $0.ende == r.ende }) {
                     if r.raum != zusammen[i].raum && !(zusammen[i].weitereRaeume ?? []).contains(r.raum) {
                         zusammen[i].weitereRaeume = (zusammen[i].weitereRaeume ?? []) + [r.raum]
                     }
