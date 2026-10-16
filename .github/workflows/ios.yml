@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "ios-app/**"
+      - "!ios-app/Tests/**"
       - ".github/workflows/ios.yml"
   workflow_dispatch:
 
