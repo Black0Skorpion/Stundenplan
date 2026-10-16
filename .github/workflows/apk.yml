@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths-ignore:
       - "ios-app/**"
-      - "ios/**"
+      - "scriptable/**"
+      - ".github/workflows/scriptable.yml"
+      - "CLAUDE.md"
       - ".github/workflows/ios.yml"
       - ".github/workflows/archiv.yml"
       - ".github/workflows/aufraeumen.yml"

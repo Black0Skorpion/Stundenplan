@@ -1,0 +1,60 @@
+name: Scriptable-Skripte veröffentlichen
+
+# Legt bei jeder Änderung in scriptable/ ein Release mit Versionsnummer an
+# (Version in scriptable/VERSION) und kopiert die Skripte nach releases/scriptable/<Version>/.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scriptable/**"
+      - ".github/workflows/scriptable.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  veroeffentlichen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version lesen und Syntax prüfen
+        run: |
+          echo "VERSION=$(tr -d '[:space:]' < scriptable/VERSION)" >> "$GITHUB_ENV"
+          for f in scriptable/*.js; do
+            node -e "new (Object.getPrototypeOf(async function(){}).constructor)(require('fs').readFileSync('$f','utf8'))" \
+              || { echo "::error::Syntaxfehler in $f"; exit 1; }
+          done
+      - name: Release mit Versionsnummer (alte Versionen bleiben erhalten)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="scriptable-v$VERSION"
+          cd scriptable
+          zip -q "../Scriptable-$VERSION.zip" Stundenplan.js AbfahrtenGolm.js MensaGolm.js
+          cd ..
+          DATEIEN="scriptable/Stundenplan.js scriptable/AbfahrtenGolm.js scriptable/MensaGolm.js Scriptable-$VERSION.zip"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $DATEIEN --clobber
+          else
+            gh release create "$TAG" $DATEIEN \
+              --title "Scriptable-Skripte $VERSION" \
+              --notes "Stundenplan-, Abfahrten- und Mensa-Skript für die App Scriptable (iPhone/iPad), Version $VERSION. Installation: die .js-Dateien in iCloud Drive › Scriptable legen (Dateinamen nicht ändern, sonst verlieren bestehende Widgets ihr Script) oder den Inhalt in Scriptable in ein Script mit gleichem Namen einfügen. Gebaut aus ${GITHUB_SHA::7}." \
+              --latest=false
+          fi
+      - name: Dateien in releases/scriptable/<Version>/ ablegen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p "$RUNNER_TEMP/s" && cp scriptable/*.js "$RUNNER_TEMP/s/"
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            mkdir -p "releases/scriptable/$VERSION"
+            cp "$RUNNER_TEMP"/s/*.js "releases/scriptable/$VERSION/"
+            git add releases/scriptable
+            git diff --cached --quiet && break
+            git commit -q -m "Scriptable-Skripte $VERSION in releases/scriptable abgelegt"
+            git push -q origin HEAD:main && break
+            sleep 5
+          done

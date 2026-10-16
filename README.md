@@ -9,16 +9,20 @@ des WiSe 26/27.
 
 Alle Versionen liegen nach Plattform getrennt in Ordnern – alte Versionen bleiben erhalten:
 
-- **iPhone/iPad:** [`releases/ios/`](releases/ios)
+- **iPhone/iPad (App):** [`releases/ios/`](releases/ios)
 - **Android:** [`releases/android/`](releases/android)
+- **Scriptable (iPhone/iPad, ohne Sideloading):** [`releases/scriptable/`](releases/scriptable) –
+  aktuelle Fassung direkt: [Stundenplan.js](scriptable/Stundenplan.js) ·
+  [AbfahrtenGolm.js](scriptable/AbfahrtenGolm.js) · [MensaGolm.js](scriptable/MensaGolm.js)
 
 Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion/Stundenplan/releases)
-(Tags `ios-v…` und `android-v…`).
+(Tags `ios-v…`, `android-v…` und `scriptable-v…`).
 
 | Plattform | Datei | Release |
 |---|---|---|
 | iPhone/iPad | `Stundenplan-<Version>.ipa` | `ios-v…` (aktuell 0.3.2) |
 | Android | `Stundenplan-<Version>.apk` | `android-v…` (aktuell 1.4) · [neueste](https://github.com/Black0Skorpion/Stundenplan/releases/latest) |
+| Scriptable | `Stundenplan.js`, `AbfahrtenGolm.js`, `MensaGolm.js` | `scriptable-v…` (aktuell 1.0.0) |
 
 ## Funktionen
 
@@ -87,7 +91,14 @@ Selbst bauen: Ordner in Android Studio öffnen → Run ▶. Kurznamen, Farben un
 
 ## iPhone mit Scriptable (ohne Sideloading)
 
-- `ios/Stundenplan.js` – Stundenplan-Widgets inkl. Sperrbildschirm und Lageplan.
+Installieren: die Dateien aus [`scriptable/`](scriptable) (oder einem Versionsordner in
+[`releases/scriptable/`](releases/scriptable)) in iCloud Drive › Scriptable legen – oder am iPhone die
+Datei öffnen, „Raw“ antippen, alles kopieren und in Scriptable in ein Script mit **genau demselben Namen**
+einfügen. Dateinamen nicht ändern, sonst verlieren bestehende Widgets ihr Script.
+Direktlinks zum Kopieren: [Stundenplan.js](https://raw.githubusercontent.com/Black0Skorpion/Stundenplan/main/scriptable/Stundenplan.js) · [AbfahrtenGolm.js](https://raw.githubusercontent.com/Black0Skorpion/Stundenplan/main/scriptable/AbfahrtenGolm.js) ·
+[MensaGolm.js](https://raw.githubusercontent.com/Black0Skorpion/Stundenplan/main/scriptable/MensaGolm.js)
+
+- `scriptable/Stundenplan.js` – Stundenplan-Widgets inkl. Sperrbildschirm und Lageplan.
   In der App **Scriptable** ein Script anlegen, Inhalt einfügen, als Widget hinzufügen.
   Menü (Script in Scriptable starten): Einstellungen (Farbschema, Planer-Link, Sperrbildschirm-Varianten,
   Erinnerungen, Campus, priorisierte Linien), Lageplan für heute, Termin ändern (fällt aus / Raum), Im Planer öffnen.
@@ -95,10 +106,10 @@ Selbst bauen: Ordner in Android Studio öffnen → Run ▶. Kurznamen, Farben un
   Bus-/Bahnverbindungen bei Campuswechsel. Die Pläne von Neues Palais und Griebnitzsee lädt das Script
   beim ersten Öffnen einmalig von GitHub.
   „Hey Siri, Stundenplan“ sagt die nächste Veranstaltung an.
-- `ios/AbfahrtenGolm.js` – Abfahrten am Campus (klein/mittel/groß), Campus und priorisierte Linien aus den
+- `scriptable/AbfahrtenGolm.js` – Abfahrten am Campus (klein/mittel/groß), Campus und priorisierte Linien aus den
   Einstellungen des Stundenplan-Scripts. Parameter `zug` = nur Züge, `hell`/`dunkel` = Farbschema,
   `golm`/`palais`/`griebnitzsee` = fester Campus. Antippen zeigt alle Abfahrten der nächsten 90 Minuten.
-- `ios/MensaGolm.js` – Mensa-Widget. Tag per Widget-Parameter: leer (nächster Öffnungstag),
+- `scriptable/MensaGolm.js` – Mensa-Widget. Tag per Widget-Parameter: leer (nächster Öffnungstag),
   `heute`, `morgen`, `+1`, `+2` … oder `mo`–`fr`; mehrere Widgets übereinander ergeben einen Stapel.
   Mensa des Campus aus den Stundenplan-Einstellungen, oder fest per `golm`/`palais`/`griebnitzsee`.
 
