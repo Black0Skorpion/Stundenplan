@@ -1,78 +1,173 @@
 import SwiftUI
 
-/// Einstellungen → „Veranstaltungen aus PULS“: eigene Modulwahl statt Planer/ICS
+/// Einstellungen → „Veranstaltungen aus PULS“: oben immer der Wochenplan als Vorschau,
+/// darunter Suche und die gewählten Fächer. Ein Fach antippen → alle möglichen Gruppen erscheinen
+/// grau im Plan und lassen sich dort (oder unten) direkt auswählen.
 struct PulsAuswahlAnsicht: View {
     @EnvironmentObject var zustand: AppZustand
     @ObservedObject private var puls = PulsModell.shared
-    @State private var link = ""
+    @ObservedObject private var katalog = PulsKatalog.shared
+    @State private var fokus: String?
+    @State private var suche = ""
     @State private var meldung: String?
-    @State private var laedtLink = false
+    @State private var laedt: String?
+    @State private var optionen = false
+    @State private var link = ""
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Semester", selection: Binding(get: { puls.auswahl.semester }, set: { puls.setzeSemester($0) })) {
-                    let jetzt = Puls.semesterCode()
-                    ForEach([jetzt, Puls.naechstesSemester(jetzt)], id: \.self) { Text(Puls.semesterName($0)).tag($0) }
+        GeometryReader { geo in
+            VStack(spacing: 0) {
+                PlanerRaster(fokus: $fokus)
+                    .frame(height: max(260, geo.size.height * 0.47))
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 6)
+                Divider()
+                liste
+            }
+        }
+        .navigationTitle("Modulwahl")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { optionen = true } label: { Image(systemName: "gearshape") }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(puls.auswahl.aktiv ? "Aktualisieren" : "Übernehmen") {
+                    let n = puls.uebernehmen()
+                    zustand.neuLaden()
+                    meldung = "\(n) Termine als Stundenplan übernommen." +
+                        (puls.fehlendeGruppen.isEmpty ? "" : " Bei \(puls.fehlendeGruppen.count) Fach/Fächern fehlt noch die Gruppe – dort wurde Gruppe 1 genommen.")
                 }
+                .fontWeight(.semibold)
+                .disabled(puls.auswahl.kurse.isEmpty)
+            }
+        }
+        .sheet(isPresented: $optionen) { NavigationStack { PulsOptionenAnsicht() } }
+        .alert(meldung ?? "", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
+            Button("OK", role: .cancel) {}
+        }
+        .task { await katalog.bereitstellen(puls.auswahl.semester) }
+    }
+
+    private var liste: some View {
+        List {
+            Section {
+                HStack {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Fach suchen, z. B. „Maschinenmodelle“ oder „INF-1030“", text: $suche)
+                        .autocorrectionDisabled()
+                    if !suche.isEmpty {
+                        Button { suche = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                            .buttonStyle(.borderless)
+                    }
+                }
+                if !suche.isEmpty { suchErgebnisse }
             } footer: {
-                Text("Daten aus dem öffentlichen Vorlesungsverzeichnis von PULS (ohne Anmeldung).")
+                if katalog.laedt { Text("Suchkatalog wird geladen …") }
+                else if let f = katalog.fehler { Text(f) }
             }
 
             Section {
                 if puls.auswahl.kurse.isEmpty {
-                    Text("Noch keine Veranstaltungen gewählt.").foregroundStyle(.secondary)
+                    Text("Noch keine Fächer gewählt – oben suchen oder im Vorlesungsverzeichnis stöbern.")
+                        .foregroundStyle(.secondary)
                 }
                 ForEach(puls.auswahl.kurse) { k in
-                    NavigationLink {
-                        PulsKursAnsicht(publishid: k.publishid)
-                    } label: {
-                        KursZeile(kurs: k)
-                    }
+                    KursZeile(kurs: k, fokus: $fokus)
                 }
                 .onDelete { i in i.map { puls.auswahl.kurse[$0].publishid }.forEach(puls.entfernen) }
             } header: {
-                Text("Deine Veranstaltungen")
+                Text("Deine Fächer")
             } footer: {
-                if !puls.fehlendeGruppen.isEmpty {
-                    Text("Bei \(puls.fehlendeGruppen.count) Veranstaltung(en) fehlt noch die Gruppe (Übung/Tutorium).")
-                        .foregroundStyle(Palette.jetzt)
-                }
-            }
-
-            Section("Hinzufügen") {
-                NavigationLink {
-                    PulsVerzeichnisAnsicht(pfad: "", titel: "Vorlesungsverzeichnis")
-                } label: {
-                    Label("Im Vorlesungsverzeichnis suchen", systemImage: "list.bullet.indent")
-                }
-                HStack {
-                    TextField("PULS-Link oder Nummer einfügen", text: $link)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    if laedtLink {
-                        ProgressView()
-                    } else {
-                        Button("Hinzufügen") { Task { await linkHinzufuegen() } }
-                            .buttonStyle(.borderless)
-                            .disabled(Puls.publishid(ausLink: link) == nil)
-                    }
-                }
+                Text("Fach antippen: alle Gruppen erscheinen grau im Plan – Gruppe im Plan oder hier antippen. Zum Entfernen nach links wischen.")
             }
 
             Section {
-                Button {
-                    let n = puls.uebernehmen()
-                    zustand.neuLaden()
-                    meldung = "\(n) Termine aus PULS übernommen."
+                NavigationLink {
+                    PulsVerzeichnisAnsicht(pfad: "", titel: "Vorlesungsverzeichnis")
                 } label: {
-                    Label(puls.auswahl.aktiv ? "Stundenplan neu erzeugen" : "Als Stundenplan übernehmen", systemImage: "checkmark.circle")
+                    Label("Im Vorlesungsverzeichnis stöbern", systemImage: "list.bullet.indent")
                 }
-                .disabled(puls.auswahl.kurse.isEmpty)
-            } footer: {
-                Text("Ersetzt den bisherigen Stundenplan (Import bzw. eingebaute Termine). Eigene Änderungen (fällt aus, Raum) bleiben erhalten, solange der Termin gleich bleibt.")
+                HStack {
+                    TextField("PULS-Link einfügen", text: $link)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button("Hinzufügen") { Task { await hinzufuegen(Puls.publishid(ausLink: link) ?? "") ; link = "" } }
+                        .buttonStyle(.borderless)
+                        .disabled(Puls.publishid(ausLink: link) == nil)
+                }
             }
+        }
+        .listStyle(.insetGrouped)
+    }
 
+    @ViewBuilder
+    private var suchErgebnisse: some View {
+        let treffer = katalog.suchen(suche)
+        if katalog.eintraege.isEmpty {
+            Text(katalog.laedt ? "Lädt …" : "Kein Suchkatalog vorhanden.").foregroundStyle(.secondary)
+            if !katalog.laedt {
+                Button("Katalog jetzt laden") { Task { await katalog.bereitstellen(puls.auswahl.semester, erzwingen: true) } }
+            }
+        } else if treffer.isEmpty {
+            Text("Nichts gefunden.").foregroundStyle(.secondary)
+        }
+        ForEach(treffer) { e in
+            Button {
+                Task { await hinzufuegen(e.publishid) }
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(e.titel).foregroundStyle(.primary).lineLimit(2)
+                        if let k = e.kontext.first {
+                            Text(k).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    }
+                    Spacer()
+                    if laedt == e.publishid { ProgressView() }
+                    else { Image(systemName: puls.enthaelt(e.publishid) ? "checkmark.circle.fill" : "plus.circle") }
+                }
+            }
+            .disabled(puls.enthaelt(e.publishid) || laedt != nil)
+        }
+    }
+
+    private func hinzufuegen(_ id: String) async {
+        guard !id.isEmpty else { return }
+        laedt = id
+        let fehler = await puls.hinzufuegen(id)
+        laedt = nil
+        if let fehler { meldung = fehler; return }
+        // Neues Fach gleich in den Fokus: seine Gruppen erscheinen im Plan
+        fokus = id
+        suche = ""
+    }
+}
+
+/// Zahnrad: Semester, Abgleich, letzte Änderungen
+struct PulsOptionenAnsicht: View {
+    @EnvironmentObject var zustand: AppZustand
+    @ObservedObject private var puls = PulsModell.shared
+    @ObservedObject private var katalog = PulsKatalog.shared
+    @Environment(\.dismiss) private var schliessen
+    @State private var meldung: String?
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Semester", selection: Binding(get: { puls.auswahl.semester }, set: {
+                    puls.setzeSemester($0)
+                    Task { await katalog.bereitstellen($0) }
+                })) {
+                    let jetzt = Puls.semesterCode()
+                    ForEach([jetzt, Puls.naechstesSemester(jetzt)], id: \.self) { Text(Puls.semesterName($0)).tag($0) }
+                }
+                LabeledContent("Suchkatalog", value: katalog.eintraege.isEmpty ? "–" : "\(katalog.eintraege.count) Veranstaltungen")
+                Button("Suchkatalog neu laden") { Task { await katalog.bereitstellen(puls.auswahl.semester, erzwingen: true) } }
+                    .disabled(katalog.laedt)
+            } footer: {
+                Text("Daten aus dem öffentlichen Vorlesungsverzeichnis von PULS (ohne Anmeldung). Der Suchkatalog wird wöchentlich auf GitHub erneuert und nur im WLAN automatisch geladen.")
+            }
             if puls.auswahl.aktiv {
                 Section {
                     Toggle("Nur im WLAN", isOn: $puls.auswahl.nurWLAN)
@@ -98,7 +193,7 @@ struct PulsAuswahlAnsicht: View {
                 } header: {
                     Text("Täglicher Abgleich")
                 } footer: {
-                    Text("Einmal am Tag lädt die App die Seiten deiner Veranstaltungen neu (zusammen etwa 50 KB) und übernimmt geänderte Räume, Zeiten und Ausfälle – beim Öffnen der App oder im Hintergrund, wenn iOS es zulässt.")
+                    Text("Einmal am Tag lädt die App die Seiten deiner Fächer neu (zusammen etwa 50 KB) und übernimmt geänderte Räume, Zeiten und Ausfälle – beim Öffnen der App oder im Hintergrund, wenn iOS es zulässt.")
                 }
                 if !puls.stand.aenderungen.isEmpty {
                     Section("Letzte Änderungen") {
@@ -107,37 +202,261 @@ struct PulsAuswahlAnsicht: View {
                 }
             }
         }
-        .navigationTitle("Veranstaltungen aus PULS")
+        .navigationTitle("Optionen")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { schliessen() } } }
         .alert(meldung ?? "", isPresented: Binding(get: { meldung != nil }, set: { if !$0 { meldung = nil } })) {
             Button("OK", role: .cancel) {}
         }
     }
+}
 
-    private func linkHinzufuegen() async {
-        guard let id = Puls.publishid(ausLink: link) else { return }
-        laedtLink = true
-        let fehler = await puls.hinzufuegen(id)
-        laedtLink = false
-        if let fehler { meldung = fehler } else { link = "" }
+// ───────────────────────── Wochenplan-Vorschau ─────────────────────────
+
+/// Ein Kästchen im Vorschau-Plan
+struct PlanerBlock: Identifiable, Hashable {
+    enum Zustand: Hashable { case fest, option, konflikt }
+    let id: String
+    let publishid: String
+    let gruppe: String?
+    let tag: Int          // 0 = Mo … 4 = Fr
+    let von: Int          // Minuten ab Mitternacht
+    let bis: Int
+    let kurz: String
+    let art: String
+    let raum: String
+    let farbe: Color
+    var zustand: Zustand
+    var spalte = 0
+    var spalten = 1
+}
+
+/// Wochenraster Mo–Fr mit allen gewählten Terminen (farbig) und – fürs Fach im Fokus – allen
+/// möglichen Gruppen (grau, antippbar). Termine sind die wöchentlichen Regeln, ohne Einzeltermine.
+struct PlanerRaster: View {
+    @Binding var fokus: String?
+    @ObservedObject private var puls = PulsModell.shared
+    @Environment(\.colorScheme) private var schema
+
+    private static let tage = ["Mo", "Di", "Mi", "Do", "Fr"]
+    private static let tagNummer = ["Mo": 0, "Di": 1, "Mi": 2, "Do": 3, "Fr": 4]
+
+    private static func minuten(_ s: String) -> Int {
+        let t = s.split(separator: ":").compactMap { Int($0) }
+        return t.count == 2 ? t[0] * 60 + t[1] : 0
+    }
+
+    private var bloecke: [PlanerBlock] {
+        var liste: [PlanerBlock] = []
+        for k in puls.auswahl.kurse {
+            guard let v = puls.cache[k.publishid] else { continue }
+            let info = Kurse.info(k.titel)
+            func hinzu(_ regeln: [Puls.Regel], gruppe: String?, zustand: PlanerBlock.Zustand) {
+                for (i, r) in regeln.enumerated() where !r.rhythmus.lowercased().contains("einzel") {
+                    guard let tag = Self.tagNummer[String(r.tag.prefix(2))] else { continue }
+                    liste.append(PlanerBlock(id: "\(k.publishid)-\(gruppe ?? "g")-\(i)-\(r.hashValue)", publishid: k.publishid, gruppe: gruppe,
+                                             tag: tag, von: Self.minuten(r.von), bis: Self.minuten(r.bis),
+                                             kurz: info.kurz, art: Kurse.typ(r.art).kurz, raum: r.raum,
+                                             farbe: info.farbe, zustand: zustand))
+                }
+            }
+            if v.gruppen.count <= 1 {
+                hinzu(v.gruppen.first?.regeln ?? [], gruppe: v.gruppen.first?.nummer, zustand: .fest)
+                continue
+            }
+            hinzu(v.gemeinsam, gruppe: nil, zustand: .fest)
+            if let g = k.gruppe, let gruppe = v.gruppen.first(where: { $0.nummer == g }) {
+                hinzu(v.eigenes(gruppe), gruppe: g, zustand: .fest)
+            }
+            // Fach im Fokus (oder ohne gewählte Gruppe): alle anderen Gruppen als graue Möglichkeiten
+            if fokus == k.publishid || (k.gruppe == nil && fokus == nil) {
+                for g in v.gruppen where g.nummer != k.gruppe {
+                    hinzu(v.eigenes(g), gruppe: g.nummer, zustand: .option)
+                }
+            }
+        }
+        // Überschneidungen zwischen festen Terminen verschiedener Fächer markieren
+        for i in liste.indices where liste[i].zustand == .fest {
+            for j in liste.indices where j != i && liste[j].zustand != .option && liste[j].publishid != liste[i].publishid {
+                if liste[i].tag == liste[j].tag && liste[i].von < liste[j].bis && liste[j].von < liste[i].bis {
+                    liste[i].zustand = .konflikt
+                }
+            }
+        }
+        // Nebeneinander legen, was sich am selben Tag überschneidet
+        for tag in 0..<5 {
+            let idx = liste.indices.filter { liste[$0].tag == tag }.sorted { (liste[$0].von, liste[$0].bis) < (liste[$1].von, liste[$1].bis) }
+            var gruppe: [Int] = []
+            var ende = 0
+            func abschliessen() {
+                var spaltenEnde: [Int] = []
+                for i in gruppe {
+                    if let s = spaltenEnde.firstIndex(where: { $0 <= liste[i].von }) {
+                        liste[i].spalte = s; spaltenEnde[s] = liste[i].bis
+                    } else {
+                        liste[i].spalte = spaltenEnde.count; spaltenEnde.append(liste[i].bis)
+                    }
+                }
+                for i in gruppe { liste[i].spalten = max(1, spaltenEnde.count) }
+                gruppe = []
+            }
+            for i in idx {
+                if !gruppe.isEmpty && liste[i].von >= ende { abschliessen() }
+                gruppe.append(i)
+                ende = max(gruppe.count == 1 ? liste[i].bis : ende, liste[i].bis)
+            }
+            abschliessen()
+        }
+        return liste
+    }
+
+    var body: some View {
+        let liste = bloecke
+        let farben = Farben.fuer(dunkel: schema == .dark)
+        let start = min(8 * 60, (liste.map(\.von).min() ?? 8 * 60) / 60 * 60)
+        let ende = max(18 * 60, ((liste.map(\.bis).max() ?? 18 * 60) + 59) / 60 * 60)
+        GeometryReader { geo in
+            let achse: CGFloat = 26, kopf: CGFloat = 18
+            let spaltenB = (geo.size.width - achse) / 5
+            let proMin = (geo.size.height - kopf) / CGFloat(ende - start)
+            ZStack(alignment: .topLeading) {
+                // Kopf und Stundenlinien
+                ForEach(0..<5, id: \.self) { t in
+                    Text(Self.tage[t])
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(farben.gedimmt)
+                        .frame(width: spaltenB, height: kopf)
+                        .offset(x: achse + CGFloat(t) * spaltenB, y: 0)
+                }
+                ForEach(Array(stride(from: start, through: ende, by: 60)), id: \.self) { m in
+                    let y = kopf + CGFloat(m - start) * proMin
+                    Path { p in p.move(to: CGPoint(x: achse, y: y)); p.addLine(to: CGPoint(x: geo.size.width, y: y)) }
+                        .stroke(farben.gedimmt.opacity(0.18), lineWidth: 0.5)
+                    if m < ende {
+                        Text("\(m / 60)")
+                            .font(.system(size: 9))
+                            .foregroundStyle(farben.gedimmt)
+                            .frame(width: achse - 4, alignment: .trailing)
+                            .offset(x: 0, y: y - 6)
+                    }
+                }
+                // Termine
+                ForEach(liste) { b in
+                    let breite = spaltenB / CGFloat(b.spalten)
+                    let x = achse + CGFloat(b.tag) * spaltenB + CGFloat(b.spalte) * breite
+                    let y = kopf + CGFloat(b.von - start) * proMin
+                    let h = max(14, CGFloat(b.bis - b.von) * proMin)
+                    BlockAnsicht(block: b, fokus: fokus == b.publishid)
+                        .frame(width: max(8, breite - 2), height: h - 2)
+                        .offset(x: x + 1, y: y + 1)
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                if b.zustand == .option, let g = b.gruppe {
+                                    puls.waehle(b.publishid, gruppe: g)
+                                } else {
+                                    fokus = fokus == b.publishid ? nil : b.publishid
+                                }
+                            }
+                        }
+                }
+                if liste.isEmpty {
+                    Text("Hier erscheint dein Wochenplan.")
+                        .font(.footnote)
+                        .foregroundStyle(farben.gedimmt)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+            }
+        }
     }
 }
 
-/// Zeile in „Deine Veranstaltungen“
+private struct BlockAnsicht: View {
+    let block: PlanerBlock
+    let fokus: Bool
+
+    var body: some View {
+        let b = block
+        let option = b.zustand == .option
+        VStack(alignment: .leading, spacing: 0) {
+            Text(b.kurz).font(.system(size: 9, weight: .bold)).lineLimit(1)
+            Text(option ? "G\(b.gruppe ?? "") \(b.art)" : b.art).font(.system(size: 8, weight: .medium)).lineLimit(1)
+            Text(b.raum).font(.system(size: 7)).lineLimit(1).opacity(0.85)
+        }
+        .minimumScaleFactor(0.6)
+        .padding(.horizontal, 2)
+        .padding(.vertical, 1)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .foregroundStyle(option ? Color.secondary : .white)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(option ? Color.gray.opacity(0.16) : b.farbe.opacity(fokus || !option ? 1 : 0.8))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .strokeBorder(b.zustand == .konflikt ? Palette.jetzt : (option ? Color.gray.opacity(0.55) : (fokus ? Color.primary.opacity(0.6) : .clear)),
+                              style: StrokeStyle(lineWidth: b.zustand == .konflikt ? 2 : 1, dash: option ? [3, 2] : []))
+        )
+        .contentShape(Rectangle())
+    }
+}
+
+/// Zeile in „Deine Fächer“: antippen = Fokus (Gruppen im Plan zeigen), darunter Gruppen-Knöpfe
 private struct KursZeile: View {
     let kurs: PulsModell.Kurs
+    @Binding var fokus: String?
     @ObservedObject private var puls = PulsModell.shared
 
     var body: some View {
         let info = Kurse.info(kurs.titel)
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 3).fill(info.farbe).frame(width: 5, height: 34)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(kurs.titel).lineLimit(2)
-                if let g = kurs.gruppe, let v = puls.cache[kurs.publishid], let gruppe = v.gruppen.first(where: { $0.nummer == g }) {
-                    let text = v.gruppen.count > 1 ? "Gruppe \(g): " + v.eigenes(gruppe).map(\.kurz).joined(separator: ", ") : "eine Gruppe"
-                    Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                } else {
-                    Text("Gruppe wählen").font(.caption.weight(.semibold)).foregroundStyle(Palette.jetzt)
+        let aktiv = fokus == kurs.publishid
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 3).fill(info.farbe).frame(width: 5, height: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(kurs.titel).lineLimit(2).foregroundStyle(.primary)
+                    if let v = puls.cache[kurs.publishid] {
+                        if v.gruppen.count <= 1 {
+                            Text("eine Gruppe").font(.caption).foregroundStyle(.secondary)
+                        } else if let g = kurs.gruppe {
+                            Text("Gruppe \(g) von \(v.gruppen.count)").font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text("Gruppe wählen (\(v.gruppen.count) zur Auswahl)").font(.caption.weight(.semibold)).foregroundStyle(Palette.jetzt)
+                        }
+                    }
+                }
+                Spacer()
+                NavigationLink { PulsKursAnsicht(publishid: kurs.publishid) } label: {
+                    Image(systemName: "info.circle")
+                }
+                .buttonStyle(.borderless)
+                .fixedSize()
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { withAnimation { fokus = aktiv ? nil : kurs.publishid } }
+
+            if aktiv, let v = puls.cache[kurs.publishid], v.gruppen.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(v.gruppen) { g in
+                            let gewaehlt = kurs.gruppe == g.nummer
+                            let konflikt = !puls.ueberschneidungen(kurs, gruppe: g.nummer).isEmpty
+                            Button {
+                                withAnimation { puls.waehle(kurs.publishid, gruppe: g.nummer) }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Gruppe \(g.nummer)").font(.caption.weight(.bold))
+                                    ForEach(v.eigenes(g).prefix(2), id: \.self) { r in
+                                        Text("\(r.tag) \(r.von)–\(r.bis)").font(.caption2)
+                                    }
+                                    if konflikt { Text("Überschneidung").font(.caption2.weight(.semibold)) }
+                                }
+                                .padding(.horizontal, 8).padding(.vertical, 5)
+                                .foregroundStyle(gewaehlt ? .white : (konflikt ? Palette.jetzt : .primary))
+                                .background(RoundedRectangle(cornerRadius: 8).fill(gewaehlt ? info.farbe : Color.gray.opacity(0.15)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
         }
