@@ -1,52 +1,20 @@
-name: PULS-Analyse
+name: PULS-Test (Swift)
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/pulstest.yml"]
+    paths: ["ios-app/App/Puls.swift", "ios-app/Tests/**", ".github/workflows/pulstest.yml"]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: macos-15
     steps:
+      - uses: actions/checkout@v4
       - run: |
-          pip install -q beautifulsoup4 lxml
-          mkdir aus && cd aus
-          python3 - <<'PY'
-          import urllib.request, re, time, html
-          from bs4 import BeautifulSoup
-          UA = {"User-Agent": "Stundenplan-Test (github.com/Black0Skorpion/Stundenplan)"}
-          def hol(u, name):
-              t = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30).read().decode('utf-8', 'ignore')
-              open(name, 'w').write(t); time.sleep(1.5); return t
-          def kinder(t, wurzel):
-              s = BeautifulSoup(t, 'lxml'); tiefe = wurzel.count('|') + 1
-              out = []
-              for a in s.find_all('a', href=True):
-                  h = html.unescape(a['href'])
-                  m = re.search(r'root120262=([0-9|%7C]+)', h)
-                  if 'state=wtree' in h and 'P.vx=kurz' in h and m:
-                      r = m.group(1).replace('%7C', '|')
-                      if r.count('|') == tiefe and r.startswith(wurzel): out.append((a.get_text(' ', strip=True), r))
-              vs = [(a.get_text(' ', strip=True), re.search(r'publishid=(\d+)', a['href']).group(1)) for a in s.find_all('a', href=True) if 'publishid=' in a['href']]
-              return out, vs
-          B = "https://puls.uni-potsdam.de/qisserver/rds?state=wtree&search=1&trex=step&P.vx=kurz&root120262="
-          wurzel = "277989|279834|282154|278938|277613"
-          for ebene in range(8):
-              t = hol(B + wurzel.replace('|', '%7C'), f"ebene{ebene}.html")
-              k, vs = kinder(t, wurzel)
-              print(ebene, wurzel, 'Ordner:', [x[0] for x in k][:20], 'Veranstaltungen:', vs[:5], file=open('log.txt', 'a'))
-              if not k: break
-              wurzel = k[0][1]
-          # Suche: verschiedene Varianten probieren
-          for i, q in enumerate(["state=wsearv&search=1&subdir=veranstaltung&veranstaltung.dtxt=Maschinenmodelle&veranstaltung.semester=20262&_form=display",
-                                 "state=wsearv&search=2&subdir=veranstaltung&veranstaltung.dtxt=Maschinenmodelle",
-                                 "state=wsearch&search=1&subdir=veranstaltung&veranstaltung.dtxt=Maschinenmodelle&P_start=0&P_anzahl=20&_form=display"]):
-              try:
-                  t = hol("https://puls.uni-potsdam.de/qisserver/rds?" + q, f"suche{i}.html")
-                  print('suche', i, file=open('log.txt','a')) or print('suche', i, 'publishids:', len(re.findall('publishid=', t)), 'fehler' if 'Fehler aufgetreten' in t else '')
-              except Exception as e: print('suche', i, file=open('log.txt','a')) or print('suche', i, e)
-          PY
-          git init -q -b daten && git config user.name bot && git config user.email bot@users.noreply.github.com
-          git add -A && git commit -qm puls
-          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" daten
+          swiftc -parse-as-library ios-app/App/Puls.swift ios-app/Tests/PulsTest.swift -o pulstest 2> fehler.txt || { sed 's/^/::error::/' fehler.txt | head -20; exit 1; }
+          ./pulstest > ergebnis.txt 2>&1; code=$?
+          mkdir aus && cp ergebnis.txt aus/
+          cd aus && git init -q -b daten && git config user.name bot && git config user.email bot@users.noreply.github.com
+          git add -A && git commit -qm test && git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" daten
+          exit $code
