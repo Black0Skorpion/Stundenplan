@@ -23,7 +23,13 @@ struct EinstellungenReiter: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("Quelle", value: Speicher.eigeneTermine ? "Eigener Import" : "Eingebaut (WiSe 26/27)")
+                    LabeledContent("Quelle", value: PulsModell.shared.auswahl.aktiv ? "PULS (\(PulsModell.shared.auswahl.kurse.count) Veranstaltungen)"
+                                   : Speicher.eigeneTermine ? "Eigener Import" : "Eingebaut (WiSe 26/27)")
+                    NavigationLink {
+                        PulsAuswahlAnsicht()
+                    } label: {
+                        Label("Veranstaltungen aus PULS wählen", systemImage: "checklist")
+                    }
                     LabeledContent("Termine", value: "\(zustand.termine.count)")
                     Button("ICS-Datei importieren …") { importieren = true }
                     if Speicher.eigeneTermine {
@@ -32,7 +38,7 @@ struct EinstellungenReiter: View {
                 } header: {
                     Text("Stundenplan")
                 } footer: {
-                    Text("Im Planer den Plan als .ics exportieren und hier auswählen. Alternativ die Datei in der Dateien-App teilen → „Stundenplan“.")
+                    Text("Am einfachsten: Veranstaltungen direkt aus PULS wählen – dann gleicht die App einmal täglich Räume und Zeiten ab. Alternativ im Planer den Plan als .ics exportieren und hier auswählen (oder die Datei in der Dateien-App teilen → „Stundenplan“).")
                 }
 
                 Section {

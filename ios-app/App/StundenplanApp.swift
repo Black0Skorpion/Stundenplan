@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        PulsHintergrund.registrieren()
         return true
     }
 
@@ -62,6 +63,12 @@ struct StundenplanApp: App {
                         zustand.neuLaden()
                         Task { await Erinnerungen.planen() }
                         LiveAktivitaet.aktualisieren(zustand.termine)
+                        // Höchstens einmal täglich mit PULS abgleichen (wenn die Auswahl aktiv ist)
+                        Task { @MainActor in
+                            if await PulsModell.shared.abgleichen() { zustand.neuLaden() }
+                        }
+                    } else if neu == .background, PulsModell.shared.auswahl.aktiv {
+                        PulsHintergrund.planen()
                     }
                 }
         }
@@ -189,6 +196,7 @@ final class AppZustand: ObservableObject {
             return
         }
         Speicher.speichereTermine(neu)
+        Task { @MainActor in PulsModell.shared.deaktivieren() }
         neuLaden()
         Task { await Erinnerungen.planen() }
         reiter = .plan
@@ -197,6 +205,7 @@ final class AppZustand: ObservableObject {
 
     func eingebauteVerwenden() {
         Speicher.eigeneLoeschen()
+        Task { @MainActor in PulsModell.shared.deaktivieren() }
         neuLaden()
         Task { await Erinnerungen.planen() }
         meldung = "Eingebaute Termine werden verwendet."

@@ -237,7 +237,8 @@ enum Puls {
 
     /// Unterordner (eine Ebene tiefer als `pfad`) und Veranstaltungen einer Verzeichnisseite
     static func verzeichnis(ausHTML html: String, pfad: String) -> [Eintrag] {
-        let tiefe = pfad.isEmpty ? 1 : pfad.split(separator: "|").count + 1
+        // Oberste Ebene: die Fakultäten hängen direkt unter dem Wurzelknoten („Vorlesungsverzeichnis“)
+        let tiefe = pfad.isEmpty ? 2 : pfad.split(separator: "|").count + 1
         var ergebnis: [Eintrag] = []
         var gesehen = Set<String>()
         for a in alle(#"<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>"#, in: html) {
