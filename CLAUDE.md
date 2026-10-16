@@ -15,6 +15,15 @@
   Countdown-Mitteilung. Verhalten wie iOS: vor Beginn Countdown, während der Vorlesung kein
   Countdown, nur Ende und Fortschritt.
 
+- PULS-Modulwahl wie in iOS 0.4.0 (ios-app/App/Puls.swift, PulsDienst.swift, PulsAnsicht.swift) auf Android
+  nachziehen, sobald der Nutzer bestätigt, dass sie auf iOS funktioniert. Abgleich dort per JobScheduler
+  (nur ohne mobile Daten).
+
+## PULS
+- Öffentliche Seiten ohne Anmeldung, keine offizielle Schnittstelle (HTML auslesen). Parser-Test:
+  Workflow „PULS-Test (Swift)“ (ios-app/Tests/PulsTest.swift) lädt echte Seiten auf einem macOS-Runner.
+- Sparsam abfragen: Abgleich höchstens etwa einmal täglich.
+
 ## Sonstiges
 - Android-Releases werden mit festem Schlüssel aus den Secrets ANDROID_KEYSTORE_B64 /
   ANDROID_KEYSTORE_PASSWORT signiert (Schlüssel liegt nicht im Repo).

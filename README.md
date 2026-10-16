@@ -20,7 +20,7 @@ Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion
 
 | Plattform | Datei | Release |
 |---|---|---|
-| iPhone/iPad | `Stundenplan-<Version>.ipa` | `ios-v…` (aktuell 0.3.2) |
+| iPhone/iPad | `Stundenplan-<Version>.ipa` | `ios-v…` (aktuell 0.4.0) |
 | Android | `Stundenplan-<Version>.apk` | `android-v…` (aktuell 1.4) · [neueste](https://github.com/Black0Skorpion/Stundenplan/releases/latest) |
 | Scriptable | `Stundenplan.js`, `AbfahrtenGolm.js`, `MensaGolm.js` | `scriptable-v…` (aktuell 1.0.0) |
 
@@ -41,6 +41,7 @@ Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion
 | Erinnerung vor Veranstaltungen (abschaltbar) | ✓ | ✓ mit Countdown | ✓ |
 | Live-Aktivität (Dynamic Island), Sperrbildschirm-Widgets dabei ausblendbar | ✓ | – | – |
 | Siri / Kurzbefehle | ✓ | – | ✓ („Hey Siri, Stundenplan“) |
+| Veranstaltungen direkt aus PULS wählen (Gruppen, Überschneidungen), täglicher Abgleich | ✓ | – (folgt) | – |
 | ICS-Import, eigener Planer-Link | ✓ | ✓ | ✓ |
 
 Akademisches Viertel: Termine zur vollen Stunde (z. B. 8–10 Uhr) werden als 8:15–9:45 gezeigt.
@@ -63,6 +64,9 @@ Neue Versionen einfach drüber installieren – Widgets und Einstellungen bleibe
 - Tippen auf einen Termin öffnet den Lageplan mit **Route**, Gehzeit bzw. Verbindung bei Campuswechsel
   und **„Ändern“** (Fällt aus / Raum ändern / Zurücksetzen). Tippen daneben öffnet die Seite „Plan“.
   Die Widgets öffnen nie den Planer, sondern die App.
+- **Veranstaltungen aus PULS:** Einstellungen → „Veranstaltungen aus PULS wählen“ → im Vorlesungsverzeichnis
+  suchen oder PULS-Link einfügen, Gruppe wählen, „Als Stundenplan übernehmen“. Danach gleicht die App einmal
+  täglich (standardmäßig nur im WLAN) Räume, Zeiten und Ausfälle mit PULS ab und meldet Änderungen.
 - **Einstellungen:** ICS-Import, Planer-Link, Campus, priorisierte Linien, Karten-App (Apple/Google),
   Erinnerungen (Vorlauf 5–60 Min), Live-Aktivität (optional Sperrbildschirm-Widgets währenddessen ausblenden).
 - **Siri:** „Wo ist meine nächste Vorlesung in Stundenplan?“, „Was habe ich heute in Stundenplan?“,
