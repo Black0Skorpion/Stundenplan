@@ -3,17 +3,15 @@ name: APK bauen
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "ios-app/**"
-      - "scriptable/**"
-      - ".github/workflows/scriptable.yml"
-      - "CLAUDE.md"
-      - ".github/workflows/ios.yml"
-      - ".github/workflows/archiv.yml"
-      - ".github/workflows/aufraeumen.yml"
-      - ".github/workflows/daten.yml"
-      - "README.md"
-      - "releases/**"
+    # Nur bauen, wenn sich wirklich etwas an der Android-App ändert
+    paths:
+      - "app/**"
+      - "build.gradle"
+      - "settings.gradle"
+      - "gradle.properties"
+      - "gradle/**"
+      - "gradlew"
+      - ".github/workflows/apk.yml"
   workflow_dispatch:
 
 permissions:
