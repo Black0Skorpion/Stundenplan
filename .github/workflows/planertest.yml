@@ -1,0 +1,28 @@
+name: Planer-Analyse
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/planertest.yml"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir p && cd p
+          curl -sL -A "Mozilla/5.0" https://planner.joshuan.dev/de -o index.html
+          echo "::warning::index $(wc -c < index.html) $(grep -o '<title>[^<]*' index.html)"
+          grep -oE '(src|href)="[^"]+"' index.html | sort -u | head -40 | while read l; do echo "::warning::link $l"; done
+          for js in $(grep -oE 'src="[^"]+\.js[^"]*"' index.html | sed 's/src="//;s/"$//'); do
+            case "$js" in http*) u=$js;; /*) u=https://planner.joshuan.dev$js;; *) u=https://planner.joshuan.dev/$js;; esac
+            curl -sL "$u" >> alles.js; echo >> alles.js
+          done
+          # weitere Chunks nachladen (Next.js/Vite)
+          for c in $(grep -oE '"[^"]*(_next|assets|chunks)/[^"]+\.js"' alles.js index.html | tr -d '"' | sed 's/^[^:]*://' | sort -u | head -80); do
+            case "$c" in http*) u=$c;; /*) u=https://planner.joshuan.dev$c;; *) u=https://planner.joshuan.dev/$c;; esac
+            curl -sL "$u" >> alles.js; echo >> alles.js
+          done
+          echo "::warning::js $(wc -c < alles.js)"
+          grep -oE 'https?://[a-zA-Z0-9./_?=&%-]+' alles.js index.html | sed 's/^[^:]*://' | grep -v -E 'w3.org|reactjs|react.dev|nextjs.org|mozilla|github.com/vercel|schema.org' | sort | uniq -c | sort -rn | head -40 | while read l; do echo "::warning::url $l"; done
+          grep -oiE '.{60}(puls|qisserver|his-?in-?one|semester|lecture|course|veranstaltung)[a-z]*.{60}' alles.js | head -25 | while read l; do echo "::warning::ctx $l"; done
+          grep -oE '"/api/[^"]{0,60}"' alles.js index.html | sort -u | head -20 | while read l; do echo "::warning::api $l"; done
+          for p in /api /api/courses /robots.txt /sitemap.xml; do echo "::warning::pfad $p $(curl -s -o /dev/null -w '%{http_code} %{content_type}' https://planner.joshuan.dev$p)"; done
