@@ -155,9 +155,9 @@ struct PulsOptionenAnsicht: View {
     var body: some View {
         Form {
             Section {
-                Picker("Semester", selection: Binding(get: { puls.auswahl.semester }, set: {
-                    puls.setzeSemester($0)
-                    Task { await katalog.bereitstellen($0) }
+                Picker("Semester", selection: Binding(get: { puls.auswahl.semester }, set: { neu in
+                    puls.setzeSemester(neu)
+                    Task { await katalog.bereitstellen(neu) }
                 })) {
                     let jetzt = Puls.semesterCode()
                     ForEach([jetzt, Puls.naechstesSemester(jetzt)], id: \.self) { Text(Puls.semesterName($0)).tag($0) }
