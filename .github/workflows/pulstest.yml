@@ -1,0 +1,45 @@
+name: PULS-Analyse
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/pulstest.yml"]
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir aus && cd aus
+          UA="Stundenplan-Test (github.com/Black0Skorpion/Stundenplan)"
+          curl -sL -A "$UA" https://planner.joshuan.dev/de -o planer.html
+          # publishids zu den eigenen Veranstaltungen aus dem Planer-Katalog heraussuchen
+          python3 - <<'PY'
+          import re, json
+          h = open('planer.html', encoding='utf-8', errors='ignore').read()
+          titel = ["Grundlagen der Programmierung", "Mathematik für Informatik I", "Maschinenmodelle",
+                   "Bioinformatik", "Molekulare Evolutionsbiologie", "Mathematik für Informatik II"]
+          treffer = {}
+          for m in re.finditer(r'externalKey:"offering:(\d+)",courseId:\d+,code:(?:null|"[^"]*"),title:"([^"]+)"', h):
+              pid, t = m.group(1), m.group(2)
+              for x in titel:
+                  if x.lower() in t.lower():
+                      treffer.setdefault(pid, t)
+          print(len(re.findall(r'externalKey:"offering:', h)), "Angebote im Planer")
+          json.dump(treffer, open('ids.json', 'w'), ensure_ascii=False, indent=1)
+          print(json.dumps(treffer, ensure_ascii=False, indent=1))
+          PY
+          B="https://puls.uni-potsdam.de/qisserver/rds"
+          n=0
+          for pid in $(python3 -c "import json;print(' '.join(list(json.load(open('ids.json')))[:8]))"); do
+            curl -sL -A "$UA" "$B?state=verpublish&status=init&vmfile=no&publishid=$pid&moduleCall=webInfo&publishConfFile=webInfo&publishSubDir=veranstaltung" -o "v_$pid.html"
+            sleep 2; n=$((n+1))
+          done
+          # Suche testen
+          curl -sL -A "$UA" "$B?state=wsearv&search=1&subdir=veranstaltung&veranstaltung.dtxt=Maschinenmodelle&P_start=0&P_anzahl=20&_form=display" -o suche.html
+          sleep 2
+          curl -sL -A "$UA" "$B?state=wtree&search=1&trex=step&root120262=0&P.vx=kurz" -o baum.html
+          ls -la; rm -f planer.html
+          git init -q -b daten && git config user.name bot && git config user.email bot@users.noreply.github.com
+          git add -A && git commit -qm puls
+          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" daten
