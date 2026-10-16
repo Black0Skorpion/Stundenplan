@@ -19,27 +19,33 @@ jobs:
           def hol(u, name):
               t = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30).read().decode('utf-8', 'ignore')
               open(name, 'w').write(t); time.sleep(1.5); return t
-          u = "https://puls.uni-potsdam.de/qisserver/rds?state=wtree&search=1&trex=step&root120262=277989%7C279834&P.vx=kurz"
-          pfad = ["Informatik", "Bachelor", "Informatik", "Pflicht", "Grundlagen", ""]
-          for ebene in range(7):
-              t = hol(u, f"ebene{ebene}.html")
-              s = BeautifulSoup(t, 'lxml')
-              links = [(a.get_text(' ', strip=True), a['href']) for a in s.find_all('a', href=True) if 'state=wtree' in a['href'] and 'trex=step' in a['href'] and 'P.vx=kurz' in a['href']]
-              vs = [a for a in s.find_all('a', href=True) if 'publishid=' in a['href']]
-              print(ebene, len(links), 'Ordner', len(vs), 'Veranstaltungen', [l[0] for l in links][:15])
-              if vs and not links: break
-              ziel = pfad[ebene] if ebene < len(pfad) else ""
-              wahl = next((l for l in links if ziel and ziel.lower() in l[0].lower()), None) or (links[1] if len(links) > 1 else None)
-              if not wahl: break
-              print('  ->', wahl[0]); u = html.unescape(wahl[1])
+          def kinder(t, wurzel):
+              s = BeautifulSoup(t, 'lxml'); tiefe = wurzel.count('|') + 1
+              out = []
+              for a in s.find_all('a', href=True):
+                  h = html.unescape(a['href'])
+                  m = re.search(r'root120262=([0-9|%7C]+)', h)
+                  if 'state=wtree' in h and 'P.vx=kurz' in h and m:
+                      r = m.group(1).replace('%7C', '|')
+                      if r.count('|') == tiefe and r.startswith(wurzel): out.append((a.get_text(' ', strip=True), r))
+              vs = [(a.get_text(' ', strip=True), re.search(r'publishid=(\d+)', a['href']).group(1)) for a in s.find_all('a', href=True) if 'publishid=' in a['href']]
+              return out, vs
+          B = "https://puls.uni-potsdam.de/qisserver/rds?state=wtree&search=1&trex=step&P.vx=kurz&root120262="
+          wurzel = "277989|279834|282154|278938|277613"
+          for ebene in range(8):
+              t = hol(B + wurzel.replace('|', '%7C'), f"ebene{ebene}.html")
+              k, vs = kinder(t, wurzel)
+              print(ebene, wurzel, 'Ordner:', [x[0] for x in k][:20], 'Veranstaltungen:', vs[:5], file=open('log.txt', 'a'))
+              if not k: break
+              wurzel = k[0][1]
           # Suche: verschiedene Varianten probieren
           for i, q in enumerate(["state=wsearv&search=1&subdir=veranstaltung&veranstaltung.dtxt=Maschinenmodelle&veranstaltung.semester=20262&_form=display",
                                  "state=wsearv&search=2&subdir=veranstaltung&veranstaltung.dtxt=Maschinenmodelle",
                                  "state=wsearch&search=1&subdir=veranstaltung&veranstaltung.dtxt=Maschinenmodelle&P_start=0&P_anzahl=20&_form=display"]):
               try:
                   t = hol("https://puls.uni-potsdam.de/qisserver/rds?" + q, f"suche{i}.html")
-                  print('suche', i, 'publishids:', len(re.findall('publishid=', t)), 'fehler' if 'Fehler aufgetreten' in t else '')
-              except Exception as e: print('suche', i, e)
+                  print('suche', i, file=open('log.txt','a')) or print('suche', i, 'publishids:', len(re.findall('publishid=', t)), 'fehler' if 'Fehler aufgetreten' in t else '')
+              except Exception as e: print('suche', i, file=open('log.txt','a')) or print('suche', i, e)
           PY
           git init -q -b daten && git config user.name bot && git config user.email bot@users.noreply.github.com
           git add -A && git commit -qm puls
