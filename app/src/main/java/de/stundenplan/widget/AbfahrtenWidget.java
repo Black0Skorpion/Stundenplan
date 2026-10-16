@@ -14,7 +14,7 @@ import android.widget.RemoteViews;
 import java.util.List;
 
 /**
- * Widget „Abfahrten Golm“: nächste Züge und Busse ab Golm Bhf und Science Park/Uni.
+ * Widget „Abfahrten“: nächste Züge und Busse am gewählten Campus, priorisierte Linien immer dabei.
  * Daten werden höchstens alle 5 Minuten geladen; der Minuten-Wecker zeichnet dazwischen neu.
  */
 public class AbfahrtenWidget extends AppWidgetProvider {
@@ -52,7 +52,9 @@ public class AbfahrtenWidget extends AppWidgetProvider {
         int[] ids = mgr.getAppWidgetIds(new ComponentName(ctx, AbfahrtenWidget.class));
         if (ids.length == 0) return;
         boolean laden = netz || AbfahrtenDaten.alter(ctx) > AbfahrtenDaten.MAX_ALTER;
-        List<AbfahrtenDaten.Abfahrt> liste = AbfahrtenDaten.laden(ctx, laden);
+        String campus = Campus.aktuell(ctx);
+        List<String> favoriten = Campus.favoriten(ctx);
+        List<AbfahrtenDaten.Abfahrt> liste = AbfahrtenDaten.laden(ctx, campus, laden);
         boolean dunkel = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
         long jetzt = System.currentTimeMillis();
@@ -64,7 +66,7 @@ public class AbfahrtenWidget extends AppWidgetProvider {
                     (float) Math.sqrt(2_500_000.0 / (g[0] * g[1])));
             for (int versuch = 0; versuch < 3; versuch++) {
                 try {
-                    Bitmap bild = AbfahrtenZeichner.zeichnen(g[0], g[1], skala, dunkel, jetzt, liste);
+                    Bitmap bild = AbfahrtenZeichner.zeichnen(g[0], g[1], skala, dunkel, jetzt, liste, campus, favoriten);
                     RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_abfahrten);
                     rv.setImageViewBitmap(R.id.bild, bild);
                     rv.setOnClickPendingIntent(R.id.wurzel, oeffnen);

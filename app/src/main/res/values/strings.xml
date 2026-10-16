@@ -7,7 +7,7 @@
     <string name="beschreibung_klein">Aktuelle bzw. nächste Veranstaltung</string>
     <string name="beschreibung_mittel">Aktuelle Veranstaltung und Tagesplan</string>
     <string name="beschreibung_gross">Wochenplan Montag bis Freitag</string>
-    <string name="mensa_name">Mensa Golm</string>
+    <string name="mensa_name">Mensa</string>
     <string name="mensa_klein">Mensa · Klein</string>
     <string name="mensa_mittel">Mensa · Mittel</string>
     <string name="mensa_gross">Mensa · Groß</string>
@@ -16,6 +16,6 @@
     <string name="mensa_beschreibung_gross">Ganzer Speiseplan mit Desserts</string>
     <string name="mensa_zurueck">Vorheriger Tag</string>
     <string name="mensa_weiter">Nächster Tag</string>
-    <string name="abfahrten_name">Abfahrten Golm</string>
-    <string name="abfahrten_beschreibung">Nächste Züge und Busse ab Golm Bhf und Science Park/Uni</string>
+    <string name="abfahrten_name">Abfahrten</string>
+    <string name="abfahrten_beschreibung">Nächste Züge und Busse am Campus (Golm, Neues Palais, Griebnitzsee)</string>
 </resources>

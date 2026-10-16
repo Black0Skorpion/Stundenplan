@@ -10,7 +10,6 @@ on:
       - ".github/workflows/archiv.yml"
       - ".github/workflows/aufraeumen.yml"
       - ".github/workflows/daten.yml"
-      - ".github/workflows/vbbtest.yml"
       - "README.md"
       - "releases/**"
   workflow_dispatch:

@@ -19,12 +19,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Abfahrten ab Golm über die freie VBB-Schnittstelle (v6.vbb.transport.rest, ohne Anmeldung). */
+/** Abfahrten am gewählten Campus über die freie VBB-Schnittstelle (v6.vbb.transport.rest, ohne Anmeldung). */
 public final class AbfahrtenDaten {
     private AbfahrtenDaten() {}
 
-    static final String[][] HALTESTELLEN = {{"900220010", "Golm Bhf"}, {"900220365", "Science Park/Uni"}};
-    private static final String CACHE = "abfahrten.json";
+    private static String cache(String campus) {
+        return "abfahrten-" + campus + ".json";
+    }
     /** So alt dürfen die Daten werden, bevor neu geladen wird (der Minuten-Wecker zeichnet dazwischen nur neu) */
     static final long MAX_ALTER = 5 * 60_000L;
 
@@ -49,7 +50,7 @@ public final class AbfahrtenDaten {
     }
 
     /** Quellen: VBB, ersatzweise BVG (gleiche Haltestellen-Nummern, gleiches Format) */
-    private static final String[] QUELLEN = {"https://v6.vbb.transport.rest", "https://v6.bvg.transport.rest"};
+    static final String[] QUELLEN = {"https://v6.vbb.transport.rest", "https://v6.bvg.transport.rest"};
 
     /** Bis zu 3 Versuche bei der VBB, dann 2 bei der BVG – die freien Dienste haken gelegentlich. */
     private static List<Abfahrt> ladenVon(String id, String name) {
@@ -104,12 +105,16 @@ public final class AbfahrtenDaten {
         }
     }
 
-    /** Beide Haltestellen zusammen, nach Zeit sortiert; ohne Netz der letzte Stand. null = gar nichts da. */
+    /** Alle Haltestellen des Campus zusammen, nach Zeit sortiert; ohne Netz der letzte Stand. null = gar nichts da. */
     static List<Abfahrt> laden(Context ctx, boolean netz) {
+        return laden(ctx, Campus.aktuell(ctx), netz);
+    }
+
+    static List<Abfahrt> laden(Context ctx, String campus, boolean netz) {
         if (netz) {
             List<Abfahrt> alle = new ArrayList<>();
             boolean geladen = false;
-            for (String[] h : HALTESTELLEN) {
+            for (String[] h : Campus.haltestellen(campus)) {
                 List<Abfahrt> teil = ladenVon(h[0], h[1]);
                 if (teil != null) { geladen = true; alle.addAll(teil); }
             }
@@ -119,19 +124,19 @@ public final class AbfahrtenDaten {
                 Set<String> gesehen = new HashSet<>();
                 List<Abfahrt> ergebnis = new ArrayList<>();
                 for (Abfahrt a : alle) if (a.id.isEmpty() || gesehen.add(a.id)) ergebnis.add(a);
-                speichern(ctx, ergebnis);
+                speichern(ctx, campus, ergebnis);
                 return ergebnis;
             }
         }
-        return ausCache(ctx);
+        return ausCache(ctx, campus);
     }
 
     static long alter(Context ctx) {
-        File f = new File(ctx.getCacheDir(), CACHE);
+        File f = new File(ctx.getCacheDir(), cache(Campus.aktuell(ctx)));
         return f.exists() ? System.currentTimeMillis() - f.lastModified() : Long.MAX_VALUE;
     }
 
-    private static void speichern(Context ctx, List<Abfahrt> liste) {
+    private static void speichern(Context ctx, String campus, List<Abfahrt> liste) {
         try {
             JSONArray arr = new JSONArray();
             for (Abfahrt a : liste) {
@@ -143,15 +148,15 @@ public final class AbfahrtenDaten {
                 o.put("ausfall", a.ausfall);
                 arr.put(o);
             }
-            try (OutputStream out = new FileOutputStream(new File(ctx.getCacheDir(), CACHE))) {
+            try (OutputStream out = new FileOutputStream(new File(ctx.getCacheDir(), cache(campus)))) {
                 out.write(arr.toString().getBytes(StandardCharsets.UTF_8));
             }
         } catch (Exception ignored) {
         }
     }
 
-    private static List<Abfahrt> ausCache(Context ctx) {
-        File f = new File(ctx.getCacheDir(), CACHE);
+    private static List<Abfahrt> ausCache(Context ctx, String campus) {
+        File f = new File(ctx.getCacheDir(), cache(campus));
         if (!f.exists()) return null;
         try (InputStream in = new FileInputStream(f)) {
             JSONArray arr = new JSONArray(Daten.lesen(in));
@@ -173,6 +178,26 @@ public final class AbfahrtenDaten {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * Für knappe Anzeigen: priorisierte Linien kommen auf jeden Fall rein (höchstens die Hälfte),
+     * der Rest wird aufgefüllt; Reihenfolge weiter nach Zeit.
+     */
+    static List<Abfahrt> auswahl(List<Abfahrt> liste, int anzahl, List<String> favoriten) {
+        List<Abfahrt> fav = new ArrayList<>(), rest = new ArrayList<>();
+        int maxFav = Math.max(1, anzahl / 2);
+        for (Abfahrt a : liste) {
+            if (Campus.istFavorit(favoriten, a.linie) && fav.size() < maxFav) fav.add(a);
+        }
+        for (Abfahrt a : liste) {
+            if (fav.size() + rest.size() >= anzahl) break;
+            if (!fav.contains(a)) rest.add(a);
+        }
+        List<Abfahrt> alle = new ArrayList<>(fav);
+        alle.addAll(rest);
+        alle.sort((a, b) -> Long.compare(a.zeit, b.zeit));
+        return alle;
     }
 
     /** "Potsdam, Charlottenhof Bhf" → "Charlottenhof Bhf" */

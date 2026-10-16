@@ -1,4 +1,7 @@
-// Mensa-Widget für Scriptable – Mensa Golm (Uni Potsdam)
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: orange; icon-glyph: utensils;
+// Mensa-Widget für Scriptable – Mensen der Uni Potsdam (Golm, Am Neuen Palais, Griebnitzsee)
 // Daten: OpenMensa (openmensa.org), frei und ohne Anmeldung.
 // Größen: Klein, Mittel, Groß und – auf dem iPad – Extragroß (zwei Tage nebeneinander).
 //
@@ -9,6 +12,8 @@
 //   +1, +2, +3 …      1., 2., 3. … Öffnungstag nach dem automatisch gewählten Tag
 //   mo, di, mi, do, fr  dieser Wochentag (ist er schon vorbei: nächste Woche)
 //   hell / dunkel     festes Farbschema (kombinierbar, z. B. "+1 dunkel")
+//   golm / palais / griebnitzsee  feste Mensa (sonst die Campus-Einstellung des Stundenplan-Scripts;
+//                     „Automatisch“ = Campus der laufenden bzw. nächsten Veranstaltung)
 //
 // Mehrere Tage in einem Slot: Mehrere Mensa-Widgets gleicher Größe auf dem Home-Bildschirm
 // übereinander ziehen (ergibt einen Stapel) und z. B. die Parameter leer, +1, +2, +3, +4 eintragen.
@@ -16,14 +21,42 @@
 
 // ───────────────────────── Einstellungen ─────────────────────────
 
+// Mensen bei OpenMensa je Campus (erste Zahl der Raumnummer)
+const MENSEN = {
+  "2": { id: 61, name: "Mensa Golm" },
+  "1": { id: 55, name: "Mensa Neues Palais" },
+  "3": { id: 62, name: "Mensa Griebnitzsee" },
+}
+
+// Campus: Widget-Parameter > Einstellung des Stundenplan-Scripts (stundenplan-campus.json) > Golm
+function campusLesen() {
+  let geteilt = {}
+  try {
+    let fm
+    try { fm = FileManager.iCloud() } catch (e) { fm = FileManager.local() }
+    const pfad = fm.joinPath(fm.documentsDirectory(), "stundenplan-campus.json")
+    if (fm.fileExists(pfad)) {
+      if (fm.isFileStoredIniCloud(pfad) && !fm.isFileDownloaded(pfad)) fm.downloadFileFromiCloud(pfad)
+      else geteilt = JSON.parse(fm.readString(pfad)) || {}
+    }
+  } catch (e) {}
+  const roh = (args.widgetParameter || "").toLowerCase()
+  if (/golm/.test(roh)) return "2"
+  if (/palais/.test(roh)) return "1"
+  if (/griebnitz/.test(roh)) return "3"
+  return MENSEN[geteilt.campus] ? geteilt.campus : "2"
+}
+
+const MENSA = MENSEN[campusLesen()]
+
 const CONFIG = {
-  MENSA_ID: 61,                  // Mensa Golm bei OpenMensa
-  MENSA_NAME: "Mensa Golm",
+  MENSA_ID: MENSA.id,
+  MENSA_NAME: MENSA.name,
   PREISGRUPPE: "students",       // "students", "employees" oder "others"
   UMSCHALTEN_UM: 15,             // ab dieser Stunde zeigt "leer" schon den nächsten Tag
   ABEND_ANZEIGEN: true,          // Abendangebote anzeigen (nur wenn sie sich vom Mittag unterscheiden)
   THEMA: "auto",                 // "auto" | "hell" | "dunkel"
-  TAP_URL: "https://openmensa.org/c/61", // beim Tippen öffnen ("" = Scriptable öffnen)
+  TAP_URL: "https://openmensa.org/c/" + MENSA.id, // beim Tippen öffnen ("" = Scriptable öffnen)
 }
 
 const API = "https://openmensa.org/api/v2/canteens/" + CONFIG.MENSA_ID

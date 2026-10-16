@@ -32,6 +32,16 @@ enum Karten {
         }
     }
 
+    /// Mit Bus und Bahn von A nach B (für Campuswechsel)
+    static func oepnv(von: (lat: Double, lon: Double), nach: (lat: Double, lon: Double), name: String) -> URL? {
+        switch app {
+        case .apple:
+            return URL(string: "https://maps.apple.com/?saddr=\(von.lat),\(von.lon)&daddr=\(nach.lat),\(nach.lon)&dirflg=r&q=\(kodiert(name))")
+        case .google:
+            return URL(string: "https://www.google.com/maps/dir/?api=1&origin=\(von.lat),\(von.lon)&destination=\(nach.lat),\(nach.lon)&travelmode=transit")
+        }
+    }
+
     /// Ort suchen (z. B. eine Haltestelle – dort zeigen beide Apps die nächsten Abfahrten)
     static func suche(_ text: String) -> URL? {
         switch app {

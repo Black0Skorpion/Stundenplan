@@ -8,6 +8,7 @@ struct EinstellungenReiter: View {
     @State private var erinnerungen = Speicher.einstellungen().erinnerungen
     @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
     @State private var live = Speicher.einstellungen().liveAktivitaet
+    @State private var sperrAusblenden = Speicher.einstellungen().sperrAusblenden
     @State private var karten = Speicher.einstellungen().karten
     @State private var neueLinie = ""
 
@@ -67,10 +68,18 @@ struct EinstellungenReiter: View {
 
                 Section {
                     Toggle("Countdown in der Dynamic Island", isOn: $live)
+                    if live {
+                        Toggle("Sperrbildschirm-Widgets dann ausblenden", isOn: $sperrAusblenden)
+                    }
                 } header: {
                     Text("Live-Aktivität")
                 } footer: {
-                    Text("Zeigt ab einer Stunde vorher den Countdown und den Raum in der Dynamic Island und auf dem Sperrbildschirm. Ohne Server kann iOS sie nur starten, wenn die App geöffnet wird – am einfachsten über die Erinnerung.")
+                    Text("Zeigt ab einer Stunde vorher den Countdown bis Beginn und den Raum in der Dynamic Island und auf dem Sperrbildschirm; während der Vorlesung Ende und Fortschritt. Ohne Server kann iOS sie nur starten, wenn die App geöffnet wird – am einfachsten über die Erinnerung. „Ausblenden“ blendet die Stundenplan-Widgets unter der Uhr aus, solange die Live-Aktivität die Veranstaltung zeigt, damit nichts doppelt steht.")
+                }
+                .onChange(of: sperrAusblenden) { _, an in
+                    var e = Speicher.einstellungen()
+                    e.sperrAusblenden = an
+                    Speicher.speichere(e)
                 }
                 .onChange(of: live) { _, an in
                     var e = Speicher.einstellungen()

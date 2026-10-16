@@ -160,6 +160,8 @@ enum Speicher {
         var campus: CampusWahl = .automatisch
         /// Priorisierte Linien (z. B. "RB20") – stehen in den Abfahrten oben
         var favoriten: [String] = []
+        /// Sperrbildschirm-Widgets ausblenden, solange die Live-Aktivität die Veranstaltung zeigt
+        var sperrAusblenden: Bool = false
 
         init() {}
 
@@ -173,7 +175,31 @@ enum Speicher {
             karten = (try? c.decodeIfPresent(KartenApp.self, forKey: .karten)) ?? .apple
             campus = (try? c.decodeIfPresent(CampusWahl.self, forKey: .campus)) ?? .automatisch
             favoriten = (try? c.decodeIfPresent([String].self, forKey: .favoriten)) ?? []
+            sperrAusblenden = (try? c.decodeIfPresent(Bool.self, forKey: .sperrAusblenden)) ?? false
         }
+    }
+
+    // ───────────── Laufende Live-Aktivität (für die Sperrbildschirm-Widgets) ─────────────
+
+    /// Von der App geschrieben, wenn sie eine Live-Aktivität startet; die Widgets lesen es.
+    struct LiveInfo: Codable {
+        let schluessel: String
+        let start: Date
+        let ende: Date
+    }
+
+    static var liveInfo: LiveInfo? {
+        guard let i = lesen(LiveInfo.self, "liveaktivitaet.json"), i.ende > Date() else { return nil }
+        return i
+    }
+
+    static func setzeLiveInfo(_ i: LiveInfo?) {
+        if let i {
+            schreiben(i, "liveaktivitaet.json")
+        } else {
+            try? FileManager.default.removeItem(at: datei("liveaktivitaet.json"))
+        }
+        widgetsNeuLaden()
     }
 
     static func einstellungen() -> Einstellungen {

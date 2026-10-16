@@ -7,6 +7,17 @@ struct SperrEintrag: TimelineEntry {
     let date: Date
     let termine: [Termin]
     let variante: SperrVariante
+    /// Einstellung „Sperrbildschirm-Widgets ausblenden, solange die Live-Aktivität läuft“
+    var ausblendenBis: Date? = nil
+
+    var ausgeblendet: Bool { ausblendenBis.map { date < $0 } ?? false }
+
+    /// Zeitraum, in dem die Live-Aktivität die Veranstaltung zeigt (nur wenn die Einstellung an ist)
+    static func ausblendenBis() -> Date? {
+        let e = Speicher.einstellungen()
+        guard e.sperrAusblenden, e.liveAktivitaet, let info = Speicher.liveInfo else { return nil }
+        return info.ende
+    }
 }
 
 struct SperrProvider: AppIntentTimelineProvider {
@@ -15,13 +26,16 @@ struct SperrProvider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: SperrEinstellung, in context: Context) async -> SperrEintrag {
-        SperrEintrag(date: Date(), termine: Speicher.termine(), variante: configuration.variante)
+        SperrEintrag(date: Date(), termine: Speicher.termine(), variante: configuration.variante,
+                     ausblendenBis: context.isPreview ? nil : SperrEintrag.ausblendenBis())
     }
 
     func timeline(for configuration: SperrEinstellung, in context: Context) async -> Timeline<SperrEintrag> {
         let jetzt = Date()
         let alle = Speicher.termine()
         var zeiten = Set(Plan.wechselZeitpunkte(alle, ab: jetzt, stunden: 24))
+        let bis = SperrEintrag.ausblendenBis()
+        if let bis { zeiten.insert(bis) }   // nach der Live-Aktivität wieder einblenden
         // Zeile über der Uhr zeigt Minuten als Text → alle 5 Minuten für die nächsten 3 Stunden
         if configuration.variante.fuer(.accessoryInline) == .countdown {
             var t = jetzt
@@ -31,7 +45,7 @@ struct SperrProvider: AppIntentTimelineProvider {
             }
         }
         let eintraege = ([jetzt] + zeiten.sorted().prefix(90)).map {
-            SperrEintrag(date: $0, termine: alle, variante: configuration.variante)
+            SperrEintrag(date: $0, termine: alle, variante: configuration.variante, ausblendenBis: bis)
         }
         return Timeline(entries: eintraege, policy: .atEnd)
     }
@@ -59,18 +73,30 @@ struct SperrAnsicht: View {
         let jetzt = eintrag.date
         let naechster = Plan.naechster(eintrag.termine, jetzt)
         Group {
-            switch familie {
-            case .accessoryInline:
-                SperrZeile(termin: naechster, jetzt: jetzt, variante: variante)
-            case .accessoryCircular:
-                SperrRund(termin: naechster, jetzt: jetzt, variante: variante)
-            default:
-                SperrRechteck(alle: eintrag.termine, termin: naechster, jetzt: jetzt, variante: variante)
+            if eintrag.ausgeblendet {
+                // Die Live-Aktivität zeigt die Veranstaltung schon – hier nichts doppelt anzeigen
+                Color.clear
+            } else {
+                switch familie {
+                case .accessoryInline:
+                    SperrZeile(termin: naechster, jetzt: jetzt, variante: variante)
+                case .accessoryCircular:
+                    SperrRund(termin: naechster, jetzt: jetzt, variante: variante)
+                default:
+                    SperrRechteck(alle: eintrag.termine, termin: naechster, jetzt: jetzt, variante: variante)
+                }
             }
         }
         .containerBackground(for: .widget) { Color.clear }
-        // Tippen öffnet die App auf der Seite „Plan“
-        .widgetURL(Ziele.app)
+        .widgetURL(ziel(variante, naechster, jetzt))
+    }
+
+    /// Tippen: Lageplan (mit Route) des Termins bzw. bei der Tagesübersicht des ganzen Tages
+    private func ziel(_ variante: SperrVariante, _ naechster: Termin?, _ jetzt: Date) -> URL {
+        if variante == .tag, let auswahl = Plan.tagesAuswahl(eintrag.termine, jetzt) {
+            return Ziele.tag(auswahl.datum)
+        }
+        return naechster.map(Ziele.termin) ?? Ziele.app
     }
 }
 

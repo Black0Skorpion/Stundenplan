@@ -2,17 +2,20 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-/// Darstellung der Live-Aktivität: Sperrbildschirm-Banner und Dynamic Island
+/// Darstellung der Live-Aktivität: Sperrbildschirm-Banner und Dynamic Island.
+/// Vor Beginn: Countdown „beginnt in …“. Während der Vorlesung: kein Countdown, nur Ende und Fortschritt.
+/// (Zum Beginn wird die Aktivität „veraltet“ – iOS zeichnet sie dann neu, auch ohne App.)
 struct VorlesungLiveAktivitaet: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: VorlesungAttribute.self) { context in
-            LiveBanner(s: context.state)
+            LiveBanner(s: context.state, laufend: laeuft(context))
                 .activityBackgroundTint(Color(hex: 0x1C1C1E))
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(URL(string: "stundenplan://lageplan?termin=\(Int(context.state.start.timeIntervalSince1970))"))
         } dynamicIsland: { context in
             let s = context.state
             let farbe = Color(hex: s.farbe)
+            let laufend = laeuft(context)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -23,8 +26,14 @@ struct VorlesungLiveAktivitaet: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 2) {
-                        LiveTimer(s: s).font(.headline).monospacedDigit()
-                        Text(Date() < s.start ? "bis Beginn" : "bis Ende").font(.caption).foregroundStyle(.secondary)
+                        if laufend {
+                            Text("bis \(Zeit.uhrzeit(s.ende))").font(.headline).monospacedDigit()
+                            Text("läuft").font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text(timerInterval: Date()...max(Date(), s.start), countsDown: true)
+                                .font(.headline).monospacedDigit()
+                            Text("bis Beginn").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                     .padding(.trailing, 4)
                 }
@@ -53,10 +62,19 @@ struct VorlesungLiveAktivitaet: Widget {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(farbe)
             } compactTrailing: {
-                LiveTimer(s: s)
-                    .font(.caption.weight(.semibold))
-                    .monospacedDigit()
-                    .frame(maxWidth: 52)
+                Group {
+                    if laufend {
+                        // Während der Vorlesung: Raum statt Countdown
+                        Text(LiveRaum.kurz(s.raum))
+                    } else {
+                        Text(timerInterval: Date()...max(Date(), s.start), countsDown: true)
+                            .monospacedDigit()
+                    }
+                }
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: 56)
             } minimal: {
                 Text(String(s.kurz.prefix(2)))
                     .font(.caption2.weight(.bold))
@@ -66,36 +84,39 @@ struct VorlesungLiveAktivitaet: Widget {
             .keylineTint(farbe)
         }
     }
+
+    /// Läuft die Vorlesung schon? (Veraltet = Beginn erreicht, siehe LiveAktivitaet.swift)
+    private func laeuft(_ context: ActivityViewContext<VorlesungAttribute>) -> Bool {
+        context.isStale || Date() >= context.state.start
+    }
 }
 
-/// Countdown bis Beginn bzw. Ende (läuft von selbst weiter)
-struct LiveTimer: View {
-    let s: VorlesungAttribute.ContentState
-
-    var body: some View {
-        let jetzt = Date()
-        if jetzt < s.start {
-            Text(timerInterval: jetzt...s.start, countsDown: true)
-        } else {
-            Text(timerInterval: jetzt...max(jetzt, s.ende), countsDown: true)
-        }
+enum LiveRaum {
+    /// "2.70.0.10" → "70/0.10"
+    static func kurz(_ raum: String) -> String {
+        guard let r = RaumTeile(raum) else { return raum }
+        return "\(r.haus)/\(r.rest)"
     }
 }
 
 struct LiveBanner: View {
     let s: VorlesungAttribute.ContentState
+    let laufend: Bool
 
     var body: some View {
         let farbe = Color(hex: s.farbe)
-        let laufend = Date() >= s.start
         HStack(alignment: .center, spacing: 12) {
             RoundedRectangle(cornerRadius: 3)
                 .fill(farbe)
                 .frame(width: 6)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
-                    Text(laufend ? "JETZT · NOCH" : "BEGINNT IN")
-                    LiveTimer(s: s).monospacedDigit()
+                    if laufend {
+                        Text("JETZT · BIS \(Zeit.uhrzeit(s.ende))")
+                    } else {
+                        Text("BEGINNT IN")
+                        Text(timerInterval: Date()...max(Date(), s.start), countsDown: true).monospacedDigit()
+                    }
                 }
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white.opacity(0.75))

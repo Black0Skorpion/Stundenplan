@@ -45,8 +45,10 @@ struct LageplanAnsicht: View {
                     Text("Keine Termine").foregroundStyle(farben.gedimmt)
                 }
                 ForEach(Array(liste.enumerated()), id: \.element.id) { i, t in
-                    if i > 0, let weg = wegText(liste[i - 1], t) {
-                        Label(weg, systemImage: Orte.campusWechsel(von: liste[i - 1].raum, zu: t.raum) ? "tram" : "figure.walk")
+                    if i > 0, !liste[i - 1].ausfall, !t.ausfall, Orte.campusWechsel(von: liste[i - 1].raum, zu: t.raum) {
+                        VerbindungKarte(von: liste[i - 1], nach: t, farben: farben)
+                    } else if i > 0, let weg = wegText(liste[i - 1], t) {
+                        Label(weg, systemImage: "figure.walk")
                             .font(.footnote.weight(.medium))
                             .foregroundStyle(farben.gedimmt)
                             .padding(.leading, 4)
@@ -222,8 +224,8 @@ struct PlanBild: View {
                         if let p = positionen[m.haus] {
                             let x = p.0 * b, y = p.1 * h
                             Circle()
-                                .fill(Palette.jetzt.opacity(0.22))
-                                .overlay(Circle().stroke(Palette.jetzt, lineWidth: max(2, b * 0.0065)))
+                                .fill(m.farbe.opacity(0.25))
+                                .overlay(Circle().stroke(m.farbe, lineWidth: max(2, b * 0.0065)))
                                 .frame(width: ring, height: ring)
                                 .position(x: x, y: y)
                             Text(m.label)
@@ -232,7 +234,7 @@ struct PlanBild: View {
                                 .lineLimit(1)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 2)
-                                .background(Capsule().fill(Palette.jetzt))
+                                .background(Capsule().fill(m.farbe))
                                 .fixedSize()
                                 .position(x: x, y: y - ring / 2 - b * 0.03 < 8 ? y + ring / 2 + b * 0.03 : y - ring / 2 - b * 0.03)
                         }

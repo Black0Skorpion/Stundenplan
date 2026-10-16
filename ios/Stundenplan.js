@@ -1,3 +1,6 @@
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: deep-purple; icon-glyph: magic;
 // Stundenplan-Widget für Scriptable (klein, mittel, groß, iPad extragroß und Sperrbildschirm)
 // Design: kräftige, vollflächige Farben. Hell/Dunkel folgt automatisch dem iPhone.
 //
@@ -12,7 +15,8 @@
 // Einfacher: Script in der Scriptable-App starten → „Einstellungen“ (Farbschema, Planer-Link,
 // Sperrbildschirm-Varianten per Auswahlmenü). Ein Widget-Parameter hat trotzdem Vorrang.
 //
-// Tippen: Raum/Karte/Tageszeile → Lageplan Golm mit markiertem Gebäude, Route (Apple Karten)
+// Tippen: Raum/Karte/Tageszeile → Lageplan des passenden Campus mit markiertem Gebäude, Route (Apple Karten),
+// bei Campuswechsel zwischen zwei Terminen die Bus- und Bahnverbindungen
 // und „Ändern“ (fällt aus / anderer Raum); Wochentag in der Wochenansicht → alle Räume des Tages.
 // Der Rest des Widgets öffnet das Script (Menü). Der Planer öffnet sich nur noch im Lageplan.
 //
@@ -1337,75 +1341,168 @@ async function siriAntwort() {
   Speech.speak(text)
 }
 
-// ───────────────────────── Lageplan Golm ─────────────────────────
+// ───────────────────────── Lagepläne (Golm, Neues Palais, Griebnitzsee) ─────────────────────────
 
-// Einrichtungen laut Legende des Lageplans (Stand Mai 2025)
+const CAMPUS = { "1": "Am Neuen Palais", "2": "Golm", "3": "Griebnitzsee" }
+const CAMPUS_KURZ = { "1": "Neues Palais", "2": "Golm", "3": "Griebnitzsee" }
+// Ungefähre Mitte (falls ein Haus keine Koordinate hat)
+const CAMPUS_MITTE = { "1": [52.4007, 13.0112], "2": [52.4083, 12.9765], "3": [52.3932, 13.1285] }
+
+// Einrichtungen laut Legende der Lagepläne (Stand Mai 2025)
 const EINRICHTUNGEN = {
-  "1": ["Infrastrukturelles/Technisches Gebäudemanagement", "Institut für Umweltwissenschaften und Geographie", "Leitzentrale"],
-  "2": ["Potsdam Research Institute for Multilingualism (PRIM)"],
-  "4": ["Mensa"],
-  "5": ["Multimediaproduktion (ZIM)"],
-  "6": ["Department Musik und Kunst"],
-  "7": ["Wohnanlagen (Studierendenwerk)"],
-  "8": ["Service Center (ZIM)", "Gebäudemanagement"],
-  "9": ["Institut für Mathematik"],
-  "10": ["EPI-Center", "Fuhrpark"],
-  "11": ["Alte Sporthalle", "Lehreinheit Wirtschaft-Arbeit-Technik"],
-  "12": ["Institut für Umweltwissenschaften und Geographie"],
-  "13": ["Atelier – Werkstätten Kunst", "Fachbereich Kunst", "Pädagogische Werkstatt"],
-  "14": ["Department Linguistik", "Department Psychologie", "Lesecafé", "Poststelle"],
-  "16": ["Department Grundschulpädagogik"],
-  "17": ["Wohnanlagen (Studierendenwerk)"],
-  "18": ["Universitätsbibliothek (IKMZ)"],
-  "19": ["Sporthalle"],
-  "20": ["Institut für Biochemie und Biologie"],
-  "24": ["Department Erziehungswissenschaften", "Department Sport- und Gesundheitswissenschaften", "Department Lehrerbildung", "Institut für Umweltwissenschaften und Geographie"],
-  "25": ["Institut für Biochemie und Biologie", "Institut für Chemie"],
-  "26": ["Institut für Biochemie und Biologie", "Institut für Chemie"],
-  "27": ["Institut für Erd- und Umweltwissenschaften"],
-  "28": ["Institut für Physik und Astronomie", "Dekanat Math.-Nat. Fakultät"],
-  "29": ["Institut für Geowissenschaften", "Institut für Biochemie und Biologie", "Institut für Chemie", "Potsdam Transfer"],
-  "30": ["Gewächshaus"],
-  "31": ["Department Inklusionspädagogik"],
-  "32": ["Earth & Environment Centre (EEC)", "Zentrum für Naturstoffgenomik"],
-  "35": ["Dekanat Humanwissenschaftliche Fakultät"],
-  "48": ["Infopoint"],
-  "60": ["Institut für Biochemie und Biologie"],
-  "62": ["Fakultät für Gesundheitswissenschaften", "Zentrum für Lehrerbildung (ZeLB)"],
-  "70": ["Institut für Informatik und Computational Science", "Institut für Umweltwissenschaften und Geographie"],
+  "2": {
+    "1": ["Infrastrukturelles/Technisches Gebäudemanagement", "Institut für Umweltwissenschaften und Geographie", "Leitzentrale"],
+    "2": ["Potsdam Research Institute for Multilingualism (PRIM)"],
+    "4": ["Mensa"],
+    "5": ["Multimediaproduktion (ZIM)"],
+    "6": ["Department Musik und Kunst"],
+    "7": ["Wohnanlagen (Studierendenwerk)"],
+    "8": ["Service Center (ZIM)", "Gebäudemanagement"],
+    "9": ["Institut für Mathematik"],
+    "10": ["EPI-Center", "Fuhrpark"],
+    "11": ["Alte Sporthalle", "Lehreinheit Wirtschaft-Arbeit-Technik"],
+    "12": ["Institut für Umweltwissenschaften und Geographie"],
+    "13": ["Atelier – Werkstätten Kunst", "Fachbereich Kunst", "Pädagogische Werkstatt"],
+    "14": ["Department Linguistik", "Department Psychologie", "Lesecafé", "Poststelle"],
+    "16": ["Department Grundschulpädagogik"],
+    "17": ["Wohnanlagen (Studierendenwerk)"],
+    "18": ["Universitätsbibliothek (IKMZ)"],
+    "19": ["Sporthalle"],
+    "20": ["Institut für Biochemie und Biologie"],
+    "24": ["Department Erziehungswissenschaften", "Department Sport- und Gesundheitswissenschaften", "Department Lehrerbildung", "Institut für Umweltwissenschaften und Geographie"],
+    "25": ["Institut für Biochemie und Biologie", "Institut für Chemie"],
+    "26": ["Institut für Biochemie und Biologie", "Institut für Chemie"],
+    "27": ["Institut für Erd- und Umweltwissenschaften"],
+    "28": ["Institut für Physik und Astronomie", "Dekanat Math.-Nat. Fakultät"],
+    "29": ["Institut für Geowissenschaften", "Institut für Biochemie und Biologie", "Institut für Chemie", "Potsdam Transfer"],
+    "30": ["Gewächshaus"],
+    "31": ["Department Inklusionspädagogik"],
+    "32": ["Earth & Environment Centre (EEC)", "Zentrum für Naturstoffgenomik"],
+    "35": ["Dekanat Humanwissenschaftliche Fakultät"],
+    "48": ["Infopoint"],
+    "60": ["Institut für Biochemie und Biologie"],
+    "62": ["Fakultät für Gesundheitswissenschaften", "Zentrum für Lehrerbildung (ZeLB)"],
+    "70": ["Institut für Informatik und Computational Science", "Institut für Umweltwissenschaften und Geographie"],
+  },
+  "1": {
+    "1": ["Institut für Künste und Medien", "Institut für Slavistik"],
+    "2": ["Arbeitsmedizin", "AV- und IT-Dienste – ZIM - Zentrum für Informationstechnologie und Medienmanagement", "Dezernat 6: Zentrale Dienste", "Poststelle – Dezernat 6: Zentrale Dienste", "Sicherheitswesen"],
+    "3": ["Dezernat 3: Personal- und Rechtsangelegenheiten", "Dezernat 4: Haushalt und Beschaffung"],
+    "4": ["Dezernat 5: Bau- und Facilitymanagement"],
+    "5": ["Institut für Germanistik"],
+    "6": ["Koordinationsbüro für Chancengleichheit", "Multimediaproduktion – ZIM – Zentrum für Informationstechnologie und Medienmanagement", "Netzwerk Studienqualität Brandenburg (sqb)", "Personalvertretungen", "Studierendenvertretung – AStA", "Zentrum für Qualitätsentwicklung in Lehre und Studium (ZfQ)"],
+    "8": ["Auditorium maximum „Audimax“", "Co-Working-Space", "Chief Information Officer (CIO)", "Dezernat 1: Planung, Statistik, Forschungsangelegenheiten", "Dezernat 2: Studienangelegenheiten", "Dezernat 3: Personal- und Rechtsangelegenheiten", "International Office", "Leitung, Verwaltung und Organisation – ZIM - Zentrum für Informationstechnologie und Medienmanagement", "Service Center – ZIM – Zentrum für Informationstechnologie und Medienmanagement", "Welcome Center Potsdam – International Office"],
+    "9": ["Career-Service", "Eltern-Kind-Raum", "Geschäftsstelle des Senats", "International Summer Campus Office – International Office", "Kanzlerbüro", "Potsdam Transfer – Zentrale wissenschaftliche Einrichtung für Gründung, Innovation, Wissens- und Technologietransfer", "Präsident", "Präsidialamt", "Präsidium", "Referat für Presse- und Öffentlichkeitsarbeit", "Universitätsbibliothek"],
+    "10": ["Universitätsbibliothek"],
+    "11": ["Co-Working-Space", "Dekanat – Philosophische Fakultät", "Historisches Institut", "Institut für Jüdische Studien/Jewish Studies", "Institut für Lebensgestaltung – Ethik – Religionskunde", "Institut für Philosophie", "Institut für Religionswissenschaft", "Klassische Philologie", "Nil StudentInnenkeller", "Universitätsbibliothek"],
+    "12": ["Department für Sport- und Gesundheitswissenschaften", "Eltern-Kind-Raum", "Hochschulambulanz", "Mensa – Studierendenwerk West:Brandenburg"],
+    "13": ["Dezernat 5: Bau- und Facilitymanagement", "Infrastrukturelles Gebäudemanagement/Campusteam – Dezernat 5: Bau- und Facilitymanagement", "Zentrum für Hochschulsport"],
+    "14": ["Abraham Geiger Kolleg (AGK)", "Zacharias Frankel College (ZFC)"],
+    "15": ["Institut für Jüdische Theologie (School of Jewish Theology)", "Institut für Philosophie"],
+    "19": ["Institut für Anglistik und Amerikanistik", "Institut für Romanistik", "Zentrum für Sprachen und Schlüsselkompetenzen (Zessko)"],
+    "22": ["Dezernat 4: Haushalt und Beschaffung", "EDUC – Präsidialamt", "Nathan Peter Levinson Stiftung", "Service für Familien – Dezernat 3: Personal- und Rechtsangelegenheiten", "TK-Servicestelle", "Zentrum für Qualitätsentwicklung in Lehre und Studium (ZfQ)"],
+    "34": ["Department für Sport- und Gesundheitswissenschaften", "Knetpunkt", "Umkleiden"],
+    "35": ["Co-Working-Space", "Unishop"],
+    "36": ["Department für Sport- und Gesundheitswissenschaften", "Zentrum für Hochschulsport"],
+    "T1": ["Wohnanlagen – Studierendenwerk West:Brandenburg"],
+    "T2": ["Wohnanlagen – Studierendenwerk West:Brandenburg"],
+    "T3": ["Wohnanlagen – Studierendenwerk West:Brandenburg"],
+  },
+  "3": {
+    "1": ["Dekanat – Juristische Fakultät", "Dekanat – Wirtschafts- und Sozialwissenschaftliche Fakultät", "Juristische Fakultät", "Mensa – Studierendenwerk West:Brandenburg", "Poststelle – Dezernat 6", "Service Center – ZIM – Zentrum für Informationstechnologie und Medienmanagement"],
+    "2": ["Wirtschafts- und Sozialwissenschaftliche Fakultät"],
+    "3": ["Infrastrukturelles Gebäudemanagement (IGM)/Campusteam Griebnitzsee – Dezernat 5: Bau- und Facilitymanagement", "Wirtschafts- und Sozialwissenschaftliche Fakultät"],
+    "5": ["Universitätsbibliothek"],
+    "6": ["AV- und IT-Dienste – ZIM - Zentrum für Informationstechnologie und Medienmanagement", "Mensa – Studierendenwerk West:Brandenburg", "Multimediaproduktion – ZIM - Zentrum für Informationstechnologie und Medienmanagement", "Studienbüro – Juristische Fakultät", "Zentrum für Sprachen und Schlüsselkompetenzen (Zessko)"],
+    "7": ["Kommunalwissenschaftliches Institut", "Potsdam Transfer – Zentrale wissenschaftliche Einrichtung für Gründung, Innovation, Wissens- und Technologietransfer", "Universitätsgesellschaft Potsdam e. V.", "UP Transfer GmbH", "Wirtschafts- und Sozialwissenschaftliche Fakultät"],
+    "13": ["Wirtschaftsinformatik"],
+    "14": ["Demonstrationsgebäude – Wirtschaftsinformatik"],
+  },
 }
 
 // Position der Hausnummer auf dem Plan (Anteil von Breite/Höhe)
-const GEBAEUDE = {"25": [0.3622, 0.4749], "28": [0.3706, 0.5459], "18": [0.3505, 0.6258], "14": [0.4879, 0.7238], "8": [0.6598, 0.5596], "11": [0.6606, 0.7432], "24": [0.6679, 0.7883], "19": [0.5668, 0.8721], "35": [0.6534, 0.8581], "20": [0.7211, 0.8428], "6": [0.7917, 0.5255], "5": [0.8661, 0.5624], "4": [0.8646, 0.6525], "1": [0.7804, 0.7095], "26": [0.5281, 0.4119], "10": [0.6594, 0.6776], "9": [0.7086, 0.6315], "2": [0.7602, 0.6604], "27": [0.4745, 0.5309], "29": [0.5251, 0.5677], "31": [0.5587, 0.7556], "30": [0.5462, 0.7166], "12": [0.9248, 0.5391], "17": [0.3888, 0.7199], "60": [0.8442, 0.1093], "13": [0.7916, 0.8074], "48": [0.2998, 0.6972], "32": [0.471, 0.6365], "70": [0.3853, 0.0464], "16": [0.3861, 0.813], "62": [0.0741, 0.2764], "7": [0.7796, 0.5907], "15": [0.4928, 0.7715]}
+const GEBAEUDE = {
+  "2": {"25": [0.3622, 0.4749], "28": [0.3706, 0.5459], "18": [0.3505, 0.6258], "14": [0.4879, 0.7238], "8": [0.6598, 0.5596], "11": [0.6606, 0.7432], "24": [0.6679, 0.7883], "19": [0.5668, 0.8721], "35": [0.6534, 0.8581], "20": [0.7211, 0.8428], "6": [0.7917, 0.5255], "5": [0.8661, 0.5624], "4": [0.8646, 0.6525], "1": [0.7804, 0.7095], "26": [0.5281, 0.4119], "10": [0.6594, 0.6776], "9": [0.7086, 0.6315], "2": [0.7602, 0.6604], "27": [0.4745, 0.5309], "29": [0.5251, 0.5677], "31": [0.5587, 0.7556], "30": [0.5462, 0.7166], "12": [0.9248, 0.5391], "17": [0.3888, 0.7199], "60": [0.8442, 0.1093], "13": [0.7916, 0.8074], "48": [0.2998, 0.6972], "32": [0.471, 0.6365], "70": [0.3853, 0.0464], "16": [0.3861, 0.813], "62": [0.0741, 0.2764], "7": [0.7796, 0.5907], "15": [0.4928, 0.7715]},
+  "1": {"1": [0.4184, 0.6985], "2": [0.3946, 0.6250], "3": [0.4171, 0.5592], "4": [0.3653, 0.3742], "5": [0.4167, 0.3052], "6": [0.2686, 0.5382], "8": [0.5062, 0.7122], "9": [0.6788, 0.5482], "10": [0.6950, 0.5870], "11": [0.6788, 0.3569], "12": [0.5087, 0.2373], "13": [0.1789, 0.2778], "14": [0.7835, 0.1708], "15": [0.7139, 0.1790], "16": [0.3444, 0.2031], "17": [0.2079, 0.2135], "19": [0.5400, 0.9017], "22": [0.3085, 0.6482], "34": [0.3229, 0.2889], "35": [0.6019, 0.5468], "36": [0.3032, 0.4321], "T1": [0.4939, 0.0577], "T2": [0.4270, 0.0577], "T3": [0.3613, 0.0577]},
+  "3": {"1": [0.6388, 0.6253], "2": [0.4271, 0.4949], "3": [0.4469, 0.4214], "5": [0.2945, 0.3226], "6": [0.6342, 0.5202], "7": [0.5720, 0.3987], "13": [0.1209, 0.8324], "14": [0.2504, 0.8381]},
+}
 
-const CAMPUS = { "1": "Am Neuen Palais", "2": "Golm", "3": "Griebnitzsee" }
-
-// GPS der Häuser (OpenStreetMap; ≈ aus dem Lageplan umgerechnet, meist < 20 m Abweichung).
-// Haus 60 und 62 fehlen bewusst (keine verlässliche Position).
+// GPS der Häuser (OpenStreetMap; einige aus dem Lageplan umgerechnet, meist < 20 m Abweichung).
+// Golm: Haus 60 und 62 fehlen bewusst (keine verlässliche Position).
 const GPS = {
-  "1": [52.407483, 12.977766], "2": [52.408040, 12.977722], "4": [52.407946, 12.978802],
-  "5": [52.408763, 12.979165], "6": [52.409130, 12.978347], "7": [52.408606, 12.978036],
-  "8": [52.409095, 12.977112], "9": [52.408388, 12.977198], "10": [52.407919, 12.976578],
-  "11": [52.407285, 12.976441], "12": [52.408935, 12.979743], "13": [52.406575, 12.977690],
-  "14": [52.407557, 12.974072], "15": [52.407182, 12.974515], "16": [52.406950, 12.973302],
-  "17": [52.407606, 12.973495], "18": [52.408674, 12.973316], "19": [52.406160, 12.975317],
-  "20": [52.406271, 12.976781], "24": [52.406796, 12.976390], "25": [52.410074, 12.973810],
-  "26": [52.410513, 12.975774], "27": [52.409526, 12.975206], "28": [52.409403, 12.973729],
-  "29": [52.409063, 12.975092], "30": [52.407654, 12.975229], "31": [52.407279, 12.975312],
-  "32": [52.408465, 12.974605], "35": [52.406365, 12.976121], "48": [52.408053, 12.972589],
-  "70": [52.413289, 12.974407],
+  "2": {
+    "1": [52.407483, 12.977766], "2": [52.408040, 12.977722], "4": [52.407946, 12.978802],
+    "5": [52.408763, 12.979165], "6": [52.409130, 12.978347], "7": [52.408606, 12.978036],
+    "8": [52.409095, 12.977112], "9": [52.408388, 12.977198], "10": [52.407919, 12.976578],
+    "11": [52.407285, 12.976441], "12": [52.408935, 12.979743], "13": [52.406575, 12.977690],
+    "14": [52.407557, 12.974072], "15": [52.407182, 12.974515], "16": [52.406950, 12.973302],
+    "17": [52.407606, 12.973495], "18": [52.408674, 12.973316], "19": [52.406160, 12.975317],
+    "20": [52.406271, 12.976781], "24": [52.406796, 12.976390], "25": [52.410074, 12.973810],
+    "26": [52.410513, 12.975774], "27": [52.409526, 12.975206], "28": [52.409403, 12.973729],
+    "29": [52.409063, 12.975092], "30": [52.407654, 12.975229], "31": [52.407279, 12.975312],
+    "32": [52.408465, 12.974605], "35": [52.406365, 12.976121], "48": [52.408053, 12.972589],
+    "70": [52.413289, 12.974407],
+  },
+  "1": {
+    "1": [52.399575, 13.010625], "2": [52.400017, 13.010410], "3": [52.400489, 13.010515],
+    "4": [52.401705, 13.010230], "5": [52.402179, 13.010342], "6": [52.400560, 13.009658],
+    "8": [52.399791, 13.011915], "9": [52.400617, 13.013159], "10": [52.400343, 13.013035],
+    "11": [52.401926, 13.013022], "12": [52.402453, 13.011640], "13": [52.402297, 13.008556],
+    "14": [52.403118, 13.013408], "15": [52.403118, 13.012742], "16": [52.402787, 13.009843],
+    "17": [52.402689, 13.008692], "19": [52.398339, 13.012055], "22": [52.399967, 13.009836],
+    "34": [52.402268, 13.009653], "35": [52.400500, 13.012309], "36": [52.401305, 13.009673],
+    "T1": [52.403757, 13.010999], "T2": [52.403742, 13.010431], "T3": [52.403726, 13.009872],
+  },
+  "3": {
+    "1": [52.392742, 13.127282], "2": [52.393519, 13.128819], "3": [52.393501, 13.129520],
+    "5": [52.394031, 13.130795], "6": [52.392867, 13.127992], "7": [52.393115, 13.129530],
+    "13": [52.396600, 13.120404], "14": [52.396240, 13.120494],
+  },
+}
+
+// Pläne von Neues Palais und Griebnitzsee werden einmalig von GitHub geladen und gespeichert
+// (Golm ist eingebettet, siehe LAGEPLAN_PNG ganz unten).
+const PLAN_DATEIEN = { "1": "lageplan_neuespalais.png", "3": "lageplan_griebnitzsee.png" }
+const PLAN_QUELLE = "https://raw.githubusercontent.com/Black0Skorpion/Stundenplan/main/ios-app/App/"
+
+async function planBild(campus) {
+  if (campus === "2") return Image.fromData(Data.fromBase64String(LAGEPLAN_PNG))
+  const name = PLAN_DATEIEN[campus]
+  if (!name) return null
+  const fm = FileManager.local()
+  const pfad = fm.joinPath(fm.documentsDirectory(), "stundenplan-" + name)
+  if (fm.fileExists(pfad)) return fm.readImage(pfad)
+  try {
+    const r = new Request(PLAN_QUELLE + name)
+    r.timeoutInterval = 20
+    const bild = await r.loadImage()
+    fm.writeImage(pfad, bild)
+    return bild
+  } catch (e) {
+    return null
+  }
 }
 
 function gpsVon(raum) {
   const r = raumAufteilen(raum)
-  return r && r.campus === "2" ? GPS[r.haus] : null
+  return r && GPS[r.campus] ? GPS[r.campus][r.haus] || null : null
 }
 
-// Geschätzte Gehzeit (Luftlinie × 1,3, 75 m/min); null = unbekannt, 0 = selbes Haus
+function gpsOderCampus(raum) {
+  const r = raumAufteilen(raum)
+  return gpsVon(raum) || (r && CAMPUS_MITTE[r.campus]) || null
+}
+
+function campusWechsel(von, zu) {
+  const a = raumAufteilen(von), b = raumAufteilen(zu)
+  return !!(a && b && CAMPUS[a.campus] && CAMPUS[b.campus] && a.campus !== b.campus)
+}
+
+// Geschätzte Gehzeit (Luftlinie × 1,3, 75 m/min); null = unbekannt/anderer Campus, 0 = selbes Haus
 function gehminuten(von, zu) {
   const a = raumAufteilen(von), b = raumAufteilen(zu)
-  if (!a || !b) return null
-  if (a.campus === b.campus && a.haus === b.haus) return 0
+  if (!a || !b || a.campus !== b.campus) return null
+  if (a.haus === b.haus) return 0
   const p = gpsVon(von), q = gpsVon(zu)
   if (!p || !q) return null
   const rad = x => x * Math.PI / 180
@@ -1418,20 +1515,140 @@ function gehminuten(von, zu) {
 // Apple Karten mit Fußweg zum Haus
 function routeLink(raum) {
   const p = gpsVon(raum), r = raumAufteilen(raum)
-  return p ? "maps://?daddr=" + p[0] + "," + p[1] + "&dirflg=w&q=" + encodeURIComponent("Uni Potsdam Haus " + r.haus) : null
+  return p ? "maps://?daddr=" + p[0] + "," + p[1] + "&dirflg=w&q=" + encodeURIComponent("Uni Potsdam " + CAMPUS[r.campus] + " Haus " + r.haus) : null
 }
 
-// "2.70.0.10" → { campus: "2", haus: "70", etage: "0", raum: "10" }
+// Apple Karten mit Bus und Bahn zwischen zwei Räumen (Campuswechsel)
+function oepnvLink(von, zu) {
+  const p = gpsOderCampus(von), q = gpsOderCampus(zu)
+  return p && q ? "maps://?saddr=" + p[0] + "," + p[1] + "&daddr=" + q[0] + "," + q[1] + "&dirflg=r" : null
+}
+
+// "2.70.0.10" → { campus: "2", haus: "70", etage: "0", raum: "10" }  ("08" → "8")
 function raumAufteilen(raum) {
   const t = (raum || "").split(".")
   if (t.length < 3) return null
-  return { campus: t[0], haus: t[1], etage: t[2], raum: t.slice(3).join(".") }
+  const haus = /^\d+$/.test(t[1]) ? String(Number(t[1])) : t[1]
+  return { campus: t[0], haus, etage: t[2], raum: t.slice(3).join(".") }
 }
 
 function etageText(e) {
   if (e === "0") return "Erdgeschoss"
   if (/^-?\d+$/.test(e)) return Number(e) > 0 ? e + ". Obergeschoss" : Math.abs(Number(e)) + ". Untergeschoss"
   return "Ebene " + e
+}
+
+// ───────────────────────── Campus (für Mensa- und Abfahrten-Script) ─────────────────────────
+// Einstellung: "auto" (nach Stundenplan) oder "1"/"2"/"3". Das Ergebnis wird für die anderen
+// Scripts in iCloud Drive › Scriptable › stundenplan-campus.json abgelegt.
+
+function campusAutomatisch(alle, jetzt) {
+  const mit = alle.filter(t => !t.ausfall && raumAufteilen(t.raum) && CAMPUS[raumAufteilen(t.raum).campus])
+    .sort((a, b) => a.start - b.start)
+  const c = t => raumAufteilen(t.raum).campus
+  const heute = mit.filter(t => gleicherTag(t.start, jetzt))
+  const laufend = heute.find(t => t.ende > jetzt)
+  if (laufend) return c(laufend)
+  const letzter = heute[heute.length - 1]
+  if (letzter && jetzt - letzter.ende < 2 * 3600000) return c(letzter)
+  const naechster = mit.find(t => t.start > jetzt)
+  if (naechster) return c(naechster)
+  const anzahl = {}
+  for (const t of mit) anzahl[c(t)] = (anzahl[c(t)] || 0) + 1
+  const sortiert = Object.entries(anzahl).sort((a, b) => b[1] - a[1])
+  return sortiert.length ? sortiert[0][0] : "2"
+}
+
+function campusAktuell(alle, jetzt) {
+  const w = einstellungen().campus || "auto"
+  return CAMPUS[w] ? w : campusAutomatisch(alle, jetzt || new Date())
+}
+
+function campusTeilen(alle) {
+  try {
+    const e = einstellungen()
+    const daten = {
+      wahl: e.campus || "auto",
+      campus: campusAktuell(alle, new Date()),
+      favoriten: e.favoriten || [],
+      stand: new Date().toISOString(),
+    }
+    let fm
+    try { fm = FileManager.iCloud() } catch (x) { fm = FileManager.local() }
+    fm.writeString(fm.joinPath(fm.documentsDirectory(), "stundenplan-campus.json"), JSON.stringify(daten, null, 2))
+  } catch (e) {}
+}
+
+// ───────────────────────── Verbindungen bei Campuswechsel ─────────────────────────
+
+async function verbindungenSuchen(a, b) {
+  const p = gpsOderCampus(a.raum), q = gpsOderCampus(b.raum)
+  if (!p || !q) return null
+  const ra = raumAufteilen(a.raum), rb = raumAufteilen(b.raum)
+  const ab = new Date(Math.max(a.ende.getTime(), Date.now())).toISOString()
+  const query = "from.latitude=" + p[0] + "&from.longitude=" + p[1]
+    + "&from.address=" + encodeURIComponent("Uni Potsdam " + CAMPUS[ra.campus] + " Haus " + ra.haus)
+    + "&to.latitude=" + q[0] + "&to.longitude=" + q[1]
+    + "&to.address=" + encodeURIComponent("Uni Potsdam " + CAMPUS[rb.campus] + " Haus " + rb.haus)
+    + "&departure=" + encodeURIComponent(ab) + "&results=3&stopovers=false&remarks=false&polylines=false&tickets=false"
+  for (const quelle of ["https://v6.vbb.transport.rest", "https://v6.bvg.transport.rest"]) {
+    for (let i = 0; i < 2; i++) {
+      try {
+        const r = new Request(quelle + "/journeys?" + query)
+        r.timeoutInterval = 12
+        const d = await r.loadJSON()
+        if (d && Array.isArray(d.journeys)) {
+          return d.journeys.map(j => j.legs.map(l => ({
+            zuFuss: !!l.walking,
+            linie: l.line ? l.line.name : null,
+            produkt: l.line ? l.line.product : null,
+            von: l.origin ? l.origin.name : null,
+            nach: l.destination ? l.destination.name : null,
+            gleis: l.departurePlatform || l.plannedDeparturePlatform || null,
+            ab: new Date(l.departure || l.plannedDeparture),
+            an: new Date(l.arrival || l.plannedArrival),
+          })).filter(l => !isNaN(l.ab) && !isNaN(l.an))).filter(v => v.length)
+        }
+      } catch (e) {}
+    }
+  }
+  return null
+}
+
+function kurzOrt(s) {
+  let t = s || ""
+  for (const v of ["Potsdam, ", "S+U ", "S "]) if (t.startsWith(v)) t = t.slice(v.length)
+  return t
+}
+
+function verbindungHtml(a, b, liste) {
+  const rb = raumAufteilen(b.raum)
+  const zeit = Math.round((b.start - a.ende) / 60000)
+  let h = `<div class="verb"><div class="vk">🚆 Campuswechsel nach ${htmlSchutz(CAMPUS[rb.campus])}<span>${zeit} Min Zeit</span></div>`
+  if (liste === null) h += `<div class="vz">Verbindungssuche gerade nicht erreichbar.</div>`
+  else if (!liste.length) h += `<div class="vz">Keine Verbindung gefunden.</div>`
+  else {
+    let offen = false
+    for (const v of liste) {
+      const ab = v[0].ab, an = v[v.length - 1].an
+      const puenktlich = an <= b.start
+      const linien = v.filter(l => l.linie).map(l => l.linie).join(" → ") || "zu Fuß"
+      h += `<details${!offen && puenktlich ? " open" : ""}><summary><b>${uhrzeit(ab)} → ${uhrzeit(an)}</b> ${htmlSchutz(linien)} `
+        + `<span class="${puenktlich ? "" : "spaet"}">${puenktlich ? Math.round((an - ab) / 60000) + " Min" : "zu spät"}</span></summary>`
+      for (const l of v) {
+        const min = Math.max(1, Math.round((l.an - l.ab) / 60000))
+        const text = l.zuFuss
+          ? `${min} Min zu Fuß ${l.nach ? "zu " + kurzOrt(l.nach) : "zum Haus"}`
+          : `${uhrzeit(l.ab)} ${l.linie || "?"} ab ${kurzOrt(l.von)}${l.gleis ? " (Gl. " + l.gleis + ")" : ""} → ${uhrzeit(l.an)} ${l.nach ? kurzOrt(l.nach) : "Ziel"}`
+        h += `<div class="vz">${l.zuFuss ? "🚶" : (l.produkt === "bus" ? "🚌" : "🚆")} ${htmlSchutz(text)}</div>`
+      }
+      h += `</details>`
+      if (puenktlich) offen = true
+    }
+  }
+  const link = oepnvLink(a.raum, b.raum)
+  if (link) h += `<a class="vl" href="${htmlSchutz(link)}">In Apple Karten mit Bus &amp; Bahn</a>`
+  return h + `</div>`
 }
 
 // Link, der Scriptable öffnet und den Lageplan zeigt
@@ -1450,8 +1667,7 @@ function lageplanLinkTag(datum) {
   return lageplanLink({ tag: d.getTime() })
 }
 
-function lageplanBild(markierungen) {
-  const plan = Image.fromData(Data.fromBase64String(LAGEPLAN_PNG))
+function lageplanBild(plan, campus, markierungen) {
   const B = plan.size.width, H = plan.size.height
   const ctx = new DrawContext()
   ctx.size = new Size(B, H)
@@ -1460,20 +1676,22 @@ function lageplanBild(markierungen) {
   ctx.setFillColor(Color.white())
   ctx.fillRect(new Rect(0, 0, B, H))
   ctx.drawImageInRect(plan, new Rect(0, 0, B, H))
-  const rot = new Color("#E24B4A")
+  const geb = GEBAEUDE[campus] || {}
   // Mehrere Termine im selben Haus zusammenfassen
   const proHaus = {}
   for (const m of markierungen) {
-    if (!GEBAEUDE[m.haus]) continue
+    if (m.campus !== campus || !geb[m.haus]) continue
     ;(proHaus[m.haus] = proHaus[m.haus] || []).push(m)
   }
   for (const [haus, liste] of Object.entries(proHaus)) {
-    const [fx, fy] = GEBAEUDE[haus]
+    const [fx, fy] = geb[haus]
     const x = fx * B, y = fy * H
+    // Farbe des Fachs (bei mehreren Terminen im Haus: der erste)
+    const rot = new Color(liste[0].farbe || "#E24B4A")
     const ring = new Path()
     ring.addEllipse(new Rect(x - 46, y - 46, 92, 92))
     ctx.addPath(ring)
-    ctx.setFillColor(new Color("#E24B4A", 0.22))
+    ctx.setFillColor(new Color(liste[0].farbe || "#E24B4A", 0.25))
     ctx.fillPath()
     ctx.addPath(ring)
     ctx.setStrokeColor(rot)
@@ -1514,6 +1732,11 @@ async function zeigeLageplan(alle, parameter) {
     titel = datumKurz(tag)
   }
 
+  // Verbindungen für jeden Campuswechsel (parallel)
+  const wechsel = await Promise.all(termine.map((t, i) =>
+    i > 0 && !t.ausfall && !termine[i - 1].ausfall && campusWechsel(termine[i - 1].raum, t.raum)
+      ? verbindungenSuchen(termine[i - 1], t).catch(() => null) : Promise.resolve(undefined)))
+
   const markierungen = []
   const karten = termine.map((t, i) => {
     const kurs = kursInfo(t.titel)
@@ -1523,21 +1746,26 @@ async function zeigeLageplan(alle, parameter) {
     let ort = htmlSchutz(t.raum)
     let einrichtung = ""
     if (r) {
-      ort = "Haus " + htmlSchutz(r.haus) + " · Raum " + htmlSchutz(r.etage + "." + r.raum) + " · " + etageText(r.etage)
-      if (r.campus !== "2") ort += " · Campus " + (CAMPUS[r.campus] || r.campus) + " (nicht auf diesem Plan)"
-      else if (!GEBAEUDE[r.haus]) ort += " · nicht auf dem Plan"
-      if (r.campus === "2") {
-        if (!t.ausfall) markierungen.push({ haus: r.haus, label: nummer || ("Raum " + r.etage + "." + r.raum) })
-        if (EINRICHTUNGEN[r.haus]) einrichtung = EINRICHTUNGEN[r.haus].map(htmlSchutz).join(" · ")
+      const bekannt = !!CAMPUS[r.campus]
+      ort = (bekannt ? CAMPUS_KURZ[r.campus] + " · " : "") + "Haus " + htmlSchutz(r.haus) + " · Raum " + htmlSchutz(r.etage + "." + r.raum) + " · " + etageText(r.etage)
+      if (bekannt) {
+        if (!GEBAEUDE[r.campus][r.haus]) ort += " · nicht auf dem Plan"
+        else if (!t.ausfall) markierungen.push({ campus: r.campus, haus: r.haus, farbe: kurs.farbe, label: nummer || ("Raum " + r.etage + "." + r.raum) })
+        const e = EINRICHTUNGEN[r.campus][r.haus]
+        if (e) einrichtung = e.map(htmlSchutz).join(" · ")
       }
     }
-    // Gehzeit vom vorherigen Termin, wenn das Haus wechselt
+    // Weg vom vorherigen Termin: Verbindungen bei Campuswechsel, sonst Gehzeit bei Hauswechsel
     let weg = ""
     if (i > 0 && !t.ausfall && !termine[i - 1].ausfall) {
-      const min = gehminuten(termine[i - 1].raum, t.raum)
-      if (min) {
-        const pause = Math.round((t.start - termine[i - 1].ende) / 60000)
-        weg = `<div class="weg">🚶 ca. ${min} Min zu Haus ${htmlSchutz(r.haus)}${pause > 0 ? ` (${pause} Min Pause)` : ""}</div>`
+      if (wechsel[i] !== undefined) {
+        weg = verbindungHtml(termine[i - 1], t, wechsel[i])
+      } else {
+        const min = gehminuten(termine[i - 1].raum, t.raum)
+        if (min) {
+          const pause = Math.round((t.start - termine[i - 1].ende) / 60000)
+          weg = `<div class="weg">🚶 ca. ${min} Min zu Haus ${htmlSchutz(r.haus)}${pause > 0 ? ` (${pause} Min Pause)` : ""}</div>`
+        }
       }
     }
     const route = t.ausfall ? null : routeLink(t.raum)
@@ -1552,15 +1780,34 @@ async function zeigeLageplan(alle, parameter) {
     </div>`
   }).join("")
 
-  const bild = Data.fromPNG(lageplanBild(markierungen)).toBase64String()
+  // Pläne: gewählter Campus, sonst die Campus der Termine (in Reihenfolge), sonst der aktuelle
+  let campusListe = []
+  if (CAMPUS[parameter.plan]) campusListe = [parameter.plan]
+  else {
+    for (const m of markierungen) if (!campusListe.includes(m.campus)) campusListe.push(m.campus)
+    if (!campusListe.length) campusListe = [campusAktuell(alle, new Date())]
+  }
+  let bilder = ""
+  for (const c of campusListe) {
+    const plan = await planBild(c)
+    if (campusListe.length > 1 || !termine.length) bilder += `<h2>Campus ${htmlSchutz(CAMPUS[c])}</h2>`
+    if (plan) bilder += `<img class="plan" src="data:image/png;base64,${Data.fromPNG(lageplanBild(plan, c, markierungen)).toBase64String()}">`
+    else bilder += `<p class="leer">Plan ${htmlSchutz(CAMPUS[c])} konnte nicht geladen werden (einmalig Internet nötig).</p>`
+  }
+  const basis = Object.assign({}, parameter)
+  delete basis.plan
+  const wahl = Object.keys(CAMPUS).sort((a, b) => (a === "2" ? -1 : b === "2" ? 1 : a - b))
+    .map(c => `<a href="${htmlSchutz(lageplanLink(Object.assign({}, basis, { plan: c })))}">${CAMPUS_KURZ[c]}</a>`).join("")
+    + (termine.length ? `<a href="${htmlSchutz(lageplanLink(Object.keys(basis).length ? basis : { tag: new Date().setHours(0, 0, 0, 0) }))}">passend</a>` : "")
   const planerLink = tippLink()
   const html = `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=6">
 <style>
   :root { color-scheme: light dark; }
-  body { font-family: -apple-system, system-ui; margin: 0; padding: 16px; background: #FFFFFF; color: #2C2C2A; }
-  @media (prefers-color-scheme: dark) { body { background: #1C1C1E; color: #F1EFE8; } .plan { border-color: #3A3A3C; } }
+  body { font-family: -apple-system, system-ui; margin: 0; padding: 16px; background: #FFFFFF; color: #2C2C2A; overflow-wrap: anywhere; }
+  @media (prefers-color-scheme: dark) { body { background: #1C1C1E; color: #F1EFE8; } .plan { border-color: #3A3A3C; } .verb { background: #2C2C2E !important; } }
   h1 { font-size: 22px; margin: 4px 0 12px; }
+  h2 { font-size: 17px; margin: 14px 0 4px; }
   .karte { border-radius: 14px; padding: 12px 14px; color: #fff; margin-bottom: 10px; }
   .aus { opacity: .5; } .aus .titel { text-decoration: line-through; }
   .marke { background: rgba(255,255,255,.25); border-radius: 8px; padding: 1px 6px; font-size: 11px; }
@@ -1572,20 +1819,26 @@ async function zeigeLageplan(alle, parameter) {
   .knoepfe { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
   .k { background: rgba(255,255,255,.22); color: #fff; text-decoration: none; border-radius: 16px; padding: 6px 12px; font-size: 14px; font-weight: 600; }
   .weg { font-size: 13px; color: #888780; margin: -4px 0 8px 4px; }
+  .verb { background: #F1EFE8; border-radius: 12px; padding: 10px 12px; margin: -2px 0 10px; font-size: 13px; }
+  .vk { font-weight: 700; margin-bottom: 6px; } .vk span { float: right; font-weight: 400; color: #888780; }
+  details { margin: 4px 0; } .vz { color: #888780; font-size: 12px; margin: 3px 0 0 6px; } .spaet { color: #E24B4A; }
+  a.vl { display: inline-block; margin-top: 8px; color: #185FA5; font-weight: 600; text-decoration: none; }
   .plan { width: 100%; border-radius: 14px; border: 1px solid #D3D1C7; background: #fff; margin-top: 6px; }
   .leer { color: #888780; }
+  .wahl { font-size: 13px; color: #888780; margin-top: 12px; } .wahl a { margin-left: 10px; color: #185FA5; font-weight: 600; text-decoration: none; }
   a.knopf { display: block; text-align: center; margin: 14px 0 4px; padding: 12px; border-radius: 12px; background: #185FA5; color: #fff; text-decoration: none; font-weight: 600; }
   .hinweis { font-size: 12px; color: #888780; text-align: center; margin-top: 8px; }
 </style></head><body>
-<h1>${htmlSchutz(titel || "Lageplan Golm")}</h1>
+<h1>${htmlSchutz(titel || "Lageplan")}</h1>
 ${karten || '<p class="leer">Keine Termine</p>'}
-<img class="plan" src="data:image/png;base64,${bild}">
+${bilder}
 <p class="hinweis">Zum Vergrößern mit zwei Fingern zoomen.</p>
+<div class="wahl">Plan:${wahl}</div>
 ${planerLink ? `<a class="knopf" href="${htmlSchutz(planerLink)}">Im Planer öffnen</a>` : ""}
 </body></html>`
   const wv = new WebView()
-  // Links (Route, Ändern, Planer) nicht in der Ansicht laden, sondern an iOS weitergeben:
-  // maps:// öffnet Apple Karten, scriptable:// das Ändern-Menü, https den Browser.
+  // Links (Route, Ändern, Planer, Plan wechseln) nicht in der Ansicht laden, sondern an iOS weitergeben:
+  // maps:// öffnet Apple Karten, scriptable:// dieses Script, https den Browser.
   wv.shouldAllowRequest = req => {
     const u = req.url || ""
     if (/^(https?|maps|scriptable):/i.test(u)) {
@@ -1625,6 +1878,8 @@ async function zeigeEinstellungen() {
       ["rechteck", "Sperrbildschirm Rechteck: " + VARIANTEN_NAMEN[e.rechteck || "naechste"]],
       ["rund", "Sperrbildschirm Rund: " + VARIANTEN_NAMEN[e.rund || "countdown"]],
       ["erinnerungen", "Erinnerungen: " + (e.erinnerungen ? "an (" + (e.vorlauf || 10) + " Min vorher)" : "aus")],
+      ["campus", "Campus (Mensa/Abfahrten): " + (CAMPUS[e.campus] || "Automatisch")],
+      ["favoriten", "Priorisierte Linien: " + ((e.favoriten || []).join(", ") || "keine")],
     ]
     const a = new Alert()
     a.title = "Einstellungen"
@@ -1644,6 +1899,20 @@ async function zeigeEinstellungen() {
         e.erinnerungen ? (e.vorlauf || 10) : "aus")
       if (w === "aus") e.erinnerungen = false
       else if (w !== undefined) { e.erinnerungen = true; e.vorlauf = w }
+    } else if (schluessel === "campus") {
+      const w = await auswahlMenue("Campus für Mensa- und Abfahrten-Widget",
+        [["auto", "Automatisch (nach Stundenplan)"], ["2", "Golm"], ["1", "Am Neuen Palais"], ["3", "Griebnitzsee"]], e.campus || "auto")
+      if (w !== undefined) e.campus = w
+    } else if (schluessel === "favoriten") {
+      const l = new Alert()
+      l.title = "Priorisierte Linien"
+      l.message = "Stehen im Abfahrten-Widget immer mit drin. Mehrere mit Komma trennen, z. B. „RB20, 605“."
+      l.addTextField("RB20", (e.favoriten || []).join(", "))
+      l.addAction("Speichern")
+      l.addCancelAction("Abbrechen")
+      if (await l.presentAlert() === 0) {
+        e.favoriten = l.textFieldValue(0).split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean)
+      }
     } else if (schluessel === "link") {
       const l = new Alert()
       l.title = "Planer-Link"
@@ -1668,6 +1937,7 @@ async function zeigeEinstellungen() {
       if (w !== undefined) e[schluessel] = w
     }
     einstellungenSpeichern(e)
+    campusTeilen(await ladeAlle(false))
   }
   await erinnerungenPlanen(true)
 }
@@ -1922,6 +2192,7 @@ async function erstelleWidget(familie) {
   else if (familie === "extraLarge") w = extraGrossesWidget(alle, jetzt, farben)
   else w = grossesWidget(alle, jetzt, farben)
   aktualisierung(w, alle, jetzt)
+  campusTeilen(alle)
   return w
 }
 
@@ -1945,6 +2216,7 @@ if (config.runsInWidget) {
   await zeigeLageplan(alle, aufruf)
 } else {
   await erinnerungenPlanen(true)
+  campusTeilen(await ladeAlle(false))
   const start = new Alert()
   start.title = "Stundenplan"
   start.addAction("Widget-Vorschau")

@@ -40,6 +40,15 @@ enum Campus: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Ungefähre Mitte des Campus (falls ein Haus keine Koordinate hat)
+    var mittelpunkt: (lat: Double, lon: Double) {
+        switch self {
+        case .neuesPalais: return (52.4007, 13.0112)
+        case .golm: return (52.4083, 12.9765)
+        case .griebnitzsee: return (52.3932, 13.1285)
+        }
+    }
+
     /// OpenMensa-Nummer der Mensa am Campus
     var mensaID: Int {
         switch self {

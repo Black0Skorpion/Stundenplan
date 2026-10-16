@@ -1,17 +1,58 @@
-// Abfahrten-Widget für Scriptable – Golm Bhf und Science Park/Uni (Potsdam)
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: purple; icon-glyph: bus;
+// Abfahrten-Widget für Scriptable – Uni Potsdam (Golm, Am Neuen Palais, Griebnitzsee)
 // Daten: VBB über v6.vbb.transport.rest (frei, ohne Anmeldung), mit Echtzeit/Verspätungen.
 // Größen: Klein (3 Abfahrten), Mittel (4), Groß (bis 10). Die Minuten zählen von selbst herunter.
 //
 // Widget-Parameter (optional, mit Leerzeichen kombinierbar):
-//   zug     → nur Züge (Regionalbahn), keine Busse
+//   zug     → nur Züge (Regionalbahn/S-Bahn), keine Busse
 //   hell / dunkel → festes Farbschema
+//   golm / palais / griebnitzsee → fester Campus
+// Ohne Campus-Parameter gilt die Einstellung aus dem Stundenplan-Script (Einstellungen → Campus;
+// „Automatisch“ = Campus der laufenden bzw. nächsten Veranstaltung). Priorisierte Linien
+// (ebenfalls dort einstellbar) sind im Widget immer dabei und haben einen Stern.
 //
 // Tippen öffnet die Liste aller Abfahrten der nächsten 90 Minuten.
 
-const HALTESTELLEN = [
-  { id: "900220010", name: "Golm Bhf" },
-  { id: "900220365", name: "Science Park/Uni" },
-]
+const CAMPUS = {
+  "2": { name: "Golm", haltestellen: [{ id: "900220010", name: "Golm Bhf" }, { id: "900220365", name: "Science Park/Uni" }] },
+  "1": { name: "Neues Palais", haltestellen: [{ id: "900230133", name: "Campus Universität" }, { id: "900230132", name: "Neues Palais" }, { id: "900230007", name: "Park Sanssouci Bhf" }] },
+  "3": { name: "Griebnitzsee", haltestellen: [{ id: "900230003", name: "Griebnitzsee Bhf" }] },
+}
+
+// Campus: Widget-Parameter > Einstellung des Stundenplan-Scripts (stundenplan-campus.json) > Golm
+function campusLesen() {
+  let geteilt = {}
+  try {
+    let fm
+    try { fm = FileManager.iCloud() } catch (e) { fm = FileManager.local() }
+    const pfad = fm.joinPath(fm.documentsDirectory(), "stundenplan-campus.json")
+    if (fm.fileExists(pfad)) {
+      if (fm.isFileStoredIniCloud(pfad) && !fm.isFileDownloaded(pfad)) fm.downloadFileFromiCloud(pfad)
+      else geteilt = JSON.parse(fm.readString(pfad)) || {}
+    }
+  } catch (e) {}
+  const roh = (args.widgetParameter || "").toLowerCase()
+  const c = /golm/.test(roh) ? "2" : /palais/.test(roh) ? "1" : /griebnitz/.test(roh) ? "3"
+    : (CAMPUS[geteilt.campus] ? geteilt.campus : "2")
+  return { id: c, name: CAMPUS[c].name, haltestellen: CAMPUS[c].haltestellen,
+           favoriten: (geteilt.favoriten || []).map(x => String(x).toUpperCase()) }
+}
+
+const CAMPUS_JETZT = campusLesen()
+const HALTESTELLEN = CAMPUS_JETZT.haltestellen
+
+function istFavorit(a) {
+  return CAMPUS_JETZT.favoriten.includes(String(a.linie).toUpperCase())
+}
+
+// Priorisierte Linien kommen auf jeden Fall rein (höchstens die Hälfte), Rest nach Zeit
+function auswahl(liste, anzahl) {
+  const fav = liste.filter(istFavorit).slice(0, Math.max(1, Math.floor(anzahl / 2)))
+  const rest = liste.filter(a => !fav.includes(a)).slice(0, anzahl - fav.length)
+  return fav.concat(rest).sort((a, b) => a.zeit - b.zeit)
+}
 
 const FARBEN = {
   hell: { bg: "#FFFFFF", text: "#2C2C2A", gedimmt: "#888780", akzent: "#185FA5" },
@@ -62,7 +103,7 @@ async function ladeHaltestelle(h) {
 
 async function ladeAbfahrten() {
   const fm = FileManager.local()
-  const cache = fm.joinPath(fm.cacheDirectory(), "abfahrten-golm.json")
+  const cache = fm.joinPath(fm.cacheDirectory(), "abfahrten-campus" + CAMPUS_JETZT.id + ".json")
   const teile = await Promise.all(HALTESTELLEN.map(h => ladeHaltestelle(h).catch(() => null)))
   if (teile.every(t => t === null)) {
     // Offline: letzten Stand verwenden
@@ -144,7 +185,7 @@ function zeile(w, a, f, kompakt, breite) {
 
   const mitte = z.addStack()
   mitte.layoutVertically()
-  const r = text(mitte, kurzRichtung(a.richtung), Font.semiboldSystemFont(kompakt ? 11 : 12), f.vorder)
+  const r = text(mitte, (istFavorit(a) ? "★ " : "") + kurzRichtung(a.richtung), Font.semiboldSystemFont(kompakt ? 11 : 12), f.vorder)
   if (a.ausfall) r.textOpacity = 0.55
   if (!kompakt) text(mitte, a.haltestelle + (a.gleis ? " · Gl. " + a.gleis : ""), Font.systemFont(9), f.gedimmt)
   z.addSpacer()
@@ -189,7 +230,7 @@ async function erstelleWidget(familie) {
 
   const kopf = w.addStack()
   kopf.layoutHorizontally()
-  text(kopf, kompakt ? "Ab Golm" : "Abfahrten Golm" + (p.nurZuege ? " · Züge" : ""), Font.semiboldSystemFont(12), f.akzent)
+  text(kopf, kompakt ? "Ab " + CAMPUS_JETZT.name : "Abfahrten " + CAMPUS_JETZT.name + (p.nurZuege ? " · Züge" : ""), Font.semiboldSystemFont(12), f.akzent)
   kopf.addSpacer()
   text(kopf, uhrzeit(new Date()), Font.systemFont(11), f.gedimmt)
   w.addSpacer(5)
@@ -202,7 +243,7 @@ async function erstelleWidget(familie) {
     return w
   }
   const jetzt = Date.now()
-  liste = liste.filter(a => a.zeit.getTime() > jetzt - 30000 && (!p.nurZuege || istZug(a))).slice(0, anzahl)
+  liste = auswahl(liste.filter(a => a.zeit.getTime() > jetzt - 30000 && (!p.nurZuege || istZug(a))), anzahl)
   if (!liste.length) {
     w.addSpacer()
     text(w, "Keine Abfahrten", Font.mediumSystemFont(13), f.gedimmt)
@@ -220,7 +261,7 @@ async function zeigeListe() {
   t.showSeparators = true
   const kopf = new UITableRow()
   kopf.isHeader = true
-  kopf.addText("Abfahrten Golm", "Golm Bhf · Science Park/Uni · nächste 90 Minuten")
+  kopf.addText("Abfahrten " + CAMPUS_JETZT.name, HALTESTELLEN.map(h => h.name).join(" · ") + " · nächste 90 Minuten")
   t.addRow(kopf)
   if (!liste) {
     const r = new UITableRow()
@@ -234,7 +275,7 @@ async function zeigeListe() {
       l.widthWeight = 16
       l.titleColor = new Color(linienFarbe(a))
       l.titleFont = Font.boldSystemFont(15)
-      const m = r.addText(kurzRichtung(a.richtung), a.haltestelle + (a.gleis ? " · Gl. " + a.gleis : ""))
+      const m = r.addText((istFavorit(a) ? "★ " : "") + kurzRichtung(a.richtung), a.haltestelle + (a.gleis ? " · Gl. " + a.gleis : ""))
       m.widthWeight = 60
       const min = Math.max(0, Math.round((a.zeit - Date.now()) / 60000))
       const v = a.verspaetung ? " (" + (a.verspaetung > 0 ? "+" : "") + a.verspaetung + ")" : ""
@@ -251,9 +292,9 @@ if (config.runsInWidget) {
   Script.setWidget(await erstelleWidget(config.widgetFamily))
 } else if (config.runsWithSiri) {
   const liste = (await ladeAbfahrten()) || []
-  const naechste = liste.filter(a => !a.ausfall && a.zeit > new Date()).slice(0, 3)
+  const naechste = auswahl(liste.filter(a => !a.ausfall && a.zeit > new Date()), 3)
   const satz = naechste.length
-    ? naechste.map(a => a.linie + " nach " + kurzRichtung(a.richtung) + " in " + Math.max(0, Math.round((a.zeit - Date.now()) / 60000)) + " Minuten").join(", ") + "."
+    ? "Ab " + CAMPUS_JETZT.name + ": " + naechste.map(a => a.linie + " nach " + kurzRichtung(a.richtung) + " in " + Math.max(0, Math.round((a.zeit - Date.now()) / 60000)) + " Minuten").join(", ") + "."
     : "Gerade keine Abfahrten."
   Script.setShortcutOutput(satz)
   Speech.speak(satz)

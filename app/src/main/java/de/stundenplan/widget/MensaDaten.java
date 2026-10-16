@@ -25,19 +25,27 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Speiseplan der Mensa Golm über OpenMensa (openmensa.org), mit Zwischenspeicher. */
+/** Speiseplan der Mensa am gewählten Campus über OpenMensa (openmensa.org), mit Zwischenspeicher. */
 public final class MensaDaten {
     private MensaDaten() {}
 
     // ───── Einstellungen ─────
-    public static final int MENSA_ID = 61;                 // Mensa Golm bei OpenMensa
-    public static final String MENSA_NAME = "Mensa Golm";
+    /** Name der zuletzt geladenen Mensa (für die Überschrift im Widget) */
+    public static volatile String MENSA_NAME = "Mensa Golm";
     public static final String PREISGRUPPE = "students";   // "students", "employees" oder "others"
     public static final int UMSCHALTEN_UM = 15;            // ab dieser Stunde wird der nächste Tag gezeigt
     public static final boolean ABEND_ANZEIGEN = true;     // Abendangebote zeigen (wenn anders als mittags)
-    public static final String TAP_URL = "https://openmensa.org/c/61";
 
-    private static final String API = "https://openmensa.org/api/v2/canteens/" + MENSA_ID;
+    static String webseite(Context ctx) {
+        return "https://openmensa.org/c/" + Campus.mensaId(Campus.aktuell(ctx));
+    }
+
+    /** Schnittstelle der Mensa am aktuellen Campus; merkt sich nebenbei den Namen für die Überschrift. */
+    private static String api(Context ctx) {
+        String c = Campus.aktuell(ctx);
+        MENSA_NAME = Campus.mensaName(c);
+        return "https://openmensa.org/api/v2/canteens/" + Campus.mensaId(c);
+    }
     private static final long MAX_ALTER_MS = 60 * 60 * 1000L; // Daten höchstens stündlich neu laden
 
     // ───── Datenklassen ─────
@@ -89,7 +97,8 @@ public final class MensaDaten {
 
     /** Lädt Text von url; bei Fehler oder ohne Netz der zuletzt gespeicherte Stand. */
     private static String laden(Context ctx, String url, String name, boolean netzErlaubt) {
-        File f = new File(ctx.getCacheDir(), "mensa-" + MENSA_ID + "-" + name + ".json");
+        String id = url.replaceAll("^.*/canteens/(\\d+).*$", "$1");
+        File f = new File(ctx.getCacheDir(), "mensa-" + id + "-" + name + ".json");
         boolean frisch = f.exists() && System.currentTimeMillis() - f.lastModified() < MAX_ALTER_MS;
         if (netzErlaubt && !frisch) {
             try {
@@ -181,7 +190,7 @@ public final class MensaDaten {
     // ───── Öffnungstage ─────
 
     public static List<Tag> ladeTage(Context ctx, boolean netz) {
-        return parseTage(laden(ctx, API + "/days", "tage", netz));
+        return parseTage(laden(ctx, api(ctx) + "/days", "tage", netz));
     }
 
     public static List<Tag> parseTage(String json) {
@@ -250,7 +259,7 @@ public final class MensaDaten {
 
     /** null = nicht erreichbar (kein Netz und nichts gespeichert). */
     public static Plan ladePlan(Context ctx, long tag, boolean netz) {
-        String json = laden(ctx, API + "/days/" + iso(tag) + "/meals", iso(tag), netz);
+        String json = laden(ctx, api(ctx) + "/days/" + iso(tag) + "/meals", iso(tag), netz);
         if (json == null) return null;
         return parsePlan(json);
     }

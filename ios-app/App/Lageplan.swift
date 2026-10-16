@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Lagepläne der drei Campus (aus den Lageplänen der Uni mit Legende, Stand Mai 2025).
 enum Lageplan {
@@ -142,6 +143,8 @@ enum Lageplan {
     struct Markierung: Identifiable {
         let haus: String
         let label: String
+        /// Farbe des Fachs (bei mehreren Terminen im Haus: der erste)
+        let farbe: Color
         var id: String { haus }
     }
 
@@ -149,15 +152,19 @@ enum Lageplan {
     /// mehrere Termine im selben Haus werden zusammengefasst. Nummern zählen über alle Termine.
     static func markierungen(_ termine: [Termin], campus: Campus, nummern: Bool) -> [Markierung] {
         var proHaus: [String: [String]] = [:]
+        var farben: [String: Color] = [:]
         var reihenfolge: [String] = []
         let pos = positionen(campus)
         for (i, t) in termine.enumerated() {
             guard let r = RaumTeile(t.raum), r.campus == campus.rawValue, pos[r.haus] != nil else { continue }
             let label = nummern ? "\(i + 1)" : "Raum \(r.rest)"
-            if proHaus[r.haus] == nil { reihenfolge.append(r.haus) }
+            if proHaus[r.haus] == nil {
+                reihenfolge.append(r.haus)
+                farben[r.haus] = Kurse.info(t.titel).farbe
+            }
             proHaus[r.haus, default: []].append(label)
         }
-        return reihenfolge.map { Markierung(haus: $0, label: proHaus[$0]!.joined(separator: " · ")) }
+        return reihenfolge.map { Markierung(haus: $0, label: proHaus[$0]!.joined(separator: " · "), farbe: farben[$0] ?? Palette.jetzt) }
     }
 
     /// Welche Campus-Pläne für diese Termine gebraucht werden (in Reihenfolge des ersten Auftretens)

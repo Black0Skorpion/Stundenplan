@@ -13,11 +13,15 @@ import android.webkit.WebViewClient;
 import android.widget.EditText;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Zeigt den Lageplan Golm mit den Räumen eines Termins oder eines ganzen Tages.
+ * Zeigt den Lageplan (passender Campus) mit den Räumen eines Termins oder eines ganzen Tages.
  * Pro Termin: Route (Google Maps, zu Fuß), „Fällt aus“, „Raum ändern“.
+ * Bei einem Campuswechsel zwischen zwei Terminen werden Bus- und Bahnverbindungen gesucht.
  */
 public class LageplanActivity extends Activity {
 
@@ -25,19 +29,21 @@ public class LageplanActivity extends Activity {
     public static final String EXTRA_TAG = "tag";       // Tagesbeginn (ms)
 
     private WebView web;
-    private Bitmap plan;
+    private final Map<String, Bitmap> bilder = new HashMap<>();
     private long termin, tag;
     private List<Termin> termine = new ArrayList<>();
+    private String titel = "Lageplan";
+    /** null = passend zu den Terminen, sonst fester Campus */
+    private String gewaehlterPlan;
+    /** Verbindungen je Termin-Index (Campuswechsel davor) */
+    private final Map<Integer, Lageplan.VerbindungsStand> verbindungen = new HashMap<>();
+    private final Map<String, Lageplan.VerbindungsStand> verbindungsCache = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         termin = getIntent().getLongExtra(EXTRA_TERMIN, 0);
         tag = getIntent().getLongExtra(EXTRA_TAG, 0);
-
-        BitmapFactory.Options o = new BitmapFactory.Options();
-        o.inScaled = false;
-        plan = BitmapFactory.decodeResource(getResources(), R.drawable.lageplan_golm, o);
 
         web = new WebView(this);
         web.getSettings().setBuiltInZoomControls(true);
@@ -47,7 +53,13 @@ public class LageplanActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
                 if ("aktion".equals(url.getScheme())) {
-                    aktion(url.getHost(), url.getLastPathSegment());
+                    if ("plan".equals(url.getHost())) {
+                        String c = url.getLastPathSegment();
+                        gewaehlterPlan = Campus.bekannt(c) ? c : null;
+                        zeichnen();
+                    } else {
+                        aktion(url.getHost(), url.getLastPathSegment());
+                    }
                 } else {
                     // Route (Google Maps) und „Im Planer öffnen“ in der passenden App öffnen
                     startActivity(new Intent(Intent.ACTION_VIEW, url));
@@ -59,11 +71,22 @@ public class LageplanActivity extends Activity {
         anzeigen();
     }
 
+    private Bitmap bild(String campus) {
+        Bitmap b = bilder.get(campus);
+        if (b == null) {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inScaled = false;
+            b = BitmapFactory.decodeResource(getResources(), Lageplan.bild(campus), o);
+            bilder.put(campus, b);
+        }
+        return b;
+    }
+
     /** Termine neu laden (mit Ausfällen und geänderten Räumen) und Seite neu aufbauen. */
     private void anzeigen() {
         List<Termin> alle = Daten.laden(this, true);
         termine = new ArrayList<>();
-        String titel = "Lageplan Golm";
+        titel = "Lageplan";
         if (termin > 0) {
             for (Termin t : alle) if (t.start == termin) termine.add(t);
             if (!termine.isEmpty()) titel = Lageplan.datumKurz(termine.get(0).start);
@@ -74,8 +97,45 @@ public class LageplanActivity extends Activity {
             }
             titel = Lageplan.datumKurz(tag);
         }
-        String html = Lageplan.html(termine, titel, plan, StundenplanWidget.planerLink(this));
+        verbindungen.clear();
+        zeichnen();
+        verbindungenSuchen();
+    }
+
+    private void zeichnen() {
+        Map<String, Bitmap> plaene = new LinkedHashMap<>();
+        List<String> liste = gewaehlterPlan != null ? java.util.Collections.singletonList(gewaehlterPlan)
+                : Lageplan.campusListe(termine, Campus.aktuell(this));
+        for (String c : liste) plaene.put(c, bild(c));
+        String html = Lageplan.html(termine, titel, plaene, StundenplanWidget.planerLink(this), verbindungen);
         web.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+    }
+
+    /** Für jeden Campuswechsel im Hintergrund Verbindungen suchen, danach neu zeichnen. */
+    private void verbindungenSuchen() {
+        final List<Termin> liste = new ArrayList<>(termine);
+        for (int i = 1; i < liste.size(); i++) {
+            Termin a = liste.get(i - 1), b = liste.get(i);
+            if (a.ausfall || b.ausfall || !Orte.campusWechsel(a.raum, b.raum)) continue;
+            final int index = i;
+            final String schluessel = a.ende + a.raum + "|" + b.start + b.raum;
+            Lageplan.VerbindungsStand alt = verbindungsCache.get(schluessel);
+            if (alt != null) { verbindungen.put(index, alt); continue; }
+            new Thread(() -> {
+                List<Verbindungen.Verbindung> v = Verbindungen.suchen(a, b);
+                Lageplan.VerbindungsStand stand = new Lageplan.VerbindungsStand();
+                stand.fehler = v == null;
+                stand.liste = v != null ? v : new ArrayList<>();
+                runOnUiThread(() -> {
+                    if (!stand.fehler) verbindungsCache.put(schluessel, stand);
+                    if (index < termine.size() && termine.get(index).start == b.start) {
+                        verbindungen.put(index, stand);
+                        zeichnen();
+                    }
+                });
+            }).start();
+        }
+        if (!verbindungen.isEmpty()) zeichnen();
     }
 
     private void aktion(String was, String nummer) {

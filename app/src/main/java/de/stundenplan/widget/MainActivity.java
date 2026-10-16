@@ -58,11 +58,12 @@ public class MainActivity extends Activity {
         TextView info = new TextView(this);
         info.setText("Widget hinzufügen: Startbildschirm gedrückt halten → Widgets → Stundenplan. "
                 + "Stundenplan: Klein (aktuelle Veranstaltung), Mittel (mit Tagesplan) und Groß (Woche).\n"
-                + "Mensa Golm: Klein, Mittel und Groß – mit den Pfeilen ‹ › oben rechts blättert man durch die Tage.\n"
-                + "Abfahrten Golm: nächste Züge und Busse ab Golm Bhf und Science Park/Uni.\n"
+                + "Mensa: Klein, Mittel und Groß – mit den Pfeilen ‹ › oben rechts blättert man durch die Tage.\n"
+                + "Abfahrten: nächste Züge und Busse am Campus, priorisierte Linien sind immer dabei.\n"
+                + "Mensa und Abfahrten richten sich nach dem Campus unten (Automatisch = Campus der laufenden bzw. nächsten Veranstaltung).\n"
                 + "Alle Widgets lassen sich frei in der Größe ziehen (z. B. 4×3).\n"
-                + "Tippen auf eine Veranstaltung oder einen Wochentag zeigt den Lageplan Golm mit dem Gebäude – "
-                + "dort gibt es auch die Route (Google Maps) und „Fällt aus“ / „Raum ändern“.\n\n"
+                + "Tippen auf eine Veranstaltung oder einen Wochentag zeigt den Lageplan des passenden Campus mit dem Gebäude – "
+                + "dort gibt es auch die Route (Google Maps), „Fällt aus“ / „Raum ändern“ und bei einem Campuswechsel die Bus- und Bahnverbindungen.\n\n"
                 + "Neuen Stundenplan übernehmen: im Planer als Kalender (.ics) exportieren und hier importieren.");
         info.setPadding(0, pad / 2, 0, pad / 2);
         inhalt.addView(info);
@@ -93,6 +94,48 @@ public class MainActivity extends Activity {
         lageplan.setText("Lageplan für heute");
         lageplan.setOnClickListener(v -> startActivity(LageplanActivity.fuerTag(this, MensaDaten.tagesBeginn(System.currentTimeMillis()))));
         inhalt.addView(lageplan);
+
+        // Campus für Mensa und Abfahrten
+        TextView campusTitel = new TextView(this);
+        campusTitel.setText("\nCampus (Mensa und Abfahrten)");
+        campusTitel.setTextSize(18);
+        inhalt.addView(campusTitel);
+        Spinner campus = new Spinner(this);
+        final String[] campusWerte = {Campus.AUTO, Campus.GOLM, Campus.NEUES_PALAIS, Campus.GRIEBNITZSEE};
+        String[] campusNamen = {"Automatisch (nach Stundenplan)", "Golm", "Am Neuen Palais", "Griebnitzsee"};
+        campus.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, campusNamen));
+        String wahl = Campus.wahl(this);
+        for (int i = 0; i < campusWerte.length; i++) if (campusWerte[i].equals(wahl)) campus.setSelection(i);
+        campus.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (campusWerte[position].equals(Campus.wahl(MainActivity.this))) return;
+                Campus.setzeWahl(MainActivity.this, campusWerte[position]);
+                neuLaden();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        inhalt.addView(campus);
+
+        TextView favTitel = new TextView(this);
+        favTitel.setText("Priorisierte Linien (stehen im Abfahrten-Widget immer mit drin, z. B. „RB20, 605“):");
+        inhalt.addView(favTitel);
+        EditText favFeld = new EditText(this);
+        favFeld.setSingleLine(true);
+        favFeld.setHint("RB20");
+        favFeld.setText(String.join(", ", Campus.favoriten(this)));
+        inhalt.addView(favFeld);
+        Button favSpeichern = new Button(this);
+        favSpeichern.setText("Linien speichern");
+        favSpeichern.setOnClickListener(v -> {
+            Campus.setzeFavoriten(this, favFeld.getText().toString());
+            favFeld.setText(String.join(", ", Campus.favoriten(this)));
+            Toast.makeText(this, "Gespeichert", Toast.LENGTH_SHORT).show();
+            neuLaden();
+        });
+        inhalt.addView(favSpeichern);
 
         // Erinnerungen vor Veranstaltungen
         TextView erTitel = new TextView(this);
@@ -216,17 +259,19 @@ public class MainActivity extends Activity {
     /** Abfahrten-Vorschau: im Hintergrund laden, dann anzeigen. */
     private void zeigeAbfahrtenVorschau(boolean dunkel, float d, long jetzt) {
         TextView ueberschrift = new TextView(this);
-        ueberschrift.setText("Abfahrten Golm (lädt …)");
+        final String campus = Campus.aktuell(this);
+        final List<String> favoriten = Campus.favoriten(this);
+        ueberschrift.setText("Abfahrten " + Campus.kurz(campus) + " (lädt …)");
         ueberschrift.setTextSize(18);
         vorschauen.addView(ueberschrift);
         new Thread(() -> {
-            java.util.List<AbfahrtenDaten.Abfahrt> liste = AbfahrtenDaten.laden(this, true);
+            java.util.List<AbfahrtenDaten.Abfahrt> liste = AbfahrtenDaten.laden(this, campus, true);
             AbfahrtenWidget.alleAktualisieren(this, false);
             runOnUiThread(() -> {
-                ueberschrift.setText("Abfahrten Golm");
+                ueberschrift.setText("Abfahrten " + Campus.kurz(campus));
                 float b = 340, h = 230;
                 ImageView bild = new ImageView(this);
-                bild.setImageBitmap(AbfahrtenZeichner.zeichnen(b, h, d, dunkel, jetzt, liste));
+                bild.setImageBitmap(AbfahrtenZeichner.zeichnen(b, h, d, dunkel, jetzt, liste, campus, favoriten));
                 bild.setBackground(hintergrund(dunkel, d));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Math.round(b * d), Math.round(h * d));
                 lp.gravity = Gravity.CENTER_HORIZONTAL;
@@ -239,7 +284,7 @@ public class MainActivity extends Activity {
     /** Mensa-Vorschau: Speiseplan im Hintergrund laden, dann anzeigen. */
     private void zeigeMensaVorschau(boolean dunkel, float d, long jetzt) {
         TextView ueberschrift = new TextView(this);
-        ueberschrift.setText("Mensa Golm (lädt …)");
+        ueberschrift.setText(Campus.mensaName(Campus.aktuell(this)) + " (lädt …)");
         ueberschrift.setTextSize(18);
         vorschauen.addView(ueberschrift);
         new Thread(() -> {
@@ -248,7 +293,7 @@ public class MainActivity extends Activity {
             MensaDaten.Plan plan = a.tag.geschlossen ? null : MensaDaten.ladePlan(this, a.tag.datum, true);
             MensaWidget.alleAktualisieren(this, false);
             runOnUiThread(() -> {
-                ueberschrift.setText("Mensa Golm");
+                ueberschrift.setText(MensaDaten.MENSA_NAME);
                 String[][] groessen = {{Zeichner.KLEIN, "160", "160"}, {Zeichner.MITTEL, "340", "160"}, {Zeichner.GROSS, "340", "356"}};
                 for (String[] g : groessen) {
                     float b = Float.parseFloat(g[1]), h = Float.parseFloat(g[2]);

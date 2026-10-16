@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Zeichnet das Abfahrten-Widget als Bild. Maße in dp. */
@@ -20,11 +21,23 @@ public final class AbfahrtenZeichner extends Leinwand {
         gruen = Color.parseColor("#1D9E75");
     }
 
+    private String campus = Campus.GOLM;
+    private List<String> favoriten = new ArrayList<>();
+    private final int gold = Color.parseColor("#E0A100");
+
     public static Bitmap zeichnen(float b, float h, float skala, boolean dunkel, long jetzt, List<AbfahrtenDaten.Abfahrt> liste) {
+        return zeichnen(b, h, skala, dunkel, jetzt, liste, Campus.GOLM, new ArrayList<>());
+    }
+
+    public static Bitmap zeichnen(float b, float h, float skala, boolean dunkel, long jetzt, List<AbfahrtenDaten.Abfahrt> liste,
+                                  String campus, List<String> favoriten) {
         Bitmap bild = Bitmap.createBitmap(Math.max(1, Math.round(b * skala)), Math.max(1, Math.round(h * skala)), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bild);
         canvas.scale(skala, skala);
-        new AbfahrtenZeichner(canvas, dunkel).inhalt(b, h, jetzt, liste);
+        AbfahrtenZeichner z = new AbfahrtenZeichner(canvas, dunkel);
+        z.campus = campus;
+        z.favoriten = favoriten;
+        z.inhalt(b, h, jetzt, liste);
         return bild;
     }
 
@@ -32,16 +45,16 @@ public final class AbfahrtenZeichner extends Leinwand {
         float rand = 12;
         boolean kompakt = b < 220;
         float innenB = b - 2 * rand;
-        text(kompakt ? "Ab Golm" : "Abfahrten Golm", rand, rand - 2, innenB, 12, MEDIUM, akzent, LINKS, 1, 1f);
+        text(kompakt ? "Ab " + Campus.kurz(campus) : "Abfahrten " + Campus.kurz(campus), rand, rand - 2, innenB - 40, 12, MEDIUM, akzent, LINKS, 1, 0.8f);
         text(Lageplan.uhrzeitText(jetzt), rand, rand - 2, innenB, 11, NORMAL, gedimmt, RECHTS, 1, 1f);
         float y = rand + 20;
         if (liste == null) { hinweis("Nicht erreichbar", b, h); return; }
         float zeileH = kompakt ? 26 : 32;
         int platz = Math.max(1, (int) ((h - y - rand + 4) / zeileH));
+        List<AbfahrtenDaten.Abfahrt> kommend = new ArrayList<>();
+        for (AbfahrtenDaten.Abfahrt a : liste) if (a.zeit >= jetzt - 30_000) kommend.add(a);
         int n = 0;
-        for (AbfahrtenDaten.Abfahrt a : liste) {
-            if (a.zeit < jetzt - 30_000) continue;
-            if (n >= platz) break;
+        for (AbfahrtenDaten.Abfahrt a : AbfahrtenDaten.auswahl(kommend, platz, favoriten)) {
             zeile(a, rand, y, innenB, zeileH, kompakt, jetzt);
             y += zeileH;
             n++;
@@ -63,6 +76,11 @@ public final class AbfahrtenZeichner extends Leinwand {
         float tx = x + badgeB + 7;
         float tb = b - badgeB - 7 - rechtsB - 4;
         int deck = a.ausfall ? alpha(vorder, 0.55f) : vorder;
+        if (Campus.istFavorit(favoriten, a.linie)) {
+            text("★", tx, y + 1, 12, kompakt ? 10 : 11, FETT, gold, LINKS, 1, 1f);
+            tx += 12;
+            tb -= 12;
+        }
         text(AbfahrtenDaten.kurzRichtung(a.richtung), tx, y + 1, tb, kompakt ? 11 : 12, MEDIUM, deck, LINKS, 1, 0.8f);
         if (!kompakt) {
             String unten = a.haltestelle + (a.gleis != null ? " · Gl. " + a.gleis : "");

@@ -27,7 +27,9 @@ enum LiveAktivitaet {
             kurz: Kurse.info(t.titel).kurz, typ: Kurse.typ(t.typ).lang, raum: t.raum,
             farbe: Kurse.info(t.titel).hex,
             danach: danach.map { "\(Zeit.uhrzeit($0.start)) \(Kurse.info($0.titel).kurz) · \($0.raum)" })
-        let inhalt = ActivityContent(state: zustand, staleDate: t.ende)
+        // Vor Beginn wird die Aktivität zum Beginn „veraltet“ – dann zeichnet iOS sie neu und
+        // zeigt ab da die laufende Vorlesung (ohne Countdown). Danach gilt das Ende.
+        let inhalt = ActivityContent(state: zustand, staleDate: jetzt < t.start ? t.start : t.ende)
 
         // Läuft schon eine für diesen Termin? Dann nur aktualisieren (z. B. Raum geändert)
         var vorhanden = false
@@ -39,9 +41,15 @@ enum LiveAktivitaet {
                 Task { await a.end(nil, dismissalPolicy: .immediate) }
             }
         }
-        guard !vorhanden else { return }
-        _ = try? Activity.request(attributes: VorlesungAttribute(schluessel: t.schluessel),
-                                  content: inhalt, pushType: nil)
+        if vorhanden {
+            if Speicher.liveInfo?.schluessel != t.schluessel {
+                Speicher.setzeLiveInfo(Speicher.LiveInfo(schluessel: t.schluessel, start: t.start, ende: t.ende))
+            }
+            return
+        }
+        guard (try? Activity.request(attributes: VorlesungAttribute(schluessel: t.schluessel),
+                                     content: inhalt, pushType: nil)) != nil else { return }
+        Speicher.setzeLiveInfo(Speicher.LiveInfo(schluessel: t.schluessel, start: t.start, ende: t.ende))
         // Nach dem Ende automatisch verschwinden
         let ende = t.ende
         Task {
@@ -50,6 +58,7 @@ enum LiveAktivitaet {
             for a in Activity<VorlesungAttribute>.activities where a.attributes.schluessel == t.schluessel {
                 await a.end(nil, dismissalPolicy: .immediate)
             }
+            if Speicher.liveInfo?.schluessel == t.schluessel { Speicher.setzeLiveInfo(nil) }
         }
     }
 
@@ -57,5 +66,6 @@ enum LiveAktivitaet {
         for a in Activity<VorlesungAttribute>.activities {
             Task { await a.end(nil, dismissalPolicy: .immediate) }
         }
+        if Speicher.liveInfo != nil { Speicher.setzeLiveInfo(nil) }
     }
 }
