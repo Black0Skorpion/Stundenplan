@@ -19,6 +19,19 @@
   nachziehen, sobald der Nutzer bestätigt, dass sie auf iOS funktioniert. Abgleich dort per JobScheduler
   (nur ohne mobile Daten).
 
+## Für den nächsten iOS-Build vorgemerkt (noch nicht bauen, bis der Nutzer es sagt)
+- Modulwahl: ⓘ-Knopf in der Fächerliste öffnet die Detailansicht nicht (NavigationLink in einer Zeile mit
+  onTapGesture; der graue Pfeil daneben ist dessen Disclosure-Indikator) → eigener Knopf + navigationDestination/Sheet,
+  ohne den Pfeil.
+- „Eingebaute Termine verwenden“ entfernen (das sind die persönlichen Termine des Nutzers). Stattdessen optional ein
+  kurzes, überspringbares Tutorial mit Demo-Stundenplan.
+- Einstellungen aufräumen: Debug/Selten-Gebrauchtes (Planer-Link, Datenaustausch/App-Gruppe, Widgets neu laden,
+  ICS-Import usw.) in ein Menü „Debug“ ganz unten.
+
+## Releases
+- Jedes Release bekommt einen vollständigen Changelog: nur Funktionen aus Nutzersicht (neu / geändert / entfernt /
+  behoben), nichts Technisches. Datei CHANGELOG.md im Repo pflegen und im Release-Text verwenden.
+
 ## PULS
 - Öffentliche Seiten ohne Anmeldung, keine offizielle Schnittstelle (HTML auslesen). Parser-Test:
   Workflow „PULS-Test (Swift)“ (ios-app/Tests/PulsTest.swift) lädt echte Seiten auf einem macOS-Runner.
