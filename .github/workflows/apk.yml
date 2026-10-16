@@ -27,11 +27,30 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
-      - name: APK bauen
+      - name: Signaturschlüssel aus den Secrets anlegen
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORT }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PW" ]; then
+            echo "::error::Secrets ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORT fehlen (Settings → Secrets and variables → Actions). Ohne festen Schlüssel wird nichts veröffentlicht."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "KEYSTORE_DATEI=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "::add-mask::$KEYSTORE_PW"
+          echo "KEYSTORE_PASSWORT=$KEYSTORE_PW" >> "$GITHUB_ENV"
+      - name: APK bauen (signiert mit festem Schlüssel)
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk Stundenplan.apk
+          ./gradlew assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk Stundenplan.apk
+          # Prüfen, dass wirklich der feste Schlüssel verwendet wurde
+          SIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          "$SIGNER" verify --print-certs Stundenplan.apk | grep -E "Signer #1 certificate (DN|SHA-256)" | sed 's/^/::notice::/'
+      - name: Schlüsseldatei entfernen
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
       - uses: actions/upload-artifact@v4
         with:
           name: Stundenplan-APK
@@ -50,7 +69,7 @@ jobs:
           else
             gh release create "$TAG" "Stundenplan-$VERSION.apk" \
               --title "Android-App $VERSION" \
-              --notes "Stundenplan-App für Android, Version $VERSION. Auf dem Handy Stundenplan-$VERSION.apk antippen und installieren. Gebaut aus ${GITHUB_SHA::7}." \
+              --notes "Stundenplan-App für Android, Version $VERSION. Auf dem Handy Stundenplan-$VERSION.apk antippen und installieren. Signiert mit festem Schlüssel (ab 1.4) – Updates lassen sich direkt drüber installieren. Gebaut aus ${GITHUB_SHA::7}." \
               --latest
           fi
 

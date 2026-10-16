@@ -18,7 +18,7 @@ Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion
 | Plattform | Datei | Release |
 |---|---|---|
 | iPhone/iPad | `Stundenplan-<Version>.ipa` | `ios-v…` (aktuell 0.3.2) |
-| Android | `Stundenplan-<Version>.apk` | `android-v…` (aktuell 1.3) · [neueste](https://github.com/Black0Skorpion/Stundenplan/releases/latest) |
+| Android | `Stundenplan-<Version>.apk` | `android-v…` (aktuell 1.4) · [neueste](https://github.com/Black0Skorpion/Stundenplan/releases/latest) |
 
 ## Funktionen
 
@@ -72,6 +72,8 @@ Versionsnummer in `ios-app/VERSION`.
 1. Auf dem Handy die neueste `Stundenplan-<Version>.apk` aus den
    [Releases](https://github.com/Black0Skorpion/Stundenplan/releases/latest) herunterladen.
 2. Öffnen und installieren (Installation aus unbekannten Quellen erlauben).
+   Ab 1.4 mit festem Schlüssel signiert – Updates gehen direkt drüber. Von 1.3 oder älter einmalig
+   die alte App deinstallieren.
 
 **Widgets:** Startbildschirm gedrückt halten → Widgets → Stundenplan · Jetzt/Heute/Woche,
 Mensa · Klein/Mittel/Groß, Abfahrten. Mensa und Abfahrten folgen dem in der App gewählten Campus. Alle Widgets lassen sich frei in der Größe ziehen.
