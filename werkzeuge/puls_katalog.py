@@ -9,7 +9,7 @@ import html, json, re, sys, time, urllib.request, zlib, datetime
 
 BASIS = "https://puls.uni-potsdam.de/qisserver/rds"
 UA = {"User-Agent": "Stundenplan-App Katalog (github.com/Black0Skorpion/Stundenplan)"}
-PAUSE = 0.8
+PAUSE = 0.5
 
 
 def semester_code(d=None):

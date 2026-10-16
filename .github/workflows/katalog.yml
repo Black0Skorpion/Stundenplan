@@ -2,6 +2,7 @@ name: PULS-Katalog
 
 # Baut wöchentlich den Suchkatalog (alle Veranstaltungen des Semesters) und legt ihn im
 # Release „puls-katalog“ ab. Die App lädt ihn von dort (einmal, nur im WLAN) und sucht offline darin.
+# Je Semester ein eigener Job, damit ein langsamer Durchlauf den anderen nicht verhindert.
 on:
   schedule:
     - cron: "17 3 * * 1"
@@ -16,23 +17,32 @@ permissions:
 jobs:
   katalog:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        welches: [aktuell, naechstes]
     steps:
       - uses: actions/checkout@v4
-      - name: Katalog erstellen (aktuelles und nächstes Semester)
+      - name: Katalog erstellen
         run: |
-          python3 werkzeuge/puls_katalog.py
-          NAECHSTES=$(python3 -c "import sys;sys.path.insert(0,'werkzeuge');import puls_katalog as p;c=p.semester_code();print(c[:4]+'2' if c.endswith('1') else str(int(c[:4])+1)+'1')")
-          python3 werkzeuge/puls_katalog.py "$NAECHSTES" || true
-          ls -la puls-*
-          for f in puls-*.json; do echo "::notice::$f: $(python3 -c "import json;print(len(json.load(open('$f'))['veranstaltungen']))") Veranstaltungen, $(stat -c %s ${f%.json}.deflate) Bytes komprimiert"; done
+          SEM=$(python3 -c "
+          import sys; sys.path.insert(0,'werkzeuge'); import puls_katalog as p
+          c=p.semester_code()
+          print(c if '${{ matrix.welches }}'=='aktuell' else (c[:4]+'2' if c.endswith('1') else str(int(c[:4])+1)+'1'))")
+          echo "SEM=$SEM" >> "$GITHUB_ENV"
+          START=$(date +%s)
+          python3 werkzeuge/puls_katalog.py "$SEM"
+          N=$(python3 -c "import json;print(len(json.load(open('puls-$SEM.json'))['veranstaltungen']))")
+          echo "::notice::Semester $SEM: $N Veranstaltungen, $(stat -c %s puls-$SEM.deflate) Bytes komprimiert, $(( ($(date +%s)-START)/60 )) Minuten"
+          # Leere Kataloge (z. B. nächstes Semester noch nicht freigeschaltet) nicht veröffentlichen
+          [ "$N" -gt 0 ] || { echo "::warning::Semester $SEM noch leer"; rm -f puls-$SEM.*; }
       - name: Im Release „puls-katalog“ ablegen
+        if: hashFiles('puls-*.deflate') != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view puls-katalog >/dev/null 2>&1; then
-            gh release create puls-katalog --title "PULS-Katalog (für die Suche in der App)" \
+          gh release view puls-katalog >/dev/null 2>&1 || gh release create puls-katalog --title "PULS-Katalog (für die Suche in der App)" \
               --notes "Wird wöchentlich automatisch erneuert: alle Veranstaltungen aus dem öffentlichen PULS-Vorlesungsverzeichnis (Titel, Nummer, Modul). Die App lädt die .deflate-Datei und sucht offline darin." \
-              --prerelease --latest=false
-          fi
-          gh release upload puls-katalog puls-*.json puls-*.deflate --clobber
+              --prerelease --latest=false || true
+          gh release upload puls-katalog puls-$SEM.json puls-$SEM.deflate --clobber
