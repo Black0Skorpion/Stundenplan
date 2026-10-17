@@ -58,7 +58,8 @@ public class AbfahrtenWidget extends AppWidgetProvider {
         boolean dunkel = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
         long jetzt = System.currentTimeMillis();
-        Intent app = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Intent app = new Intent(ctx, MainActivity.class).putExtra(MainActivity.EXTRA_REITER, MainActivity.ABFAHRTEN)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent oeffnen = PendingIntent.getActivity(ctx, 300, app, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         for (int id : ids) {
             float[] g = StundenplanWidget.groesse(ctx, mgr, id, Zeichner.MITTEL);

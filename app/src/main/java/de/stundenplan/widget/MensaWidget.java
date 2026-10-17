@@ -115,7 +115,9 @@ public abstract class MensaWidget extends AppWidgetProvider {
                 Bitmap bild = MensaZeichner.zeichnen(modus, g[0], g[1], skala, dunkel, jetzt, a, plan);
                 RemoteViews rv = new RemoteViews(ctx.getPackageName(), layout);
                 rv.setImageViewBitmap(R.id.bild, bild);
-                Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(MensaDaten.webseite(ctx))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                // Tippen öffnet den Mensa-Reiter der App
+                Intent web = new Intent(ctx, MainActivity.class).putExtra(MainActivity.EXTRA_REITER, MainActivity.MENSA)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 rv.setOnClickPendingIntent(R.id.wurzel, PendingIntent.getActivity(ctx, 100, web,
                         PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
                 rv.setOnClickPendingIntent(R.id.zurueck, knopf(ctx, klasse, id, ZURUECK, 0));

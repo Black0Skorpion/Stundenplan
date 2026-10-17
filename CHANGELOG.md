@@ -22,6 +22,23 @@ Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 **Behoben**
 - Modulwahl: Der ⓘ-Knopf öffnet jetzt die Details der Veranstaltung; der graue Pfeil daneben ist weg.
 
+## Android 1.6
+
+**Neu**
+- Die App ist jetzt aufgebaut wie auf dem iPhone, mit Reitern unten: Plan, Mensa, Abfahrten, Lageplan, Einstellungen.
+- Plan: Wochenraster zum Antippen (Termin → Lageplan, Wochentag → Räume des Tages), Wochen per Pfeil oder Wischen blättern, große Karte der laufenden bzw. nächsten Veranstaltung mit Countdown und Fortschritt, Tagesliste mit Fußweg bzw. Campuswechsel dazwischen.
+- Profile direkt im Plan umschalten (oben links), Teilen oben rechts.
+- Mensa: Speiseplan in der App, Tage per Kapsel oder Wischen, Campus oben rechts.
+- Abfahrten: Liste in der App mit Verspätungen, priorisierte Linien oben, Linie gedrückt halten zum Priorisieren, Haltestellen in Google Maps; wenn nichts lädt, direkt zu Google Maps.
+- Lageplan: eigener Reiter mit den Räumen des heutigen bzw. nächsten Tages.
+- Kurze Einführung beim ersten Start mit Beispiel-Stundenplan (überspringbar, in den Einstellungen nochmal aufrufbar).
+- Modulwahl: Wochenplan wie auf dem iPhone – Fach antippen, dann stehen alle Gruppen grau im Plan und lassen sich dort antippen; Überschneidungen rot umrandet; Termine gedrückt halten zum Aus- und Einblenden.
+- Im Vorlesungsverzeichnis stöbern, mit „Zum Plan“-Knopf.
+
+**Geändert**
+- Einstellungen neu sortiert wie auf dem iPhone; die Widget-Vorschau steht jetzt unter „Debug“.
+- Tippen aufs Mensa- bzw. Abfahrten-Widget öffnet den passenden Reiter der App.
+
 ## Android 1.5
 
 **Neu**

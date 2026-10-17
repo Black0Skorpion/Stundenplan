@@ -185,7 +185,7 @@ public class EmpfangActivity extends Activity {
         Teilen.speichern(this, alle);
         MainActivity.setzeAnzeige(this, p.id);
         Toast.makeText(this, "Profil „" + n + "“ gespeichert", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP));
+        startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_REITER, MainActivity.PLAN).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP));
         finish();
     }
 
@@ -205,7 +205,7 @@ public class EmpfangActivity extends Activity {
         PulsDienst.nachAenderung(this);
         MainActivity.setzeAnzeige(this, null);
         Toast.makeText(this, termine.size() + " Termine übernommen", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP));
+        startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_REITER, MainActivity.PLAN).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP));
         finish();
     }
 

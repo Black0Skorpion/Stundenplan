@@ -136,7 +136,7 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
 
     /** Tippen auf Kopfzeile/leere Fläche: öffnet die App (nie direkt den Planer). */
     private static PendingIntent tippAktion(Context ctx) {
-        Intent i = new Intent(ctx, MainActivity.class);
+        Intent i = new Intent(ctx, MainActivity.class).putExtra(MainActivity.EXTRA_REITER, MainActivity.PLAN);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return PendingIntent.getActivity(ctx, 0, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
