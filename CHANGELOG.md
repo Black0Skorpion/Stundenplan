@@ -22,6 +22,36 @@ Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 **Behoben**
 - Modulwahl: Der ⓘ-Knopf öffnet jetzt die Details der Veranstaltung; der graue Pfeil daneben ist weg.
 
+## Android 1.5
+
+**Neu**
+- Modulwahl aus PULS wie auf dem iPhone: Fächer suchen (ganzer Katalog offline), PULS-Link einfügen, Gruppen wählen (mit Hinweis auf Überschneidungen, getrennt nach Gruppe und Vorlesung), einzelne wiederkehrende Termine ausblenden und wieder einblenden, Wochenvorschau vor dem Übernehmen.
+- Täglicher Abgleich mit PULS (auf Wunsch nur ohne mobile Daten) mit Mitteilung bei Raum-, Zeit- oder Terminänderungen.
+- Wecker vor der ersten Veranstaltung des Tages: Vorlauf 30 Min bis 3 Std, optional „frühestens um“, mit Schlummern. Klingelt nur an Tagen mit Veranstaltungen, ausgefallene Termine zählen nicht.
+- Live Update (ab Android 16): laufende bzw. nächste Veranstaltung in der Statusleiste und auf dem Sperrbildschirm (Samsung: Now Bar) – vorher Countdown und Raum, während der Vorlesung Ende und Fortschritt.
+- Plan teilen: eigener Name, QR-Code mit PULS-Fächern und Gruppen, Link oder .ics-Datei – kompatibel mit der iPhone-App.
+- Geteilten Plan öffnen (QR-Code scannen, Link einfügen oder Datei): als Profil speichern, als eigenen Plan übernehmen oder in der Modulwahl öffnen und anpassen.
+- Profile: Pläne anderer in der Vorschau anzeigen, umbenennen, aus PULS aktualisieren, löschen.
+
+**Geändert**
+- Einstellungen aufgeräumt: ICS-Import und Planer-Link stehen jetzt unter „Debug“ ganz unten.
+- Eine importierte .ics-Datei lässt sich jetzt auch als Profil speichern.
+
+**Entfernt**
+- Die mitgelieferten Termine und „Eingebaute Termine verwenden“.
+
+## Scriptable 1.1.0
+
+**Neu**
+- „Stundenplan-Datei wählen“: .ics direkt aus Dateien übernehmen (z. B. die von der iPhone-App geteilte Datei).
+- „Meinen Plan teilen“: eigener Plan als .ics (AirDrop, Nachrichten …), mit eigenem Namen; die PULS-Auswahl aus der Datei bleibt erhalten.
+- Profile: Pläne anderer als .ics hinzufügen, umbenennen, ersetzen, löschen; ein Widget zeigt ein Profil mit dem Parameter profil=<kürzel>.
+- Wecker: Mitteilung mit Ton vor der ersten Veranstaltung des Tages (Vorlauf und „frühestens um“ einstellbar).
+- Eigener Name in den Einstellungen.
+
+**Entfernt**
+- Die mitgelieferten Termine – ohne Datei zeigen die Widgets „Noch kein Stundenplan“.
+
 ## iOS 0.4.2
 
 **Neu**

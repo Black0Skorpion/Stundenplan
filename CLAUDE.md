@@ -8,20 +8,11 @@
   Scriptable `scriptable/VERSION`.
 - Alte Versionen/Releases nie löschen.
 
-## Erst beim nächsten Android-Build mit neuen Funktionen einbauen
-- „Live Update“ (Android-Gegenstück zur Dynamic Island) für die laufende/nächste Veranstaltung:
-  Android 16 `Notification.ProgressStyle` + `setRequestPromotedOngoing(true)` (Statusleisten-Chip,
-  Sperrbildschirm; Samsung zeigt es in der Now Bar), auf älteren Android-Versionen die bisherige
-  Countdown-Mitteilung. Verhalten wie iOS: vor Beginn Countdown, während der Vorlesung kein
-  Countdown, nur Ende und Fortschritt.
-
-- Wecker (iOS 0.5.0, ios-app/App/Wecker.swift) und Teilen/Profile (ios-app/App/Teilen.swift, QR-Format
-  stundenplan://teilen?d=<base64url(zlib(JSON))>, ICS mit X-STUNDENPLAN-FREIGABE) auf Android nachziehen,
-  wenn der Nutzer es möchte. Android-Wecker: AlarmManager.setAlarmClock.
-
-- PULS-Modulwahl wie in iOS 0.4.0 (ios-app/App/Puls.swift, PulsDienst.swift, PulsAnsicht.swift) auf Android
-  nachziehen, sobald der Nutzer bestätigt, dass sie auf iOS funktioniert. Abgleich dort per JobScheduler
-  (nur ohne mobile Daten).
+## Android
+- Seit 1.5 auf dem Stand von iOS 0.5.0 (Modulwahl, Teilen/Profile, Wecker, Live Update). Neue iOS-Funktionen
+  dort nachziehen, wenn der Nutzer es möchte. Auf Arbeits-Branches prüft der Workflow „Android prüfen (Branch)“
+  den Build (ohne Release); APK-Releases nur von main.
+- Parser-Test Java: Workflow „PULS-Test (Java)“ (app/test/PulsTest.java), Ergebnis im Branch daten-java.
 
 ## Releases
 - Jedes Release bekommt einen vollständigen Changelog: nur Funktionen aus Nutzersicht (neu / geändert / entfernt /

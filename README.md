@@ -22,7 +22,7 @@ Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion
 |---|---|---|
 | iPhone/iPad | `Stundenplan-<Version>.ipa` | `ios-v…` (aktuell 0.5.0) |
 | Android | `Stundenplan-<Version>.apk` | `android-v…` (aktuell 1.4) · [neueste](https://github.com/Black0Skorpion/Stundenplan/releases/latest) |
-| Scriptable | `Stundenplan.js`, `AbfahrtenGolm.js`, `MensaGolm.js` | `scriptable-v…` (aktuell 1.0.0) |
+| Scriptable | `Stundenplan.js`, `AbfahrtenGolm.js`, `MensaGolm.js` | `scriptable-v…` (aktuell 1.1.0) |
 
 ## Funktionen
 
@@ -39,11 +39,11 @@ Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion
 | Route zum Haus (zu Fuß) & Gehzeit zwischen Veranstaltungen | ✓ Apple Karten/Google Maps | ✓ Google Maps | ✓ Apple Karten |
 | „Fällt aus“ / „Raum ändern“ für einzelne Termine | ✓ | ✓ | ✓ |
 | Erinnerung vor Veranstaltungen (abschaltbar) | ✓ | ✓ mit Countdown | ✓ |
-| Live-Aktivität (Dynamic Island), Sperrbildschirm-Widgets dabei ausblendbar | ✓ | – | – |
+| Live-Aktivität (Dynamic Island) bzw. Live Update (Android 16) | ✓ | ✓ | – |
 | Siri / Kurzbefehle | ✓ | – | ✓ („Hey Siri, Stundenplan“) |
-| Veranstaltungen direkt aus PULS wählen (Gruppen, Überschneidungen), täglicher Abgleich | ✓ | – (folgt) | – |
-| Wecker vor der ersten Veranstaltung (ab iOS 26 echter Wecker) | ✓ | – (folgt) | – |
-| Plan teilen (QR-Code, .ics) und Pläne anderer als Profile | ✓ | – (folgt) | – |
+| Veranstaltungen direkt aus PULS wählen (Gruppen, Überschneidungen), täglicher Abgleich | ✓ | ✓ | – |
+| Wecker vor der ersten Veranstaltung | ✓ (ab iOS 26 echter Wecker) | ✓ | Mitteilung mit Ton |
+| Plan teilen (QR-Code, .ics) und Pläne anderer als Profile | ✓ | ✓ | nur .ics |
 | ICS-Import, eigener Planer-Link | ✓ | ✓ | ✓ |
 
 Akademisches Viertel: Termine zur vollen Stunde (z. B. 8–10 Uhr) werden als 8:15–9:45 gezeigt.
@@ -111,8 +111,9 @@ Direktlinks zum Kopieren: [Stundenplan.js](https://raw.githubusercontent.com/Bla
 
 - `scriptable/Stundenplan.js` – Stundenplan-Widgets inkl. Sperrbildschirm und Lageplan.
   In der App **Scriptable** ein Script anlegen, Inhalt einfügen, als Widget hinzufügen.
-  Menü (Script in Scriptable starten): Einstellungen (Farbschema, Planer-Link, Sperrbildschirm-Varianten,
-  Erinnerungen, Campus, priorisierte Linien), Lageplan für heute, Termin ändern (fällt aus / Raum), Im Planer öffnen.
+  Menü (Script in Scriptable starten): Einstellungen (Farbschema, Name, Planer-Link, Sperrbildschirm-Varianten,
+  Erinnerungen, Wecker, Campus, priorisierte Linien), Lageplan für heute, Termin ändern (fällt aus / Raum), Im Planer öffnen,
+  Stundenplan-Datei wählen (.ics), Meinen Plan teilen (.ics), Profile (Pläne anderer; Widget-Parameter `profil=<kürzel>`).
   Im Lageplan pro Termin „Route“ (Apple Karten, zu Fuß) und „Ändern“; Gehzeit bei Hauswechsel,
   Bus-/Bahnverbindungen bei Campuswechsel. Die Pläne von Neues Palais und Griebnitzsee lädt das Script
   beim ersten Öffnen einmalig von GitHub.
@@ -126,9 +127,12 @@ Direktlinks zum Kopieren: [Stundenplan.js](https://raw.githubusercontent.com/Bla
 
 ## Stundenplan aktualisieren
 
-Im Planer den Plan als Kalender (`.ics`) exportieren und in der App importieren
-(iOS: Datei teilen → Stundenplan oder Einstellungen → Debug → „ICS-Datei importieren“;
-Android: „ICS-Datei importieren“; Scriptable: als `stundenplan.ics` in iCloud Drive › Scriptable ablegen).
+Am einfachsten in der App unter „Veranstaltungen aus PULS wählen“ (iOS und Android) – dann gleicht die App
+einmal täglich mit PULS ab. Oder einen geteilten Plan öffnen (QR-Code, Link oder `.ics`-Datei).
+Eine `.ics`-Datei geht auch direkt (iOS: Datei teilen → Stundenplan oder Einstellungen → Debug;
+Android: Datei mit „Stundenplan“ öffnen oder Debug → „ICS-Datei importieren“;
+Scriptable: „Stundenplan-Datei wählen“ oder als `stundenplan.ics` in iCloud Drive › Scriptable ablegen).
+Die Apps bringen keine eigenen Termine mehr mit.
 
 ## Datenquellen
 

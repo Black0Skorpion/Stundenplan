@@ -30,6 +30,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="scriptable-v$VERSION"
+          awk -v v="## Scriptable $VERSION" '$0==v {an=1; next} /^## / {an=0} an' CHANGELOG.md > "$RUNNER_TEMP/aenderungen.md" || true
+          {
+            echo "Stundenplan-, Abfahrten- und Mensa-Skript für die App Scriptable (iPhone/iPad), Version $VERSION."
+            echo
+            if [ -s "$RUNNER_TEMP/aenderungen.md" ]; then cat "$RUNNER_TEMP/aenderungen.md"; echo; fi
+            echo "**Installation:** die .js-Dateien in iCloud Drive › Scriptable legen (Dateinamen nicht ändern, sonst verlieren bestehende Widgets ihr Script) oder den Inhalt in Scriptable in ein Script mit gleichem Namen einfügen."
+          } > "$RUNNER_TEMP/notes.md"
           cd scriptable
           zip -q "../Scriptable-$VERSION.zip" Stundenplan.js AbfahrtenGolm.js MensaGolm.js
           cd ..
@@ -39,7 +46,7 @@ jobs:
           else
             gh release create "$TAG" $DATEIEN \
               --title "Scriptable-Skripte $VERSION" \
-              --notes "Stundenplan-, Abfahrten- und Mensa-Skript für die App Scriptable (iPhone/iPad), Version $VERSION. Installation: die .js-Dateien in iCloud Drive › Scriptable legen (Dateinamen nicht ändern, sonst verlieren bestehende Widgets ihr Script) oder den Inhalt in Scriptable in ein Script mit gleichem Namen einfügen. Gebaut aus ${GITHUB_SHA::7}." \
+              --notes-file "$RUNNER_TEMP/notes.md" \
               --latest=false
           fi
       - name: Dateien in releases/scriptable/<Version>/ ablegen
