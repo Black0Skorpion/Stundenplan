@@ -103,8 +103,11 @@ public final class LiveUpdate extends BroadcastReceiver {
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_EVENT)
                 .setTimeoutAfter(Math.max(60_000L, t.ende - jetzt))
-                .setStyle(stil)
-                .setRequestPromotedOngoing(true);
+                .setStyle(stil);
+        // Als „Live Update“ hervorheben (Notification.EXTRA_REQUEST_PROMOTED_ONGOING)
+        android.os.Bundle hervorheben = new android.os.Bundle();
+        hervorheben.putBoolean("android.requestPromotedOngoing", true);
+        b.addExtras(hervorheben);
         if (laeuft) {
             // Während der Vorlesung: kein Countdown, nur Ende und Fortschritt
             b.setContentText(Konfig.typ(t.typ)[0] + " · bis " + Lageplan.uhrzeitText(t.ende))
