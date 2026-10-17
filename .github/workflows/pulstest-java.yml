@@ -1,0 +1,27 @@
+name: PULS-Test (Java)
+on:
+  push:
+    paths: ["app/src/main/java/de/stundenplan/widget/Puls.java", "app/test/**", ".github/workflows/pulstest-java.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: |
+          mkdir -p klassen
+          javac -encoding UTF-8 -d klassen app/src/main/java/de/stundenplan/widget/Puls.java app/test/PulsTest.java 2> fehler.txt || { sed 's/^/::error::/' fehler.txt | head -20; exit 1; }
+          code=0; java -cp klassen PulsTest > ergebnis-java.txt 2>&1 || code=$?
+          git fetch -q origin daten && git show origin/daten:ergebnis.txt > ergebnis-swift.txt || true
+          diff ergebnis-swift.txt ergebnis-java.txt > unterschiede.txt || true
+          echo "::notice::Unterschiede Swift/Java: $(wc -l < unterschiede.txt) Zeilen"
+          mkdir aus && cp ergebnis-java.txt unterschiede.txt aus/ && cp ergebnis-swift.txt aus/ 2>/dev/null || true
+          cd aus && git init -q -b daten-java && git config user.name bot && git config user.email bot@users.noreply.github.com
+          git add -A && git commit -qm test && git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" daten-java
+          exit $code
