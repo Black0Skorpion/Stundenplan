@@ -21,7 +21,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleRelease --console=plain > bau.log 2>&1 || {
-            grep -E "error:|e: |FAILURE|What went wrong|Could not|> " bau.log | head -40 | sed 's/^/::error::/'
+            { grep -E "\.java:[0-9]+: error:" bau.log; grep -A6 "What went wrong" bau.log; } | grep -v "^--$" | head -45 | sed 's/^/::error::/'
             tail -60 bau.log
             exit 1
           }

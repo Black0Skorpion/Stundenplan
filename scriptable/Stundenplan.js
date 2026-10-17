@@ -31,9 +31,12 @@
 // Eigener Planer-Link: Im Planer auf "Plan teilen" tippen, Link kopieren und in den Einstellungen
 // eintragen. Er öffnet sich im Lageplan über „Im Planer öffnen“.
 //
-// Stundenplan aktualisieren: Neue .ics-Datei aus dem Planer exportieren und als
-// "stundenplan.ics" in iCloud Drive › Scriptable ablegen. Liegt dort keine Datei,
-// werden die unten eingebetteten Termine (WiSe 26/27) verwendet.
+// Stundenplan: Script starten → „Stundenplan-Datei wählen“ (z. B. die .ics, die die iOS-App unter
+// „Plan teilen“ erzeugt) – oder die Datei als "stundenplan.ics" in iCloud Drive › Scriptable ablegen.
+//
+// Profile (Pläne anderer): Script starten → „Profile“ → „Profil hinzufügen“ (.ics-Datei). Ein Widget zeigt
+// ein Profil mit dem Parameter profil=<kürzel>, z. B. „profil=max“ (das Kürzel steht im Profil-Menü).
+// Wecker: Einstellungen → „Wecker“ (Mitteilung mit Ton vor der ersten Veranstaltung des Tages).
 
 // ───────────────────────── Einstellungen ─────────────────────────
 
@@ -85,235 +88,54 @@ const WOCHENTAGE_LANG = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
 const WOCHENTAGE_VOLL = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]
 const MONATE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
 
-// ───────────────────────── Eingebettete Termine ─────────────────────────
-// Format: Start (UTC) | Ende (UTC) | Kurs-Index | Typ-Index | Raum
-
-const EINGEBETTET_KURSE = ["Bioinformatik", "Grundlagen der Programmierung", "Grundlagen der Programmierung (Rechnerübung)", "Maschinenmodelle", "Mathematik für Informatik I", "Mathematik für Informatik II", "Molekulare Evolutionsbiologie"]
-const EINGEBETTET_TYPEN = ["Tutorium", "Vorlesung", "Übung"]
-const EINGEBETTET = `
-20261012T1000Z|20261012T1200Z|3|1|2.27.0.01
-20261012T1200Z|20261012T1400Z|1|1|2.12.0.01
-20261013T0600Z|20261013T0800Z|2|2|2.70.0.01
-20261013T0800Z|20261013T1000Z|4|2|2.70.0.10
-20261013T1200Z|20261013T1400Z|5|1|2.28.0.108
-20261013T1400Z|20261013T1600Z|4|1|2.27.1.01
-20261014T0600Z|20261014T0800Z|1|2|2.70.0.05
-20261014T0800Z|20261014T1000Z|5|2|2.70.0.10
-20261014T1015Z|20261014T1100Z|6|1|2.25.F0.01
-20261015T0715Z|20261015T0800Z|0|2|2.70.0.01
-20261015T1000Z|20261015T1200Z|3|2|2.70.0.10
-20261015T1200Z|20261015T1400Z|3|0|2.70.0.11
-20261016T0615Z|20261016T0745Z|0|1|2.25.F0.01
-20261019T1000Z|20261019T1200Z|3|1|2.27.0.01
-20261019T1200Z|20261019T1400Z|1|1|2.12.0.01
-20261020T0600Z|20261020T0800Z|2|2|2.70.0.01
-20261020T0800Z|20261020T1000Z|4|2|2.70.0.10
-20261020T1200Z|20261020T1400Z|5|1|2.28.0.108
-20261020T1400Z|20261020T1600Z|4|1|2.27.1.01
-20261021T0600Z|20261021T0800Z|1|2|2.70.0.05
-20261021T0800Z|20261021T1000Z|5|2|2.70.0.10
-20261021T1015Z|20261021T1100Z|6|1|2.25.F0.01
-20261022T0715Z|20261022T0800Z|0|2|2.70.0.01
-20261022T1000Z|20261022T1200Z|3|2|2.70.0.10
-20261022T1200Z|20261022T1400Z|3|0|2.70.0.11
-20261023T0615Z|20261023T0745Z|0|1|2.25.F0.01
-20261026T1100Z|20261026T1300Z|1|1|2.27.0.01
-20261026T1300Z|20261026T1500Z|3|1|2.12.0.01
-20261027T0700Z|20261027T0900Z|2|2|2.70.0.01
-20261027T0900Z|20261027T1100Z|4|2|2.70.0.10
-20261027T1300Z|20261027T1500Z|5|1|2.28.0.108
-20261027T1500Z|20261027T1700Z|4|1|2.27.1.01
-20261028T0700Z|20261028T0900Z|1|2|2.70.0.05
-20261028T0900Z|20261028T1100Z|5|2|2.70.0.10
-20261028T1115Z|20261028T1200Z|6|1|2.25.F0.01
-20261029T0815Z|20261029T0900Z|0|2|2.70.0.01
-20261029T1100Z|20261029T1300Z|3|2|2.70.0.10
-20261029T1300Z|20261029T1500Z|3|0|2.70.0.11
-20261030T0715Z|20261030T0845Z|0|1|2.25.F0.01
-20261102T1100Z|20261102T1300Z|3|1|2.27.0.01
-20261102T1300Z|20261102T1500Z|1|1|2.12.0.01
-20261103T0700Z|20261103T0900Z|2|2|2.70.0.01
-20261103T0900Z|20261103T1100Z|4|2|2.70.0.10
-20261103T1300Z|20261103T1500Z|5|1|2.28.0.108
-20261103T1500Z|20261103T1700Z|4|1|2.27.1.01
-20261104T0700Z|20261104T0900Z|1|2|2.70.0.10
-20261104T0900Z|20261104T1100Z|5|2|2.70.0.10
-20261104T1115Z|20261104T1200Z|6|1|2.25.F0.01
-20261105T0815Z|20261105T0900Z|0|2|2.70.0.01
-20261105T1100Z|20261105T1300Z|3|2|2.70.0.10
-20261105T1300Z|20261105T1500Z|3|0|2.70.0.11
-20261106T0715Z|20261106T0845Z|0|1|2.25.F0.01
-20261109T1100Z|20261109T1300Z|3|1|2.27.0.01
-20261109T1300Z|20261109T1500Z|1|1|2.12.0.01
-20261110T0700Z|20261110T0900Z|2|2|2.70.0.01
-20261110T0900Z|20261110T1100Z|4|2|2.70.0.10
-20261110T1300Z|20261110T1500Z|5|1|2.28.0.108
-20261110T1500Z|20261110T1700Z|4|1|2.27.1.01
-20261111T0700Z|20261111T0900Z|1|2|2.70.0.10
-20261111T0900Z|20261111T1100Z|5|2|2.70.0.10
-20261112T0815Z|20261112T0900Z|0|2|2.70.0.01
-20261112T1100Z|20261112T1300Z|3|2|2.70.0.10
-20261112T1300Z|20261112T1500Z|3|0|2.70.0.11
-20261113T0715Z|20261113T0845Z|0|1|2.25.F0.01
-20261116T1100Z|20261116T1300Z|3|1|2.27.0.01
-20261116T1300Z|20261116T1500Z|1|1|2.12.0.01
-20261117T0700Z|20261117T0900Z|2|2|2.70.0.01
-20261117T0900Z|20261117T1100Z|4|2|2.70.0.10
-20261117T1300Z|20261117T1500Z|5|1|2.28.0.108
-20261117T1500Z|20261117T1700Z|4|1|2.27.1.01
-20261118T0700Z|20261118T0900Z|1|2|2.70.0.10
-20261118T0900Z|20261118T1100Z|5|2|2.70.0.10
-20261118T1115Z|20261118T1200Z|6|1|2.25.F0.01
-20261119T0815Z|20261119T0900Z|0|2|2.70.0.01
-20261119T1100Z|20261119T1300Z|3|2|2.70.0.10
-20261119T1300Z|20261119T1500Z|3|0|2.70.0.11
-20261120T0715Z|20261120T0845Z|0|1|2.25.F0.01
-20261123T1100Z|20261123T1300Z|3|1|2.27.0.01
-20261123T1300Z|20261123T1500Z|1|1|2.12.0.01
-20261124T0700Z|20261124T0900Z|2|2|2.70.0.01
-20261124T0900Z|20261124T1100Z|4|2|2.70.0.10
-20261124T1300Z|20261124T1500Z|5|1|2.28.0.108
-20261124T1500Z|20261124T1700Z|4|1|2.27.1.01
-20261125T0700Z|20261125T0900Z|1|2|2.70.0.10
-20261125T0900Z|20261125T1100Z|5|2|2.70.0.10
-20261125T1115Z|20261125T1200Z|6|1|2.25.F0.01
-20261126T0815Z|20261126T0900Z|0|2|2.70.0.01
-20261126T1100Z|20261126T1300Z|3|2|2.70.0.10
-20261126T1300Z|20261126T1500Z|3|0|2.70.0.11
-20261127T0715Z|20261127T0845Z|0|1|2.25.F0.01
-20261130T1100Z|20261130T1300Z|3|1|2.27.0.01
-20261130T1300Z|20261130T1500Z|1|1|2.12.0.01
-20261201T0700Z|20261201T0900Z|2|2|2.70.0.01
-20261201T0900Z|20261201T1100Z|4|2|2.70.0.10
-20261201T1300Z|20261201T1500Z|5|1|2.28.0.108
-20261201T1500Z|20261201T1700Z|4|1|2.27.1.01
-20261202T0700Z|20261202T0900Z|1|2|2.70.0.10
-20261202T0900Z|20261202T1100Z|5|2|2.70.0.10
-20261202T1115Z|20261202T1200Z|6|1|2.25.F0.01
-20261203T0815Z|20261203T0900Z|0|2|2.70.0.01
-20261203T1100Z|20261203T1300Z|3|2|2.70.0.10
-20261203T1300Z|20261203T1500Z|3|0|2.70.0.11
-20261204T0715Z|20261204T0845Z|0|1|2.25.F0.01
-20261207T1100Z|20261207T1300Z|3|1|2.27.0.01
-20261207T1300Z|20261207T1500Z|1|1|2.12.0.01
-20261208T0700Z|20261208T0900Z|2|2|2.70.0.01
-20261208T0900Z|20261208T1100Z|4|2|2.70.0.10
-20261208T1300Z|20261208T1500Z|5|1|2.28.0.108
-20261208T1500Z|20261208T1700Z|4|1|2.27.1.01
-20261209T0700Z|20261209T0900Z|1|2|2.70.0.10
-20261209T0900Z|20261209T1100Z|5|2|2.70.0.10
-20261209T1115Z|20261209T1200Z|6|1|2.25.F0.01
-20261210T0815Z|20261210T0900Z|0|2|2.70.0.01
-20261210T1100Z|20261210T1300Z|3|2|2.70.0.10
-20261210T1300Z|20261210T1500Z|3|0|2.70.0.11
-20261211T0715Z|20261211T0845Z|0|1|2.25.F0.01
-20261214T1100Z|20261214T1300Z|3|1|2.27.0.01
-20261214T1300Z|20261214T1500Z|1|1|2.12.0.01
-20261215T0700Z|20261215T0900Z|2|2|2.70.0.01
-20261215T0900Z|20261215T1100Z|4|2|2.70.0.10
-20261215T1300Z|20261215T1500Z|5|1|2.28.0.108
-20261215T1500Z|20261215T1700Z|4|1|2.27.1.01
-20261216T0700Z|20261216T0900Z|1|2|2.70.0.10
-20261216T0900Z|20261216T1100Z|5|2|2.70.0.10
-20261216T1115Z|20261216T1200Z|6|1|2.25.F0.01
-20261217T0815Z|20261217T0900Z|0|2|2.70.0.01
-20261217T1100Z|20261217T1300Z|3|2|2.70.0.10
-20261217T1300Z|20261217T1500Z|3|0|2.70.0.11
-20261218T0715Z|20261218T0845Z|0|1|2.25.F0.01
-20270104T1100Z|20270104T1300Z|3|1|2.27.0.01
-20270104T1300Z|20270104T1500Z|1|1|2.12.0.01
-20270105T0700Z|20270105T0900Z|2|2|2.70.0.01
-20270105T0900Z|20270105T1100Z|4|2|2.70.0.10
-20270105T1300Z|20270105T1500Z|5|1|2.28.0.108
-20270105T1500Z|20270105T1700Z|4|1|2.27.1.01
-20270106T0700Z|20270106T0900Z|1|2|2.70.0.10
-20270106T0900Z|20270106T1100Z|5|2|2.70.0.10
-20270106T1115Z|20270106T1200Z|6|1|2.25.F0.01
-20270107T0815Z|20270107T0900Z|0|2|2.70.0.01
-20270107T1100Z|20270107T1300Z|3|2|2.70.0.10
-20270107T1300Z|20270107T1500Z|3|0|2.70.0.11
-20270108T0715Z|20270108T0845Z|0|1|2.25.F0.01
-20270111T1100Z|20270111T1300Z|3|1|2.27.0.01
-20270111T1300Z|20270111T1500Z|1|1|2.12.0.01
-20270112T0700Z|20270112T0900Z|2|2|2.70.0.01
-20270112T0900Z|20270112T1100Z|4|2|2.70.0.10
-20270112T1300Z|20270112T1500Z|5|1|2.28.0.108
-20270112T1500Z|20270112T1700Z|4|1|2.27.1.01
-20270113T0700Z|20270113T0900Z|1|2|2.70.0.10
-20270113T0900Z|20270113T1100Z|5|2|2.70.0.10
-20270113T1115Z|20270113T1200Z|6|1|2.25.F0.01
-20270114T0815Z|20270114T0900Z|0|2|2.70.0.01
-20270114T1100Z|20270114T1300Z|3|2|2.70.0.10
-20270114T1300Z|20270114T1500Z|3|0|2.70.0.11
-20270115T0715Z|20270115T0845Z|0|1|2.25.F0.01
-20270118T1100Z|20270118T1300Z|3|1|2.27.0.01
-20270118T1300Z|20270118T1500Z|1|1|2.12.0.01
-20270119T0700Z|20270119T0900Z|2|2|2.70.0.01
-20270119T0900Z|20270119T1100Z|4|2|2.70.0.10
-20270119T1300Z|20270119T1500Z|5|1|2.28.0.108
-20270119T1500Z|20270119T1700Z|4|1|2.27.1.01
-20270120T0700Z|20270120T0900Z|1|2|2.70.0.10
-20270120T0900Z|20270120T1100Z|5|2|2.70.0.10
-20270120T1115Z|20270120T1200Z|6|1|2.25.F0.01
-20270121T0815Z|20270121T0900Z|0|2|2.70.0.01
-20270121T1100Z|20270121T1300Z|3|2|2.70.0.10
-20270121T1300Z|20270121T1500Z|3|0|2.70.0.11
-20270122T0715Z|20270122T0845Z|0|1|2.25.F0.01
-20270125T1100Z|20270125T1300Z|3|1|2.27.0.01
-20270125T1300Z|20270125T1500Z|1|1|2.12.0.01
-20270126T0700Z|20270126T0900Z|2|2|2.70.0.01
-20270126T0900Z|20270126T1100Z|4|2|2.70.0.10
-20270126T1300Z|20270126T1500Z|5|1|2.28.0.108
-20270126T1500Z|20270126T1700Z|4|1|2.27.1.01
-20270127T0700Z|20270127T0900Z|1|2|2.70.0.10
-20270127T0900Z|20270127T1100Z|5|2|2.70.0.10
-20270127T1115Z|20270127T1200Z|6|1|2.25.F0.01
-20270128T0815Z|20270128T0900Z|0|2|2.70.0.01
-20270128T1100Z|20270128T1300Z|3|2|2.70.0.10
-20270128T1300Z|20270128T1500Z|3|0|2.70.0.11
-20270129T0715Z|20270129T0845Z|0|1|2.25.F0.01
-20270201T1100Z|20270201T1300Z|3|1|2.27.0.01
-20270201T1300Z|20270201T1500Z|1|1|2.12.0.01
-20270202T0700Z|20270202T0900Z|2|2|2.70.0.01
-20270202T0900Z|20270202T1100Z|4|2|2.70.0.10
-20270202T1300Z|20270202T1500Z|5|1|2.28.0.108
-20270202T1500Z|20270202T1700Z|4|1|2.27.1.01
-20270203T0700Z|20270203T0900Z|1|2|2.70.0.10
-20270203T0900Z|20270203T1100Z|5|2|2.70.0.10
-20270203T1115Z|20270203T1200Z|6|1|2.25.F0.01
-20270204T0815Z|20270204T0900Z|0|2|2.70.0.01
-20270204T1100Z|20270204T1300Z|3|2|2.70.0.10
-20270204T1300Z|20270204T1500Z|3|0|2.70.0.11
-20270205T0715Z|20270205T0845Z|0|1|2.25.F0.01
-`
-
 // ───────────────────────── Daten laden ─────────────────────────
 
-async function ladeTermine() {
+// Profil (Plan von jemand anderem): Widget-Parameter „profil=kürzel“ oder Link-Parameter „profil“
+const PROFIL = (() => {
+  const teil = (args.widgetParameter || "").trim().split(/\s+/).find(t => /^profil=/i.test(t))
+  const q = (args.queryParameters || {}).profil
+  return (teil ? teil.split("=")[1] : q || "").toLowerCase() || null
+})()
+
+function profilDatei(kuerzel) {
+  return "stundenplan-profil-" + kuerzel + ".ics"
+}
+
+function dateiManager() {
+  try { return FileManager.iCloud() } catch (e) { return FileManager.local() }
+}
+
+async function dateiLesen(name) {
   const kandidaten = []
   try { kandidaten.push(FileManager.iCloud()) } catch (e) {}
   kandidaten.push(FileManager.local())
   for (const fm of kandidaten) {
     try {
-      const pfad = fm.joinPath(fm.documentsDirectory(), CONFIG.ICS_DATEI)
+      const pfad = fm.joinPath(fm.documentsDirectory(), name)
       if (!fm.fileExists(pfad)) continue
       if (fm.isFileStoredIniCloud(pfad) && !fm.isFileDownloaded(pfad)) {
         await fm.downloadFileFromiCloud(pfad)
       }
-      const termine = parseICS(fm.readString(pfad))
-      if (termine.length > 0) return termine
+      return fm.readString(pfad)
     } catch (e) {
-      console.log("ICS-Datei konnte nicht gelesen werden: " + e)
+      console.log(name + " konnte nicht gelesen werden: " + e)
     }
   }
-  return eingebetteteTermine()
+  return null
+}
+
+// Termine aus der eigenen Datei (profil = null) oder aus einem Profil
+async function ladeTermine(profil) {
+  const text = await dateiLesen(profil ? profilDatei(profil) : CONFIG.ICS_DATEI)
+  return text ? parseICS(text) : []
 }
 
 // Termine mit akademischem Viertel und eigenen Änderungen (fällt aus / anderer Raum), sortiert.
 // Ausgefallene sind nur mit mitAusfaellen dabei (Lageplan, Ändern-Menü).
-async function ladeAlle(mitAusfaellen) {
-  const aend = aenderungen()
-  return (await ladeTermine())
+async function ladeAlle(mitAusfaellen, profil) {
+  const p = profil === undefined ? PROFIL : profil
+  const aend = p ? {} : aenderungen()
+  return (await ladeTermine(p))
     .map(viertelAnpassen)
     .map(t => {
       const a = aend[schluessel(t)]
@@ -329,24 +151,6 @@ async function ladeAlle(mitAusfaellen) {
 
 function schluessel(t) {
   return Math.floor(t.start.getTime() / 1000) + "|" + t.titel
-}
-
-function utcAusKompakt(s) {
-  // 20261012T1200Z
-  return new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(9, 11), +s.slice(11, 13)))
-}
-
-function eingebetteteTermine() {
-  return EINGEBETTET.trim().split("\n").map(z => {
-    const [s, e, k, t, raum] = z.split("|")
-    return {
-      start: utcAusKompakt(s),
-      ende: utcAusKompakt(e),
-      titel: EINGEBETTET_KURSE[+k],
-      typ: EINGEBETTET_TYPEN[+t],
-      raum: raum,
-    }
-  })
 }
 
 function icsDatum(wert, params) {
@@ -879,7 +683,7 @@ function kleinesWidget(alle, jetzt, farben) {
   const rand = 12
   const w = basisWidget(farben, rand)
   const auswahl = tagesAuswahl(alle, jetzt)
-  if (!auswahl) { leerHinweis(w, farben, "Keine weiteren Termine"); return w }
+  if (!auswahl) { leerHinweis(w, farben, alle.length ? "Keine weiteren Termine" : "Noch kein Stundenplan – Script starten"); return w }
 
   const kopf = w.addStack()
   kopf.layoutHorizontally()
@@ -916,7 +720,7 @@ function mittleresWidget(alle, jetzt, farben) {
   const luecke = 12
   const w = basisWidget(farben, rand)
   const auswahl = tagesAuswahl(alle, jetzt)
-  if (!auswahl) { leerHinweis(w, farben, "Keine weiteren Termine"); return w }
+  if (!auswahl) { leerHinweis(w, farben, alle.length ? "Keine weiteren Termine" : "Noch kein Stundenplan – Script starten"); return w }
 
   const innenB = groesse.breite - 2 * rand
   const innenH = groesse.hoehe - 2 * rand
@@ -1301,10 +1105,11 @@ async function erinnerungenPlanen(sofort) {
     const alte = (await Notification.allPending()).filter(n => (n.identifier || "").startsWith("sp-"))
     if (alte.length) await Notification.removePending(alte.map(n => n.identifier))
   } catch (err) {}
+  await weckerPlanen()
   if (!e.erinnerungen) return
   const vorlauf = e.vorlauf || 10
   const jetzt = new Date()
-  const kommende = (await ladeAlle(false)).filter(t => t.start.getTime() - vorlauf * 60000 > jetzt.getTime()).slice(0, 30)
+  const kommende = (await ladeAlle(false, null)).filter(t => t.start.getTime() - vorlauf * 60000 > jetzt.getTime()).slice(0, 30)
   for (const t of kommende) {
     const n = new Notification()
     n.identifier = "sp-" + Math.floor(t.start.getTime() / 1000)
@@ -1318,11 +1123,54 @@ async function erinnerungenPlanen(sofort) {
   }
 }
 
+// ───────────────────────── Wecker ─────────────────────────
+// Mitteilung mit Ton vor der ersten Veranstaltung des Tages (Scriptable kann keine echten Wecker stellen).
+// Nur an Tagen mit Veranstaltungen, ausgefallene zählen nicht; geplant für die nächsten 14 Tage.
+
+function weckzeiten(alle, vorlauf, fruehestens, jetzt) {
+  const bis = jetzt.getTime() + 14 * 86400000
+  const tage = new Set()
+  const aus = []
+  for (const t of alle) {
+    if (t.ausfall || t.start <= jetzt || t.start.getTime() > bis) continue
+    const tag = tagesBeginn(t.start).getTime()
+    if (tage.has(tag)) continue
+    tage.add(tag)
+    let wann = t.start.getTime() - vorlauf * 60000
+    if (fruehestens) {
+      const grenze = tag + fruehestens * 60000
+      if (wann < grenze) wann = Math.min(grenze, t.start.getTime() - 15 * 60000)
+    }
+    if (wann > jetzt.getTime()) aus.push({ wann: new Date(wann), t })
+  }
+  return aus
+}
+
+async function weckerPlanen() {
+  const e = einstellungen()
+  try {
+    const alte = (await Notification.allPending()).filter(n => (n.identifier || "").startsWith("wk-"))
+    if (alte.length) await Notification.removePending(alte.map(n => n.identifier))
+  } catch (err) {}
+  if (!e.wecker) return
+  const zeiten = weckzeiten(await ladeAlle(false, null), e.wecker, e.weckerFruehestens || 0, new Date())
+  for (const { wann, t } of zeiten) {
+    const n = new Notification()
+    n.identifier = "wk-" + Math.floor(wann.getTime() / 1000)
+    n.title = "Aufstehen: " + kursInfo(t.titel).kurz + " um " + uhrzeit(t.start)
+    n.body = "Erste Veranstaltung heute" + (t.raum ? " · " + t.raum : "")
+    n.sound = "alert"
+    n.openURL = lageplanLinkTermin(t)
+    n.setTriggerDate(wann)
+    await n.schedule()
+  }
+}
+
 // ───────────────────────── Siri ─────────────────────────
 
 async function siriAntwort() {
   const jetzt = new Date()
-  const t = naechsterTermin(await ladeAlle(false), jetzt)
+  const t = naechsterTermin(await ladeAlle(false, null), jetzt)
   let text
   if (!t) text = "Du hast keine weiteren Termine."
   else {
@@ -1653,6 +1501,7 @@ function verbindungHtml(a, b, liste) {
 
 // Link, der Scriptable öffnet und den Lageplan zeigt
 function lageplanLink(parameter) {
+  if (PROFIL && !parameter.profil) parameter = Object.assign({ profil: PROFIL }, parameter)
   const q = Object.entries(parameter).map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&")
   return "scriptable:///run/" + encodeURIComponent(Script.name()) + "?" + q
 }
@@ -1776,7 +1625,7 @@ async function zeigeLageplan(alle, parameter) {
       <div class="ort">${ort}</div>
       ${t.alterRaum ? `<div class="einr">Geändert, ursprünglich ${htmlSchutz(t.alterRaum)}</div>` : ""}
       ${einrichtung ? `<div class="einr">${einrichtung}</div>` : ""}
-      <div class="knoepfe">${route ? `<a class="k" href="${htmlSchutz(route)}">🚶 Route</a>` : ""}<a class="k" href="${htmlSchutz(aendern)}">✎ Ändern</a></div>
+      <div class="knoepfe">${route ? `<a class="k" href="${htmlSchutz(route)}">🚶 Route</a>` : ""}${PROFIL ? "" : `<a class="k" href="${htmlSchutz(aendern)}">✎ Ändern</a>`}</div>
     </div>`
   }).join("")
 
@@ -1866,6 +1715,205 @@ async function auswahlMenue(titel, optionen, aktuell) {
   return i >= 0 ? optionen[i][0] : undefined
 }
 
+function weckerText(m) {
+  const h = Math.floor(m / 60), r = m % 60
+  return h === 0 ? m + " Min" : r === 0 ? h + " Std" : h + " Std " + r + " Min"
+}
+
+function uhrText(m) {
+  return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0")
+}
+
+// ───────────────────────── Datei, Teilen, Profile ─────────────────────────
+
+async function dateiWaehlen() {
+  try {
+    const pfade = await DocumentPicker.open(["public.calendar-event", "com.apple.ical.ics", "public.data"])
+    if (!pfade || !pfade.length) return null
+    return FileManager.local().readString(pfade[0])
+  } catch (e) {
+    return null
+  }
+}
+
+function kopfWert(text, name) {
+  const z = text.replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "").split("\n")
+  for (const zeile of z) {
+    if (zeile === "BEGIN:VEVENT") break
+    if (zeile.startsWith(name + ":")) return zeile.slice(name.length + 1)
+  }
+  return null
+}
+
+async function eigeneDateiWaehlen() {
+  const text = await dateiWaehlen()
+  if (!text) return
+  const n = parseICS(text).length
+  const a = new Alert()
+  if (!n) {
+    a.title = "Keine Termine gefunden"
+    a.addAction("OK")
+    await a.presentAlert()
+    return
+  }
+  const fm = dateiManager()
+  fm.writeString(fm.joinPath(fm.documentsDirectory(), CONFIG.ICS_DATEI), text)
+  a.title = n + " Termine übernommen"
+  a.message = "Die Widgets zeigen ab jetzt diesen Plan."
+  a.addAction("OK")
+  await a.presentAlert()
+  await erinnerungenPlanen(true)
+}
+
+function icsZeit(d) {
+  return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")
+}
+
+function icsMaskiert(s) {
+  return String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n")
+}
+
+function gefaltet(zeile) {
+  const teile = []
+  for (let i = 0, erste = true; i < zeile.length; erste = false) {
+    const n = erste ? 73 : 72
+    teile.push((erste ? "" : " ") + zeile.slice(i, i + n))
+    i += n
+  }
+  return teile.join("\r\n")
+}
+
+// Eigenen Plan als .ics teilen (gleiches Format wie die App; die PULS-Auswahl aus der Datei bleibt erhalten)
+async function planTeilen() {
+  const e = einstellungen()
+  const roh = await ladeTermine(null)
+  if (!roh.length) {
+    const a = new Alert()
+    a.title = "Kein Stundenplan zum Teilen"
+    a.addAction("OK")
+    await a.presentAlert()
+    return
+  }
+  const aend = aenderungen()
+  const original = (await dateiLesen(CONFIG.ICS_DATEI)) || ""
+  const freigabe = kopfWert(original, "X-STUNDENPLAN-FREIGABE")
+  const z = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Stundenplan Uni Potsdam//DE", "CALSCALE:GREGORIAN",
+    "X-WR-CALNAME:" + icsMaskiert(e.name ? "Stundenplan von " + e.name : "Stundenplan")]
+  if (freigabe) z.push("X-STUNDENPLAN-FREIGABE:" + freigabe)
+  const stempel = icsZeit(new Date())
+  roh.forEach((t, i) => {
+    const a = aend[schluessel(viertelAnpassen(t))]
+    if (a && a.ausfall) return
+    const raum = a && a.raum ? a.raum : t.raum
+    z.push("BEGIN:VEVENT", "UID:" + Math.floor(t.start.getTime() / 1000) + "-" + i + "@stundenplan", "DTSTAMP:" + stempel,
+      "DTSTART:" + icsZeit(t.start), "DTEND:" + icsZeit(t.ende), "SUMMARY:" + icsMaskiert(t.titel),
+      "DESCRIPTION:" + icsMaskiert(t.typ), "LOCATION:" + icsMaskiert(raum), "END:VEVENT")
+  })
+  z.push("END:VCALENDAR")
+  const fm = FileManager.local()
+  const pfad = fm.joinPath(fm.temporaryDirectory(), (e.name ? "Stundenplan " + e.name : "Stundenplan").replace(/[^\p{L}\p{N} -]/gu, "") + ".ics")
+  fm.writeString(pfad, z.map(gefaltet).join("\r\n") + "\r\n")
+  // Vorschau mit Teilen-Knopf (AirDrop, Nachrichten, Dateien …)
+  await QuickLook.present(pfad, false)
+}
+
+function profilListe() {
+  return einstellungen().profile || []
+}
+
+function kuerzelAus(name) {
+  const k = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "")
+  return k || "profil"
+}
+
+async function profileMenue() {
+  while (true) {
+    const profile = profilListe()
+    const a = new Alert()
+    a.title = "Profile"
+    a.message = "Pläne anderer. Ein Widget zeigt ein Profil mit dem Parameter profil=<kürzel>." +
+      (profile.length ? "" : "\n\nNoch keine Profile.")
+    profile.forEach(p => a.addAction(p.name + "  (profil=" + p.kuerzel + ")"))
+    a.addAction("＋ Profil hinzufügen (.ics-Datei)")
+    a.addCancelAction("Fertig")
+    const i = await a.presentSheet()
+    if (i < 0) return
+    if (i === profile.length) { await profilHinzufuegen(); continue }
+    const p = profile[i]
+    const m = new Alert()
+    m.title = p.name
+    m.addAction("Wochenansicht zeigen")
+    m.addAction("Umbenennen")
+    m.addAction("Datei ersetzen")
+    m.addDestructiveAction("Löschen")
+    m.addCancelAction("Zurück")
+    const j = await m.presentSheet()
+    const e = Object.assign({}, einstellungen())
+    if (j === 0) {
+      const alle = await ladeAlle(false, p.kuerzel)
+      const w = grossesWidget(alle, new Date(), themenFarben())
+      await w.presentLarge()
+    } else if (j === 1) {
+      const l = new Alert()
+      l.title = "Name"
+      l.addTextField("Name", p.name)
+      l.addAction("Speichern")
+      l.addCancelAction("Abbrechen")
+      if (await l.presentAlert() === 0 && l.textFieldValue(0).trim()) {
+        e.profile = profile.map(x => x.kuerzel === p.kuerzel ? Object.assign({}, x, { name: l.textFieldValue(0).trim() }) : x)
+        einstellungenSpeichern(e)
+      }
+    } else if (j === 2) {
+      const text = await dateiWaehlen()
+      if (text && parseICS(text).length) {
+        const fm = dateiManager()
+        fm.writeString(fm.joinPath(fm.documentsDirectory(), profilDatei(p.kuerzel)), text)
+      }
+    } else if (j === 3) {
+      e.profile = profile.filter(x => x.kuerzel !== p.kuerzel)
+      einstellungenSpeichern(e)
+      try {
+        const fm = dateiManager()
+        fm.remove(fm.joinPath(fm.documentsDirectory(), profilDatei(p.kuerzel)))
+      } catch (err) {}
+    }
+  }
+}
+
+async function profilHinzufuegen() {
+  const text = await dateiWaehlen()
+  if (!text) return
+  if (!parseICS(text).length) {
+    const a = new Alert()
+    a.title = "Keine Termine gefunden"
+    a.addAction("OK")
+    await a.presentAlert()
+    return
+  }
+  let vorschlag = (kopfWert(text, "X-WR-CALNAME") || "").replace(/\\,/g, ",").replace(/^Stundenplan von /, "")
+  if (vorschlag === "Stundenplan") vorschlag = ""
+  const l = new Alert()
+  l.title = "Wessen Plan?"
+  l.addTextField("Name", vorschlag)
+  l.addAction("Speichern")
+  l.addCancelAction("Abbrechen")
+  if (await l.presentAlert() !== 0) return
+  const name = l.textFieldValue(0).trim() || "Ohne Namen"
+  const e = Object.assign({}, einstellungen())
+  const profile = e.profile || []
+  let kuerzel = kuerzelAus(name), n = 2
+  while (profile.some(p => p.kuerzel === kuerzel)) kuerzel = kuerzelAus(name) + n++
+  const fm = dateiManager()
+  fm.writeString(fm.joinPath(fm.documentsDirectory(), profilDatei(kuerzel)), text)
+  e.profile = profile.concat([{ name, kuerzel }])
+  einstellungenSpeichern(e)
+  const a = new Alert()
+  a.title = "Profil gespeichert"
+  a.message = "Widget-Parameter für dieses Profil: profil=" + kuerzel
+  a.addAction("OK")
+  await a.presentAlert()
+}
+
 async function zeigeEinstellungen() {
   const e = Object.assign({}, einstellungen())
   while (true) {
@@ -1877,7 +1925,9 @@ async function zeigeEinstellungen() {
       ["inline", "Sperrbildschirm Zeile: " + VARIANTEN_NAMEN[e.inline || "naechste"]],
       ["rechteck", "Sperrbildschirm Rechteck: " + VARIANTEN_NAMEN[e.rechteck || "naechste"]],
       ["rund", "Sperrbildschirm Rund: " + VARIANTEN_NAMEN[e.rund || "countdown"]],
+      ["name", "Dein Name (beim Teilen): " + (e.name || "–")],
       ["erinnerungen", "Erinnerungen: " + (e.erinnerungen ? "an (" + (e.vorlauf || 10) + " Min vorher)" : "aus")],
+      ["wecker", "Wecker: " + (e.wecker ? weckerText(e.wecker) + " vor der ersten Veranstaltung" + (e.weckerFruehestens ? ", frühestens " + uhrText(e.weckerFruehestens) : "") : "aus")],
       ["campus", "Campus (Mensa/Abfahrten): " + (CAMPUS[e.campus] || "Automatisch")],
       ["favoriten", "Priorisierte Linien: " + ((e.favoriten || []).join(", ") || "keine")],
     ]
@@ -1899,6 +1949,25 @@ async function zeigeEinstellungen() {
         e.erinnerungen ? (e.vorlauf || 10) : "aus")
       if (w === "aus") e.erinnerungen = false
       else if (w !== undefined) { e.erinnerungen = true; e.vorlauf = w }
+    } else if (schluessel === "name") {
+      const l = new Alert()
+      l.title = "Dein Name"
+      l.message = "Steht auf deinem geteilten Plan."
+      l.addTextField("Name", e.name || "")
+      l.addAction("Speichern")
+      l.addCancelAction("Abbrechen")
+      if (await l.presentAlert() === 0) e.name = l.textFieldValue(0).trim()
+    } else if (schluessel === "wecker") {
+      const w = await auswahlMenue("Wecker vor der ersten Veranstaltung (Mitteilung mit Ton)",
+        [["aus", "Aus"]].concat([30, 45, 60, 75, 90, 105, 120, 150, 180].map(m => [m, weckerText(m) + " vorher"])),
+        e.wecker || "aus")
+      if (w === "aus") e.wecker = 0
+      else if (w !== undefined) {
+        e.wecker = w
+        const f = await auswahlMenue("Frühestens um",
+          [[0, "egal"]].concat([300, 330, 360, 390, 420, 450].map(m => [m, uhrText(m)])), e.weckerFruehestens || 0)
+        if (f !== undefined) e.weckerFruehestens = f
+      }
     } else if (schluessel === "campus") {
       const w = await auswahlMenue("Campus für Mensa- und Abfahrten-Widget",
         [["auto", "Automatisch (nach Stundenplan)"], ["2", "Golm"], ["1", "Am Neuen Palais"], ["3", "Griebnitzsee"]], e.campus || "auto")
@@ -2192,7 +2261,7 @@ async function erstelleWidget(familie) {
   else if (familie === "extraLarge") w = extraGrossesWidget(alle, jetzt, farben)
   else w = grossesWidget(alle, jetzt, farben)
   aktualisierung(w, alle, jetzt)
-  campusTeilen(alle)
+  if (!PROFIL) campusTeilen(alle)
   return w
 }
 
@@ -2224,8 +2293,14 @@ if (config.runsInWidget) {
   start.addAction("Lageplan für heute")
   start.addAction("Termin ändern (fällt aus / Raum)")
   start.addAction("Im Planer öffnen")
+  start.addAction("Stundenplan-Datei wählen (.ics)")
+  start.addAction("Meinen Plan teilen (.ics)")
+  start.addAction("Profile (Pläne anderer)")
   start.addCancelAction("Abbrechen")
   const wahl = await start.presentSheet()
+  if (wahl === 5) await eigeneDateiWaehlen()
+  if (wahl === 6) await planTeilen()
+  if (wahl === 7) await profileMenue()
   if (wahl === 1) await zeigeEinstellungen()
   if (wahl === 2) {
     const alle = await ladeAlle(true)
