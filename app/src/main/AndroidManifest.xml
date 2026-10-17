@@ -5,6 +5,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Wecker vor der ersten Veranstaltung (klingelt auch im gesperrten Zustand) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Täglicher Abgleich mit PULS nur ohne mobile Daten -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Live Update (Android 16): hervorgehobene Mitteilung der laufenden Veranstaltung -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -18,6 +25,56 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".PulsActivity"
+            android:exported="false"
+            android:label="Modulwahl (PULS)"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".TeilenActivity"
+            android:exported="false"
+            android:label="Plan teilen" />
+
+        <activity
+            android:name=".WeckerActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:label="Wecker" />
+
+        <!-- Geteilte Pläne: Link/QR-Code stundenplan://teilen?d=… oder .ics-Datei -->
+        <activity
+            android:name=".EmpfangActivity"
+            android:exported="true"
+            android:label="Stundenplan">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="stundenplan" android:host="teilen" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="text/calendar" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/calendar" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
 
@@ -118,6 +175,21 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".LiveUpdate"
+            android:exported="false" />
+
+        <service
+            android:name=".PulsJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <provider
+            android:name=".Dateien"
+            android:authorities="de.stundenplan.widget.dateien"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <receiver
             android:name=".Aktualisierer"

@@ -1,0 +1,29 @@
+name: Android prüfen (Branch)
+
+# Baut die App auf Arbeits-Branches nur zur Kontrolle (ohne Signatur, ohne Release)
+on:
+  push:
+    branches-ignore: [main, daten, daten-java]
+    paths: ["app/**", "build.gradle", "settings.gradle", "gradle.properties", "gradle/**", ".github/workflows/android-pruefen.yml"]
+  workflow_dispatch:
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Bauen
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --console=plain > bau.log 2>&1 || {
+            grep -E "error:|e: |FAILURE|What went wrong|Could not|> " bau.log | head -40 | sed 's/^/::error::/'
+            tail -60 bau.log
+            exit 1
+          }
+          grep -E "warning:" bau.log | head -10 | sed 's/^/::warning::/' || true
+          ls -la app/build/outputs/apk/release/

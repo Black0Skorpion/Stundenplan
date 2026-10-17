@@ -43,7 +43,11 @@ jobs:
       - name: APK bauen (signiert mit festem Schlüssel)
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --console=plain > bau.log 2>&1 || {
+            grep -E "error:|FAILURE|What went wrong|Could not" bau.log | head -30 | sed 's/^/::error::/'
+            tail -60 bau.log
+            exit 1
+          }
           cp app/build/outputs/apk/release/app-release.apk Stundenplan.apk
           # Prüfen, dass wirklich der feste Schlüssel verwendet wurde
           SIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
@@ -63,13 +67,21 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           TAG="android-v$VERSION"
           cp Stundenplan.apk "Stundenplan-$VERSION.apk"
+          # Changelog dieser Version aus CHANGELOG.md (Abschnitt „## Android $VERSION“)
+          awk -v v="## Android $VERSION" '$0==v {an=1; next} /^## / {an=0} an' CHANGELOG.md > "$RUNNER_TEMP/aenderungen.md" || true
+          {
+            echo "Stundenplan-App für Android, Version $VERSION."
+            echo
+            if [ -s "$RUNNER_TEMP/aenderungen.md" ]; then cat "$RUNNER_TEMP/aenderungen.md"; echo; fi
+            echo "**Installation:** Auf dem Handy Stundenplan-$VERSION.apk antippen und installieren – Updates lassen sich direkt drüber installieren."
+          } > "$RUNNER_TEMP/notes.md"
           if gh release view "$TAG" >/dev/null 2>&1; then
             # Gleiche Version neu gebaut: nur die Datei ersetzen
             gh release upload "$TAG" "Stundenplan-$VERSION.apk" --clobber
           else
             gh release create "$TAG" "Stundenplan-$VERSION.apk" \
               --title "Android-App $VERSION" \
-              --notes "Stundenplan-App für Android, Version $VERSION. Auf dem Handy Stundenplan-$VERSION.apk antippen und installieren. Signiert mit festem Schlüssel (ab 1.4) – Updates lassen sich direkt drüber installieren. Gebaut aus ${GITHUB_SHA::7}." \
+              --notes-file "$RUNNER_TEMP/notes.md" \
               --latest
           fi
 

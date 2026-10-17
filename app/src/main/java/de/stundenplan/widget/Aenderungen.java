@@ -48,6 +48,8 @@ public final class Aenderungen {
         // Widgets und Erinnerungen übernehmen die Änderung sofort
         StundenplanWidget.alleAktualisieren(ctx);
         Erinnerungen.planen(ctx);
+        Wecker.planen(ctx);
+        LiveUpdate.planen(ctx);
     }
 
     /** Raum, der gerade gespeichert ist (null = Original) */

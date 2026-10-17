@@ -76,6 +76,9 @@ public final class Erinnerungen extends BroadcastReceiver {
         planen(ctx);
         if (Intent.ACTION_BOOT_COMPLETED.equals(aktion) || Intent.ACTION_MY_PACKAGE_REPLACED.equals(aktion)) {
             StundenplanWidget.alleAktualisieren(ctx);
+            Wecker.planen(ctx);
+            LiveUpdate.planen(ctx);
+            PulsDienst.planen(ctx);
         }
     }
 

@@ -16,7 +16,7 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Lädt die Termine: importierte .ics-Datei, sonst die eingebauten Termine. */
+/** Lädt die Termine aus der Kalenderdatei (PULS-Auswahl oder Import). */
 public final class Daten {
     private Daten() {}
 
@@ -32,24 +32,39 @@ public final class Daten {
         return Aenderungen.anwenden(ctx, ladenRoh(ctx), mitAusfaellen);
     }
 
-    private static List<Termin> ladenRoh(Context ctx) {
-        List<Termin> roh = null;
+    /** Rohtermine wie gespeichert (ohne akademisches Viertel) */
+    static List<Termin> ladenRohOhneViertel(Context ctx) {
         File f = new File(ctx.getFilesDir(), ICS_DATEI);
-        if (f.exists()) {
-            try (InputStream in = new FileInputStream(f)) {
-                roh = parseICS(lesen(in));
-            } catch (IOException e) {
-                roh = null;
-            }
+        if (!f.exists()) return new ArrayList<>();
+        try (InputStream in = new FileInputStream(f)) {
+            return parseICS(lesen(in));
+        } catch (IOException e) {
+            return new ArrayList<>();
         }
-        if (roh == null || roh.isEmpty()) {
-            try (InputStream in = ctx.getResources().openRawResource(R.raw.termine)) {
-                roh = parseEingebettet(lesen(in));
-            } catch (IOException e) {
-                roh = new ArrayList<>();
-            }
+    }
+
+    private static List<Termin> ladenRoh(Context ctx) {
+        return aufbereiten(ladenRohOhneViertel(ctx));
+    }
+
+    /** Zum Teilen: Rohzeiten, mit eigenem Raum, ohne ausgefallene Termine */
+    static List<Termin> ladenRohMitAenderungen(Context ctx) {
+        List<Termin> aus = new ArrayList<>();
+        for (Termin roh : ladenRohOhneViertel(ctx)) {
+            Termin angepasst = viertelAnpassen(roh);
+            List<Termin> eins = new ArrayList<>();
+            eins.add(angepasst);
+            List<Termin> geaendert = Aenderungen.anwenden(ctx, eins, true);
+            Termin g = geaendert.get(0);
+            if (g.ausfall) continue;
+            roh.raum = g.raum;
+            aus.add(roh);
         }
-        return aufbereiten(roh);
+        return aus;
+    }
+
+    static boolean vorhanden(Context ctx) {
+        return new File(ctx.getFilesDir(), ICS_DATEI).exists();
     }
 
     public static List<Termin> aufbereiten(List<Termin> roh) {
@@ -65,29 +80,6 @@ public final class Daten {
         int n;
         while ((n = in.read(puffer)) > 0) bos.write(puffer, 0, n);
         return bos.toString("UTF-8");
-    }
-
-    // ───── Eingebettetes Format: 20261012T1200Z|20261012T1400Z|Titel|Art|Raum ─────
-
-    public static List<Termin> parseEingebettet(String text) {
-        List<Termin> liste = new ArrayList<>();
-        for (String zeile : text.split("\n")) {
-            zeile = zeile.trim();
-            if (zeile.isEmpty() || zeile.startsWith("#")) continue;
-            String[] t = zeile.split("\\|", -1);
-            if (t.length < 5) continue;
-            liste.add(new Termin(utcKompakt(t[0]), utcKompakt(t[1]), t[2], t[3], t[4]));
-        }
-        return liste;
-    }
-
-    private static long utcKompakt(String s) {
-        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.GERMANY);
-        c.clear();
-        c.set(Integer.parseInt(s.substring(0, 4)), Integer.parseInt(s.substring(4, 6)) - 1,
-                Integer.parseInt(s.substring(6, 8)), Integer.parseInt(s.substring(9, 11)),
-                Integer.parseInt(s.substring(11, 13)), 0);
-        return c.getTimeInMillis();
     }
 
     // ───── ICS ─────
