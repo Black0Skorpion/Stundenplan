@@ -159,7 +159,7 @@ public final class Daten {
 
     // ───── Akademisches Viertel ─────
 
-    private static Termin viertelAnpassen(Termin t) {
+    static Termin viertelAnpassen(Termin t) {
         if (!Konfig.AKADEMISCHES_VIERTEL) return t;
         Calendar c = Calendar.getInstance();
         c.setTimeInMillis(t.start);

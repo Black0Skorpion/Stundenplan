@@ -198,6 +198,46 @@ public final class Puls {
                 + "&moduleCall=webInfo&publishConfFile=webInfo&publishSubDir=veranstaltung";
     }
 
+    /** pfad = "" (oberste Ebene) oder "277989|279834|…" */
+    public static String verzeichnisURL(String pfad, String semester) {
+        String wurzel = pfad.isEmpty() ? "0" : pfad.replace("|", "%7C");
+        return BASIS + "?state=wtree&search=1&trex=step&root1" + semester + "=" + wurzel + "&P.vx=kurz";
+    }
+
+    /** Ein Eintrag im Vorlesungsverzeichnis: Ordner (pfad) oder Veranstaltung (publishid) */
+    public static final class Eintrag {
+        public final String name, pfad, publishid;
+
+        Eintrag(String name, String pfad, String publishid) {
+            this.name = name; this.pfad = pfad; this.publishid = publishid;
+        }
+
+        public boolean ordner() { return pfad != null; }
+    }
+
+    /** Unterordner (eine Ebene tiefer als pfad) und Veranstaltungen einer Verzeichnisseite */
+    public static List<Eintrag> verzeichnis(String html, String pfad) {
+        int tiefe = pfad.isEmpty() ? 2 : pfad.split("\\|").length + 1;
+        List<Eintrag> aus = new ArrayList<>();
+        Set<String> gesehen = new HashSet<>();
+        Pattern wurzel = Pattern.compile("root1\\d{5}=([0-9|%7C]+)");
+        for (String[] a : alle("<a[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>", html)) {
+            String href = a[1].replace("&amp;", "&");
+            String name = text(a[2]);
+            Matcher m = wurzel.matcher(href);
+            if (href.contains("state=wtree") && href.contains("P.vx=kurz") && m.find()) {
+                String p = m.group(1).replace("%7C", "|");
+                int stufen = p.split("\\|").length;
+                if (stufen != tiefe || !(pfad.isEmpty() || p.startsWith(pfad + "|")) || name.isEmpty() || !gesehen.add("o" + p)) continue;
+                aus.add(new Eintrag(name, p, null));
+            } else if (href.contains("publishid=") && !name.isEmpty()) {
+                String id = publishid(href);
+                if (id != null && gesehen.add("v" + id)) aus.add(new Eintrag(name, null, id));
+            }
+        }
+        return aus;
+    }
+
     /** publishid aus einem eingefügten PULS-Link (oder einer reinen Nummer) */
     public static String publishid(String text) {
         if (text == null) return null;

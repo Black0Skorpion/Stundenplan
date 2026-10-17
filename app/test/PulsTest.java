@@ -53,6 +53,21 @@ public class PulsTest {
             System.out.println("   Termine Gruppe 1: " + t.size() + ", erste: " + String.join("; ", erste));
             if (t.isEmpty()) fehler++;
         }
+        String pfad = "277989|279834|282154|278938|277613|280402";
+        List<Puls.Eintrag> e = Puls.verzeichnis(laden(Puls.verzeichnisURL(pfad, sem)), pfad);
+        List<String> n = new ArrayList<>();
+        for (int i = 0; i < Math.min(6, e.size()); i++) n.add(e.get(i).name);
+        System.out.println("\nVerzeichnis " + pfad + ": " + e.size() + " Einträge: " + String.join(" | ", n));
+        List<Puls.Eintrag> oben = Puls.verzeichnis(laden(Puls.verzeichnisURL("", sem)), "");
+        n.clear();
+        for (int i = 0; i < Math.min(4, oben.size()); i++) n.add(oben.get(i).name);
+        System.out.println("Oberste Ebene: " + oben.size() + ": " + String.join(" | ", n));
+        String modul = pfad + "|277160";
+        List<Puls.Eintrag> m = Puls.verzeichnis(laden(Puls.verzeichnisURL(modul, sem)), modul);
+        n.clear();
+        for (Puls.Eintrag x : m) n.add(x.name + " (" + (x.ordner() ? "o" + x.pfad : "v" + x.publishid) + ")");
+        System.out.println("Modul GdP: " + String.join(" | ", n));
+        if (e.isEmpty() || oben.isEmpty() || m.isEmpty()) fehler++;
         System.out.println("\nFehler: " + fehler);
         System.exit(fehler == 0 ? 0 : 1);
     }

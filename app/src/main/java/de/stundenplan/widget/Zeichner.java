@@ -52,6 +52,44 @@ public final class Zeichner extends Leinwand {
 
     private final Ziele ziele = new Ziele();
 
+    /** Tippfläche im Wochenraster der App: Termin (oder null = Tageskopf) */
+    public static final class Treffer {
+        public final android.graphics.RectF rect;
+        public final Termin termin;
+        public final long tag;
+
+        Treffer(android.graphics.RectF rect, Termin termin, long tag) {
+            this.rect = rect;
+            this.termin = termin;
+            this.tag = tag;
+        }
+    }
+
+    private List<Treffer> treffer;
+
+    /**
+     * Wochenraster für die App (ohne Kopfzeile), direkt auf eine Leinwand in dp.
+     * Gibt die Tippflächen zurück (Termine und Tagesköpfe).
+     */
+    static List<Treffer> woche(Canvas canvas, float b, float h, boolean dunkel, long jetzt, long montag, List<Termin> alle) {
+        Zeichner z = new Zeichner(canvas, dunkel, jetzt, alle);
+        z.treffer = new ArrayList<>();
+        long[] tage = new long[5];
+        List<List<Termin>> termine = new ArrayList<>();
+        int startH = Konfig.STANDARD_START, endeH = Konfig.STANDARD_ENDE;
+        for (int i = 0; i < 5; i++) {
+            tage[i] = z.plusTage(montag, i);
+            List<Termin> l = z.termineAm(tage[i]);
+            termine.add(l);
+            for (Termin t : l) {
+                startH = Math.min(startH, (int) Math.floor(z.stunden(t.start)));
+                endeH = Math.max(endeH, (int) Math.ceil(z.stunden(t.ende)));
+            }
+        }
+        z.raster(b, h, tage, termine, startH, endeH);
+        return z.treffer;
+    }
+
     public static Bitmap zeichnen(String modus, float breiteDp, float hoeheDp, float skala,
                                   boolean dunkel, long jetzt, List<Termin> alle) {
         return zeichnenMitZielen(modus, breiteDp, hoeheDp, skala, dunkel, jetzt, alle, null);
@@ -416,6 +454,7 @@ public final class Zeichner extends Leinwand {
             float x = achse + i * (spaltenB + luecke);
             boolean heute = gleicherTag(tage[i], jetzt);
             String label = WOCHENTAGE[i] + " " + tagImMonat(tage[i]) + ".";
+            if (treffer != null) treffer.add(new Treffer(new android.graphics.RectF(x, 0, x + spaltenB, kopf), null, tage[i]));
             if (heute) {
                 rundesRechteck(x + 2, 0, spaltenB - 4, 14, 7, HEUTE);
                 text(label, x, 1, spaltenB, 10, MEDIUM, WEISS, MITTE, 1, 0.8f);
@@ -432,6 +471,7 @@ public final class Zeichner extends Leinwand {
                 float hStapel = (y2 - y1 - (t.stapelAnzahl - 1) * 2) / t.stapelAnzahl;
                 float by = y1 + t.stapel * (hStapel + 2);
                 block(t, bx, by + 0.75f, bSpalte, Math.max(8, hStapel - 1.5f));
+                if (treffer != null) treffer.add(new Treffer(new android.graphics.RectF(bx, by, bx + bSpalte, by + Math.max(8, hStapel)), t, tage[i]));
             }
 
             float jetztH = stunden(jetzt);
@@ -489,21 +529,37 @@ public final class Zeichner extends Leinwand {
     private void block(Termin t, float x, float y, float b, float h) {
         String[] kurs = Konfig.kurs(t.titel);
         String[] typ = Konfig.typ(t.typ);
-        rundesRechteck(x, y, b, h, 5, Color.parseColor(kurs[1]));
-        int weissGedimmt = alpha(WEISS, 0.85f);
+        int farbe = Color.parseColor(kurs[1]);
+        int tf = WEISS;
+        if (t.stil == 1) {
+            // Auswahlmöglichkeit: grau hinterlegt, gestrichelter Rahmen in der Fachfarbe
+            rundesRechteck(x, y, b, h, 5, alpha(RASTER, 0.18f));
+            rahmen(x, y, b, h, farbe, true);
+            tf = farbe;
+        } else if (t.stil == 2) {
+            // Ausgeblendet: blass und durchgestrichen
+            rundesRechteck(x, y, b, h, 5, alpha(farbe, 0.28f));
+            linie(x + 2, y + h - 2, x + b - 2, y + 2, alpha(vorder, 0.5f), 1);
+            tf = alpha(vorder, 0.6f);
+        } else {
+            rundesRechteck(x, y, b, h, 5, farbe);
+            if (t.stil == 3) rahmen(x, y, b, h, JETZT, false);
+        }
+        if (t.marke != null) typ = new String[]{t.marke, t.marke};
+        int weissGedimmt = alpha(tf, 0.85f);
         c.save();
         c.clipRect(x, y, x + b, y + h);
 
         if (h < 34) {
             // Kurzer Termin (z. B. 45 Min.): Titel, darunter Art · Raum
-            text(kurs[0], x + 2, y + 1, b - 4, 9, FETT, WEISS, LINKS, 1, 1f);
+            text(kurs[0], x + 2, y + 1, b - 4, 9, FETT, tf, LINKS, 1, 1f);
             // Raum ist wichtiger als die Art – bei wenig Platz steht hier nur der Raum
             if (h >= 16) text(t.raum, x + 2, y + 9.5f, b - 4, 7.5f, MEDIUM, weissGedimmt, LINKS, 1, 0.85f);
         } else if (h < 40 && b >= 40) {
             // Wenig Höhe (z. B. Woche auf 4×3 verkleinert): Titel, darunter Art und Raum in einer Zeile
             float pad = 3;
             String art = b >= 80 ? typ[0] : typ[1];
-            text(kurs[0], x + pad, y + pad - 0.5f, b - 2 * pad, 10, FETT, WEISS, LINKS, 1, 1f);
+            text(kurs[0], x + pad, y + pad - 0.5f, b - 2 * pad, 10, FETT, tf, LINKS, 1, 1f);
             // Raum zuerst, damit er bei Platzmangel nicht abgeschnitten wird
             text(t.raum + "\u00A0·\u00A0" + art, x + pad, y + pad + 11.5f, b - 2 * pad, 7.5f, MEDIUM, weissGedimmt, LINKS, 1, 1f);
             if (h >= 36) {
@@ -518,7 +574,7 @@ public final class Zeichner extends Leinwand {
             text(typ[1], x + pad, cy, innen, 7, MEDIUM, weissGedimmt, LINKS, 1, 1f);
             cy += 8.4f;
             String titel = kurs[0].replaceFirst("-", "-\n").replaceFirst(" ", "\n");
-            cy += text(titel, x + pad, cy, innen, 8.5f, FETT, WEISS, LINKS, 2, 1f);
+            cy += text(titel, x + pad, cy, innen, 8.5f, FETT, tf, LINKS, 2, 1f);
             if (unten - cy >= 8.4f) {
                 String raum = t.raum.replaceFirst("^([^.]+\\.[^.]+\\.)", "$1\n");
                 text(raum, x + pad, cy, innen, 7, MEDIUM, weissGedimmt, LINKS, (int) ((unten - cy) / 8.4f), 1f);
@@ -533,7 +589,7 @@ public final class Zeichner extends Leinwand {
             cy += 9;
             verfuegbar -= 9;
             int titelZeilen = Math.max(1, Math.min(2, (int) Math.floor((verfuegbar - 9) / 12)));
-            text(kurs[0], x + pad, cy, innen, 10, FETT, WEISS, LINKS, titelZeilen, 1f);
+            text(kurs[0], x + pad, cy, innen, 10, FETT, tf, LINKS, titelZeilen, 1f);
             cy += titelZeilen * 12;
             verfuegbar -= titelZeilen * 12;
             if (verfuegbar >= 9) {
@@ -541,6 +597,15 @@ public final class Zeichner extends Leinwand {
             }
         }
         c.restore();
+    }
+
+    private void rahmen(float x, float y, float b, float h, int farbe, boolean gestrichelt) {
+        fp.setStyle(android.graphics.Paint.Style.STROKE);
+        fp.setStrokeWidth(gestrichelt ? 1.2f : 2f);
+        fp.setColor(farbe);
+        fp.setPathEffect(gestrichelt ? new android.graphics.DashPathEffect(new float[]{4, 3}, 0) : null);
+        c.drawRoundRect(new android.graphics.RectF(x + 0.6f, y + 0.6f, x + b - 0.6f, y + h - 0.6f), 5, 5, fp);
+        fp.setPathEffect(null);
     }
 
     /** Zeitpunkte, an denen sich die Anzeige ändert (Beginn/Ende von Terminen). */

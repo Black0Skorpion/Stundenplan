@@ -12,6 +12,13 @@ public final class Termin {
     /** Ursprünglicher Raum, falls von Hand geändert */
     public String alterRaum = null;
 
+    /** Darstellung im Wochenraster: 0 normal, 1 Auswahlmöglichkeit (grau), 2 ausgeblendet, 3 Überschneidung */
+    public int stil = 0;
+    /** Zusatztext statt der Art (z. B. „Gr. 2“) */
+    public String marke;
+    /** Beliebiger Bezug für Tippen (z. B. Gruppe in der Modulwahl) */
+    public Object bezug;
+
     // Layout-Hilfswerte für das Wochenraster
     int spalte = 0;
     int spalten = 1;

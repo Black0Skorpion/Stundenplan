@@ -170,6 +170,16 @@ public final class Lageplan {
         }
     }
 
+    /** „Haus 70 · Erdgeschoss · Institut für …“ für die Karte im Plan (null = unbekannt) */
+    static String einrichtungText(String raum) {
+        String[] r = raumAufteilen(raum);
+        if (r == null || !Campus.bekannt(r[0])) return null;
+        StringBuilder sb = new StringBuilder("Haus " + r[1] + " · " + etageText(r[2]));
+        String[] e = einrichtungen(r[0]).get(r[1]);
+        if (e != null) sb.append(" · ").append(String.join(" · ", e));
+        return sb.toString();
+    }
+
     /** Bild-Ressource des Plans */
     static int bild(String campus) {
         switch (campus) {

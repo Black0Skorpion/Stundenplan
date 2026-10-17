@@ -17,7 +17,6 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -41,8 +40,10 @@ public class PulsActivity extends Activity {
     private boolean dunkel;
     private LinearLayout faecher, treffer, optionen;
     private TextView katalogStatus, kopf;
-    private ImageView vorschau;
+    private WochenView raster;
     private TextView vorschauTitel;
+    /** Fach, dessen Gruppen grau im Plan erscheinen */
+    private String fokus;
     private Button uebernehmen;
     private EditText suche;
     private int wochenVersatz = 0;
@@ -95,10 +96,17 @@ public class PulsActivity extends Activity {
         woche.addView(vorschauTitel, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         woche.addView(vor);
         inhalt.addView(woche);
-        vorschau = new ImageView(this);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(dp(340), dp(320));
-        vlp.gravity = Gravity.CENTER_HORIZONTAL;
-        inhalt.addView(vorschau, vlp);
+        raster = new WochenView(this);
+        android.widget.FrameLayout rahmen = new android.widget.FrameLayout(this);
+        GradientDrawable rhg = new GradientDrawable();
+        rhg.setColor(Color.parseColor(dunkel ? "#1C1C1E" : "#FFFFFF"));
+        rhg.setCornerRadius(dp(14));
+        rahmen.setBackground(rhg);
+        rahmen.setPadding(dp(4), dp(8), dp(4), dp(4));
+        rahmen.addView(raster, new android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, dp(400)));
+        inhalt.addView(rahmen);
+        inhalt.addView(klein("Fach antippen: alle Gruppen erscheinen grau gestrichelt im Plan – Gruppe dort antippen zum Wählen. "
+                + "Termin gedrückt halten: aus dem Stundenplan aus- bzw. wieder einblenden. Wischen blättert die Woche."));
 
         // Suche
         inhalt.addView(ueberschrift("Fach suchen"));
@@ -140,6 +148,10 @@ public class PulsActivity extends Activity {
         });
         linkZeile.addView(dazu);
         inhalt.addView(linkZeile);
+        Button stoebern = new Button(this);
+        stoebern.setText("Im Vorlesungsverzeichnis stöbern");
+        stoebern.setOnClickListener(v -> startActivity(new Intent(this, VerzeichnisActivity.class)));
+        inhalt.addView(stoebern);
         Button oeffnen = new Button(this);
         oeffnen.setText("PULS im Browser öffnen");
         oeffnen.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Puls.BASIS + "?state=wtree&search=1&trex=step&root1" + PulsDienst.auswahl(this).semester + "=0&P.vx=kurz"))));
@@ -155,6 +167,12 @@ public class PulsActivity extends Activity {
             PulsDienst.fehlendeLaden(this);
             runOnUiThread(this::allesNeu);
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (kopf != null) allesNeu();
     }
 
     @Override
@@ -215,18 +233,98 @@ public class PulsActivity extends Activity {
 
     private void vorschauZeichnen() {
         PulsDienst.Auswahl a = PulsDienst.auswahl(this);
-        List<Termin> t = Daten.aufbereiten(PulsDienst.termine(this, a.kurse));
+        List<Termin> t = rasterTermine(a);
         long jetzt = System.currentTimeMillis();
         // Vor Semesterbeginn: die erste Vorlesungswoche zeigen
         long basis = jetzt;
-        if (!t.isEmpty() && t.get(0).start > jetzt) basis = t.get(0).start;
-        long wann = basis + wochenVersatz * 7L * 86400_000L;
-        vorschauTitel.setText("Woche vom " + Lageplan.datumKurz(montag(wann)) + (wochenVersatz == 0 ? "" : "  (antippen: zurück)"));
-        vorschau.setImageBitmap(Zeichner.zeichnen(Zeichner.GROSS, 340, 320, d, dunkel, wann, t));
-        GradientDrawable hg = new GradientDrawable();
-        hg.setColor(Color.parseColor(dunkel ? "#1C1C1E" : "#FFFFFF"));
-        hg.setCornerRadius(dp(18));
-        vorschau.setBackground(hg);
+        long erster = Long.MAX_VALUE;
+        for (Termin x : t) if (x.stil != 1) erster = Math.min(erster, x.start);
+        if (erster != Long.MAX_VALUE && erster > jetzt) basis = erster;
+        long mo = WochenView.montag(basis, wochenVersatz);
+        vorschauTitel.setText("Woche vom " + Lageplan.datumKurz(mo) + (wochenVersatz == 0 ? "" : "  (antippen: zurück)"));
+        raster.setze(mo, t, new WochenView.Aktion() {
+            @Override public void termin(Termin x) { rasterTippen(x); }
+            @Override public void lang(Termin x) { rasterHalten(x); }
+            @Override public void blaettern(int r) { wochenVersatz += r; vorschauZeichnen(); }
+        });
+    }
+
+    /** Termine für das Raster: gewählte Gruppen, ausgeblendete blass, beim Fokus-Fach die anderen Gruppen grau */
+    private List<Termin> rasterTermine(PulsDienst.Auswahl a) {
+        List<Termin> aus = new ArrayList<>();
+        for (PulsDienst.Kurs k : a.kurse) {
+            Puls.Veranstaltung v = PulsDienst.cache(this).get(k.publishid);
+            if (v == null || v.gruppen.isEmpty()) continue;
+            Puls.Gruppe g = k.gruppe != null && v.gruppe(k.gruppe) != null ? v.gruppe(k.gruppe) : v.gruppen.get(0);
+            Set<String> weg = new HashSet<>(k.ausgeblendet);
+            for (Puls.Regel r : g.regeln) {
+                for (Puls.EinzelTermin e : Puls.termine(r)) {
+                    Termin x = termin(e, k.titel, weg.contains(r.schluessel()) ? 2 : 0, null, new String[]{k.publishid, g.nummer, r.schluessel()});
+                    aus.add(x);
+                }
+            }
+            if (k.publishid.equals(fokus) && v.gruppen.size() > 1) {
+                for (Puls.Gruppe og : v.gruppen) {
+                    if (og == g) continue;
+                    for (Puls.Regel r : v.eigenes(og)) for (Puls.EinzelTermin e : Puls.termine(r)) {
+                        aus.add(termin(e, k.titel, 1, "Gr. " + og.nummer, new String[]{k.publishid, og.nummer, r.schluessel()}));
+                    }
+                }
+            }
+        }
+        // Überschneidungen zwischen verschiedenen Fächern rot umranden
+        for (Termin x : aus) {
+            if (x.stil != 0) continue;
+            for (Termin y : aus) {
+                if (y == x || y.stil != 0 && y.stil != 3) continue;
+                if (((String[]) y.bezug)[0].equals(((String[]) x.bezug)[0])) continue;
+                if (x.start < y.ende && y.start < x.ende) { x.stil = 3; break; }
+            }
+        }
+        aus.sort((x, y) -> Long.compare(x.start, y.start));
+        return aus;
+    }
+
+    private static Termin termin(Puls.EinzelTermin e, String titel, int stil, String marke, String[] bezug) {
+        Termin roh = new Termin(e.start, e.ende, titel, e.art, e.raum);
+        Termin t = Daten.viertelAnpassen(roh);
+        t.stil = stil;
+        t.marke = marke;
+        t.bezug = bezug;
+        return t;
+    }
+
+    private void rasterTippen(Termin x) {
+        String[] b = (String[]) x.bezug;
+        if (x.stil == 1) {
+            // Gruppe wählen
+            PulsDienst.Auswahl neu = PulsDienst.auswahl(this);
+            PulsDienst.Kurs kk = neu.kurs(b[0]);
+            if (kk != null) kk.gruppe = b[1];
+            PulsDienst.speichern(this, neu);
+            Toast.makeText(this, Konfig.kurs(x.titel)[0] + ": Gruppe " + b[1] + " gewählt", Toast.LENGTH_SHORT).show();
+        } else {
+            fokus = b[0].equals(fokus) ? null : b[0];
+        }
+        allesNeu();
+    }
+
+    private void rasterHalten(Termin x) {
+        if (x.stil == 1) return;
+        String[] b = (String[]) x.bezug;
+        boolean weg = x.stil == 2;
+        new AlertDialog.Builder(this)
+                .setTitle(Konfig.kurs(x.titel)[0] + " · " + x.typ)
+                .setItems(new String[]{weg ? "Wieder im Stundenplan anzeigen" : "Aus dem Stundenplan ausblenden (alle Wochen)"}, (d, i) -> {
+                    PulsDienst.Auswahl neu = PulsDienst.auswahl(this);
+                    PulsDienst.Kurs kk = neu.kurs(b[0]);
+                    if (kk == null) return;
+                    Set<String> s = new HashSet<>(kk.ausgeblendet);
+                    if (weg) s.remove(b[2]); else s.add(b[2]);
+                    kk.ausgeblendet = new ArrayList<>(new java.util.TreeSet<>(s));
+                    PulsDienst.speichern(this, neu);
+                    allesNeu();
+                }).show();
     }
 
     private static long montag(long t) {
@@ -314,8 +412,10 @@ public class PulsActivity extends Activity {
         GradientDrawable hg = new GradientDrawable();
         hg.setCornerRadius(dp(12));
         hg.setColor(Color.argb(dunkel ? 40 : 18, 128, 128, 128));
-        hg.setStroke(dp(3), farbe);
+        boolean imFokus = k.publishid.equals(fokus);
+        hg.setStroke(dp(imFokus ? 4 : 2), farbe);
         karte.setBackground(hg);
+        karte.setOnClickListener(x -> { fokus = imFokus ? null : k.publishid; allesNeu(); });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = dp(10);
         karte.setLayoutParams(lp);
@@ -325,6 +425,7 @@ public class PulsActivity extends Activity {
         titel.setTextSize(16);
         titel.setTypeface(Typeface.DEFAULT_BOLD);
         karte.addView(titel);
+        if (imFokus) karte.addView(klein("Alle Gruppen stehen grau im Plan oben."));
 
         Puls.Veranstaltung v = PulsDienst.cache(this).get(k.publishid);
         if (v == null) {

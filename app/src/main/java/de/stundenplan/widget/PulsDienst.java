@@ -290,6 +290,22 @@ public final class PulsDienst {
         return v;
     }
 
+    private static final Map<String, List<Puls.Eintrag>> verzeichnisCache = new HashMap<>();
+
+    /** Eine Seite des Vorlesungsverzeichnisses (nur im Hintergrund). null = nicht erreichbar. */
+    public static List<Puls.Eintrag> verzeichnis(Context ctx, String pfad) {
+        String sem = auswahl(ctx).semester;
+        String k = sem + "#" + pfad;
+        synchronized (verzeichnisCache) {
+            if (verzeichnisCache.containsKey(k)) return verzeichnisCache.get(k);
+        }
+        String h = holen(Puls.verzeichnisURL(pfad, sem));
+        if (h == null) return null;
+        List<Puls.Eintrag> e = Puls.verzeichnis(h, pfad);
+        synchronized (verzeichnisCache) { verzeichnisCache.put(k, e); }
+        return e;
+    }
+
     /** Fehlende Veranstaltungen nachladen */
     public static void fehlendeLaden(Context ctx) {
         for (Kurs k : auswahl(ctx).kurse) if (cache(ctx).get(k.publishid) == null) laden(ctx, k.publishid);
