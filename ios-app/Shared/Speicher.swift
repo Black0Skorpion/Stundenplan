@@ -72,7 +72,7 @@ enum Speicher {
 
     private static let termineDatei = "termine.json"
 
-    /// Alle Termine (eigener Import oder eingebaut), mit akademischem Viertel und eigenen Änderungen, sortiert.
+    /// Alle Termine (PULS-Auswahl oder Import), mit akademischem Viertel und eigenen Änderungen, sortiert.
     /// Ausgefallene Termine sind nur mit `mitAusfaellen` dabei (für die Anzeige in der App).
     static func termine(mitAusfaellen: Bool = false) -> [Termin] {
         let aenderungen = self.aenderungen()
@@ -117,8 +117,7 @@ enum Speicher {
     }
 
     static func rohTermine() -> [Termin] {
-        if let eigene = lesen([Termin].self, termineDatei), !eigene.isEmpty { return eigene }
-        return eingebaut()
+        lesen([Termin].self, termineDatei) ?? []
     }
 
     static var eigeneTermine: Bool { FileManager.default.fileExists(atPath: datei(termineDatei).path) }
@@ -128,20 +127,15 @@ enum Speicher {
         widgetsNeuLaden()
     }
 
-    static func eigeneLoeschen() {
-        try? FileManager.default.removeItem(at: datei(termineDatei))
-        widgetsNeuLaden()
-    }
-
-    /// Mitgelieferte Termine (WiSe 26/27) aus termine.txt
-    static func eingebaut() -> [Termin] {
-        guard let url = Bundle.main.url(forResource: "termine", withExtension: "txt"),
-              let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
-        return text.split(whereSeparator: \.isNewline).compactMap { zeile -> Termin? in
-            if zeile.hasPrefix("#") { return nil }
-            let t = zeile.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-            guard t.count >= 5, let s = ICS.utcKompakt(t[0]), let e = ICS.utcKompakt(t[1]) else { return nil }
-            return Termin(start: s, ende: e, titel: t[2], typ: t[3], raum: t[4])
+    /// Eigene Termine zum Teilen: wie gespeichert (ohne akademisches Viertel), mit geändertem Raum, ohne Ausfälle
+    static func termineZumTeilen() -> [Termin] {
+        let aenderungen = self.aenderungen()
+        return rohTermine().compactMap { t in
+            guard let a = aenderungen[t.schluessel] else { return t }
+            if a.ausfall { return nil }
+            var n = t
+            if let r = a.raum, !r.isEmpty { n.raum = r }
+            return n
         }
     }
 
@@ -162,6 +156,15 @@ enum Speicher {
         var favoriten: [String] = []
         /// Sperrbildschirm-Widgets ausblenden, solange die Live-Aktivität die Veranstaltung zeigt
         var sperrAusblenden: Bool = false
+        /// Eigener Name (steht auf geteilten Stundenplänen)
+        var name: String = ""
+        /// Wecker vor der ersten Veranstaltung des Tages
+        var wecker: Bool = false
+        var weckerVorlauf: Int = 90
+        /// Frühestens um (Minuten nach Mitternacht, 0 = egal)
+        var weckerFruehestens: Int = 0
+        /// Kurze Einführung schon gesehen/übersprungen
+        var einfuehrungGesehen: Bool = false
 
         init() {}
 
@@ -176,6 +179,11 @@ enum Speicher {
             campus = (try? c.decodeIfPresent(CampusWahl.self, forKey: .campus)) ?? .automatisch
             favoriten = (try? c.decodeIfPresent([String].self, forKey: .favoriten)) ?? []
             sperrAusblenden = (try? c.decodeIfPresent(Bool.self, forKey: .sperrAusblenden)) ?? false
+            name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
+            wecker = (try? c.decodeIfPresent(Bool.self, forKey: .wecker)) ?? false
+            weckerVorlauf = (try? c.decodeIfPresent(Int.self, forKey: .weckerVorlauf)) ?? 90
+            weckerFruehestens = (try? c.decodeIfPresent(Int.self, forKey: .weckerFruehestens)) ?? 0
+            einfuehrungGesehen = (try? c.decodeIfPresent(Bool.self, forKey: .einfuehrungGesehen)) ?? false
         }
     }
 

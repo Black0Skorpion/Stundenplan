@@ -15,18 +15,13 @@
   Countdown-Mitteilung. Verhalten wie iOS: vor Beginn Countdown, während der Vorlesung kein
   Countdown, nur Ende und Fortschritt.
 
+- Wecker (iOS 0.5.0, ios-app/App/Wecker.swift) und Teilen/Profile (ios-app/App/Teilen.swift, QR-Format
+  stundenplan://teilen?d=<base64url(zlib(JSON))>, ICS mit X-STUNDENPLAN-FREIGABE) auf Android nachziehen,
+  wenn der Nutzer es möchte. Android-Wecker: AlarmManager.setAlarmClock.
+
 - PULS-Modulwahl wie in iOS 0.4.0 (ios-app/App/Puls.swift, PulsDienst.swift, PulsAnsicht.swift) auf Android
   nachziehen, sobald der Nutzer bestätigt, dass sie auf iOS funktioniert. Abgleich dort per JobScheduler
   (nur ohne mobile Daten).
-
-## Für den nächsten iOS-Build vorgemerkt (noch nicht bauen, bis der Nutzer es sagt)
-- Modulwahl: ⓘ-Knopf in der Fächerliste öffnet die Detailansicht nicht (NavigationLink in einer Zeile mit
-  onTapGesture; der graue Pfeil daneben ist dessen Disclosure-Indikator) → eigener Knopf + navigationDestination/Sheet,
-  ohne den Pfeil.
-- „Eingebaute Termine verwenden“ entfernen (das sind die persönlichen Termine des Nutzers). Stattdessen optional ein
-  kurzes, überspringbares Tutorial mit Demo-Stundenplan.
-- Einstellungen aufräumen: Debug/Selten-Gebrauchtes (Planer-Link, Datenaustausch/App-Gruppe, Widgets neu laden,
-  ICS-Import usw.) in ein Menü „Debug“ ganz unten.
 
 ## Releases
 - Jedes Release bekommt einen vollständigen Changelog: nur Funktionen aus Nutzersicht (neu / geändert / entfernt /

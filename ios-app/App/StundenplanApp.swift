@@ -50,7 +50,11 @@ struct StundenplanApp: App {
                     return .systemAction
                 })
                 // Aus Widgets heraus geöffnet oder .ics-Datei geteilt
-                .onOpenURL { zustand.oeffne($0) }
+                .onOpenURL { url in
+                    // Von außen (Widget, Mitteilung, Kamera, Datei): immer den eigenen Plan zeigen
+                    if url.host != "teilen" { zustand.profilID = nil }
+                    zustand.oeffne(url)
+                }
                 .onAppear {
                     AppDelegate.oeffnen = { [weak zustand] url in zustand?.oeffne(url) }
                     if let url = AppDelegate.wartend {
@@ -62,6 +66,7 @@ struct StundenplanApp: App {
                     if neu == .active {
                         zustand.neuLaden()
                         Task { await Erinnerungen.planen() }
+                        Task { await Wecker.planen() }
                         LiveAktivitaet.aktualisieren(zustand.termine)
                         // Höchstens einmal täglich mit PULS abgleichen (wenn die Auswahl aktiv ist)
                         Task { @MainActor in
@@ -94,6 +99,41 @@ final class AppZustand: ObservableObject {
     @Published var alleTermine: [Termin] = Speicher.termine(mitAusfaellen: true)
     @Published var lageplan: LageplanAnfrage?
     @Published var meldung: String?
+    /// Empfangener Plan (QR-Code, Link oder .ics-Datei)
+    @Published var empfang: Empfang?
+    /// Modulwahl als eigenes Fenster (z. B. nach einem geteilten Plan)
+    @Published var modulwahl = false
+    @Published var einfuehrung = false
+    /// Pläne von anderen
+    @Published var profile: [Profil] = Profil.alle() {
+        didSet { if profile != oldValue { Profil.speichern(profile) } }
+    }
+    /// Im Plan-Reiter angezeigtes Profil (nil = eigener Plan)
+    @Published var profilID: UUID?
+
+    var profil: Profil? { profilID.flatMap { id in profile.first { $0.id == id } } }
+
+    /// Im Plan-Reiter angezeigte Termine (eigene oder Profil)
+    var planTermine: [Termin] { profil?.angezeigt ?? termine }
+    var planAlleTermine: [Termin] { profil?.angezeigt ?? alleTermine }
+
+    /// Termin über den Schlüssel finden – erst im angezeigten Plan, dann im eigenen
+    func termin(_ schluessel: String) -> Termin? {
+        planAlleTermine.first { $0.schluessel == schluessel } ?? alleTermine.first { $0.schluessel == schluessel }
+    }
+
+    func profilHinzufuegen(_ p: Profil) {
+        profile.append(p)
+        profilID = p.id
+        reiter = .plan
+    }
+
+    init() {
+        let e = Speicher.einstellungen()
+        if !e.einfuehrungGesehen && !Speicher.eigeneTermine {
+            einfuehrung = true
+        }
+    }
     /// Campus für Abfahrten und Mensa (Einstellungen, Abfahrten- und Mensa-Reiter)
     @Published var campusWahl: CampusWahl = Speicher.einstellungen().campus {
         didSet {
@@ -138,6 +178,7 @@ final class AppZustand: ObservableObject {
         Speicher.aendere(t, aendern)
         neuLaden()
         Task { await Erinnerungen.planen() }
+        Task { await Wecker.planen() }
         LiveAktivitaet.aktualisieren(termine)
     }
 
@@ -158,18 +199,26 @@ final class AppZustand: ObservableObject {
         case "lageplan":
             if let s = zahl("termin") {
                 let zeit = Date(timeIntervalSince1970: s)
-                let treffer = alleTermine.filter { abs($0.start.timeIntervalSince(zeit)) < 1 }
+                var treffer = planAlleTermine.filter { abs($0.start.timeIntervalSince(zeit)) < 1 }
+                if treffer.isEmpty { treffer = alleTermine.filter { abs($0.start.timeIntervalSince(zeit)) < 1 } }
                 lageplan = LageplanAnfrage(titel: treffer.first.map { Zeit.datumKurz($0.start) } ?? "Termin",
                                            schluessel: treffer.map(\.schluessel))
             } else if let s = zahl("tag") {
                 let tag = Date(timeIntervalSince1970: s)
                 lageplan = LageplanAnfrage(titel: Zeit.datumKurz(tag),
-                                           schluessel: Plan.termineAm(alleTermine, tag).map(\.schluessel))
+                                           schluessel: Plan.termineAm(planAlleTermine, tag).map(\.schluessel))
             } else {
                 reiter = .lageplan
             }
         case "planer":
             UIApplication.shared.open(Speicher.planerLink)
+        case "teilen":
+            guard let code = werte.first(where: { $0.name == "d" })?.value, let f = Freigabe.aus(code: code) else {
+                meldung = "Dieser Link enthält keinen gültigen Stundenplan."
+                return
+            }
+            lageplan = nil
+            empfang = Empfang(name: f.name, freigabe: f, termine: nil)
         case "plan":
             lageplan = nil
             reiter = .plan
@@ -195,20 +244,18 @@ final class AppZustand: ObservableObject {
             meldung = "In der Datei wurden keine Termine gefunden."
             return
         }
-        Speicher.speichereTermine(neu)
-        Task { @MainActor in PulsModell.shared.deaktivieren() }
-        neuLaden()
-        Task { await Erinnerungen.planen() }
-        reiter = .plan
-        meldung = "\(neu.count) Termine importiert." + (Speicher.geteilt ? "" : " Hinweis: Die Widgets können den Import nicht sehen (keine App-Gruppe).")
+        let kopf = Teilen.kopf(text)
+        let name = kopf.name ?? url.deletingPathExtension().lastPathComponent
+        lageplan = nil
+        empfang = Empfang(name: name, freigabe: kopf.freigabe, termine: neu)
     }
 
-    func eingebauteVerwenden() {
-        Speicher.eigeneLoeschen()
-        Task { @MainActor in PulsModell.shared.deaktivieren() }
+    /// Termine wurden ersetzt (Import, PULS): alles Abhängige neu planen
+    func termineGeaendert() {
         neuLaden()
         Task { await Erinnerungen.planen() }
-        meldung = "Eingebaute Termine werden verwendet."
+        Task { await Wecker.planen() }
+        LiveAktivitaet.aktualisieren(termine)
     }
 }
 
@@ -242,6 +289,25 @@ struct Hauptansicht: View {
                         }
                     }
             }
+        }
+        .sheet(item: $zustand.empfang) { e in
+            NavigationStack { EmpfangAnsicht(empfang: e) }
+                .environmentObject(zustand)
+        }
+        .sheet(isPresented: $zustand.modulwahl) {
+            NavigationStack {
+                PulsAuswahlAnsicht()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Schließen") { zustand.modulwahl = false }
+                        }
+                    }
+            }
+            .environmentObject(zustand)
+        }
+        .fullScreenCover(isPresented: $zustand.einfuehrung) {
+            Einfuehrung()
+                .environmentObject(zustand)
         }
         .alert(zustand.meldung ?? "", isPresented: Binding(
             get: { zustand.meldung != nil },

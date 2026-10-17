@@ -2,7 +2,7 @@ import Foundation
 import UserNotifications
 
 /// Lokale Mitteilungen vor Veranstaltungen (ohne Server, nur auf dem iPhone).
-/// iOS erlaubt höchstens 64 geplante Mitteilungen – deshalb immer nur die nächsten 60,
+/// iOS erlaubt höchstens 64 geplante Mitteilungen – deshalb immer nur die nächsten 48 (Platz für den Wecker),
 /// neu geplant beim Öffnen der App und bei jeder Widget-Aktualisierung.
 enum Erinnerungen {
     static let praefix = "termin-"
@@ -36,7 +36,7 @@ enum Erinnerungen {
 
         let jetzt = Date()
         let vorlauf = TimeInterval(max(1, e.vorlaufMinuten) * 60)
-        let kommende = Speicher.termine().filter { $0.start.addingTimeInterval(-vorlauf) > jetzt }.prefix(60)
+        let kommende = Speicher.termine().filter { $0.start.addingTimeInterval(-vorlauf) > jetzt }.prefix(48)
 
         for t in kommende {
             let kurs = Kurse.info(t.titel).kurz

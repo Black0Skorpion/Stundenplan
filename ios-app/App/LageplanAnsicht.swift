@@ -30,7 +30,7 @@ struct LageplanAnsicht: View {
 
     /// Aktueller Stand der Termine (inkl. eigener Änderungen)
     private var termine: [Termin] {
-        schluessel.compactMap { k in zustand.alleTermine.first(where: { $0.schluessel == k }) }
+        schluessel.compactMap { zustand.termin($0) }
     }
 
     var body: some View {
@@ -163,7 +163,7 @@ struct LageplanAnsicht: View {
                         Label("Route", systemImage: "figure.walk").kartenKnopf()
                     }
                 }
-                Menu {
+                if zustand.alleTermine.contains(where: { $0.schluessel == t.schluessel }) { Menu {
                     Button(t.ausfall ? "Findet doch statt" : "Fällt aus",
                            systemImage: t.ausfall ? "arrow.uturn.backward" : "xmark.circle") {
                         zustand.aendere(t) { $0.ausfall.toggle() }
@@ -179,7 +179,7 @@ struct LageplanAnsicht: View {
                     }
                 } label: {
                     Label("Ändern", systemImage: "pencil").kartenKnopf()
-                }
+                } }
             }
             .padding(.top, 6)
         }

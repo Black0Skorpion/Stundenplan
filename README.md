@@ -20,7 +20,7 @@ Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion
 
 | Plattform | Datei | Release |
 |---|---|---|
-| iPhone/iPad | `Stundenplan-<Version>.ipa` | `ios-v…` (aktuell 0.4.0) |
+| iPhone/iPad | `Stundenplan-<Version>.ipa` | `ios-v…` (aktuell 0.5.0) |
 | Android | `Stundenplan-<Version>.apk` | `android-v…` (aktuell 1.4) · [neueste](https://github.com/Black0Skorpion/Stundenplan/releases/latest) |
 | Scriptable | `Stundenplan.js`, `AbfahrtenGolm.js`, `MensaGolm.js` | `scriptable-v…` (aktuell 1.0.0) |
 
@@ -42,6 +42,8 @@ Zusätzlich gibt es jede Version als [Release](https://github.com/Black0Skorpion
 | Live-Aktivität (Dynamic Island), Sperrbildschirm-Widgets dabei ausblendbar | ✓ | – | – |
 | Siri / Kurzbefehle | ✓ | – | ✓ („Hey Siri, Stundenplan“) |
 | Veranstaltungen direkt aus PULS wählen (Gruppen, Überschneidungen), täglicher Abgleich | ✓ | – (folgt) | – |
+| Wecker vor der ersten Veranstaltung (ab iOS 26 echter Wecker) | ✓ | – (folgt) | – |
+| Plan teilen (QR-Code, .ics) und Pläne anderer als Profile | ✓ | – (folgt) | – |
 | ICS-Import, eigener Planer-Link | ✓ | ✓ | ✓ |
 
 Akademisches Viertel: Termine zur vollen Stunde (z. B. 8–10 Uhr) werden als 8:15–9:45 gezeigt.
@@ -67,8 +69,13 @@ Neue Versionen einfach drüber installieren – Widgets und Einstellungen bleibe
 - **Veranstaltungen aus PULS:** Einstellungen → „Veranstaltungen aus PULS wählen“ → im Vorlesungsverzeichnis
   suchen oder PULS-Link einfügen, Gruppe wählen, „Als Stundenplan übernehmen“. Danach gleicht die App einmal
   täglich (standardmäßig nur im WLAN) Räume, Zeiten und Ausfälle mit PULS ab und meldet Änderungen.
-- **Einstellungen:** ICS-Import, Planer-Link, Campus, priorisierte Linien, Karten-App (Apple/Google),
-  Erinnerungen (Vorlauf 5–60 Min), Live-Aktivität (optional Sperrbildschirm-Widgets währenddessen ausblenden).
+- **Teilen & Profile:** Plan-Reiter → Teilen-Knopf zeigt einen QR-Code (PULS-Fächer mit Gruppen) bzw. teilt eine
+  .ics-Datei. Empfangene Pläne als Profil speichern (oben links umschalten), als eigenen übernehmen oder in der
+  Modulwahl anpassen.
+- **Wecker:** Einstellungen → Wecker – klingelt eine einstellbare Zeit vor der ersten Veranstaltung des Tages.
+- **Einstellungen:** Campus, priorisierte Linien, Karten-App (Apple/Google),
+  Erinnerungen (Vorlauf 5–60 Min), Live-Aktivität (optional Sperrbildschirm-Widgets währenddessen ausblenden);
+  ICS-Import und Planer-Link unter „Debug“. Änderungen je Version: [CHANGELOG.md](CHANGELOG.md).
 - **Siri:** „Wo ist meine nächste Vorlesung in Stundenplan?“, „Was habe ich heute in Stundenplan?“,
   „Stundenplan Abfahrten“.
 
@@ -120,7 +127,7 @@ Direktlinks zum Kopieren: [Stundenplan.js](https://raw.githubusercontent.com/Bla
 ## Stundenplan aktualisieren
 
 Im Planer den Plan als Kalender (`.ics`) exportieren und in der App importieren
-(iOS: Einstellungen → „ICS-Datei importieren“ oder Datei teilen → Stundenplan;
+(iOS: Datei teilen → Stundenplan oder Einstellungen → Debug → „ICS-Datei importieren“;
 Android: „ICS-Datei importieren“; Scriptable: als `stundenplan.ics` in iCloud Drive › Scriptable ablegen).
 
 ## Datenquellen

@@ -176,7 +176,7 @@ final class PulsModell: ObservableObject {
         return t.count
     }
 
-    /// Stundenplan kommt wieder aus ICS/eingebaut: Abgleich aus
+    /// Stundenplan kommt jetzt aus einer Datei: Abgleich aus
     func deaktivieren() {
         auswahl.aktiv = false
     }
@@ -223,6 +223,7 @@ final class PulsModell: ObservableObject {
         let datum = Zeit.datumKurz(Date())
         stand.aenderungen = (meldungen.map { "\(datum): \($0)" } + stand.aenderungen).prefix(30).map { $0 }
         await Erinnerungen.planen()
+        await Wecker.planen()
         if auswahl.mitteilungen { await Self.mitteilen(meldungen) }
         return true
     }

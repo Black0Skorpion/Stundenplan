@@ -74,6 +74,10 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Weckt dich vor der ersten Veranstaltung des Tages.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Zum Scannen von QR-Codes mit geteilten Stundenplänen.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

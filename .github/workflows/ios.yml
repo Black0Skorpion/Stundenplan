@@ -17,8 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Xcode-Version
+      - name: Xcode-Version (neuestes Xcode 26, wegen Wecker/AlarmKit)
         run: |
+          NEU=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "$NEU" ]; then sudo xcode-select -s "$NEU"; fi
+          echo "::notice::$(xcodebuild -version | head -1), SDK $(xcrun --sdk iphoneos --show-sdk-version)"
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
@@ -72,6 +75,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Changelog dieser Version aus CHANGELOG.md (Abschnitt „## iOS $VERSION“)
+          awk -v v="## iOS $VERSION" '$0==v {an=1; next} /^## / {an=0} an' CHANGELOG.md > "$RUNNER_TEMP/aenderungen.md" || true
+          {
+            echo "Stundenplan-App für iPhone/iPad, Version $VERSION (Build $GITHUB_RUN_NUMBER)."
+            echo
+            if [ -s "$RUNNER_TEMP/aenderungen.md" ]; then cat "$RUNNER_TEMP/aenderungen.md"; echo; fi
+            echo "**Installation:** Stundenplan-$VERSION.ipa mit iloader (PC) oder SideStore installieren."
+          } > "$RUNNER_TEMP/notes.md"
           TAG="ios-v$VERSION"
           if gh release view "$TAG" >/dev/null 2>&1; then
             # Gleiche Version neu gebaut: nur die Datei ersetzen
@@ -79,7 +90,7 @@ jobs:
           else
             gh release create "$TAG" "Stundenplan-$VERSION.ipa" \
               --title "iOS-App $VERSION" \
-              --notes "Stundenplan-App für iPhone/iPad mit Widgets, Version $VERSION (Build $GITHUB_RUN_NUMBER). Installation: Stundenplan-$VERSION.ipa mit iloader (PC) oder SideStore installieren. Gebaut aus ${GITHUB_SHA::7}." \
+              --notes-file "$RUNNER_TEMP/notes.md" \
               --latest=false
           fi
 

@@ -14,6 +14,7 @@ struct PulsAuswahlAnsicht: View {
     @State private var optionen = false
     @State private var verzeichnis = false
     @State private var link = ""
+    @State private var details: String?
 
     var body: some View {
         GeometryReader { geo in
@@ -35,7 +36,7 @@ struct PulsAuswahlAnsicht: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(puls.auswahl.aktiv ? "Aktualisieren" : "Übernehmen") {
                     let n = puls.uebernehmen()
-                    zustand.neuLaden()
+                    zustand.termineGeaendert()
                     meldung = "\(n) Termine als Stundenplan übernommen." +
                         (puls.fehlendeGruppen.isEmpty ? "" : " Bei \(puls.fehlendeGruppen.count) Fach/Fächern fehlt noch die Gruppe – dort wurde Gruppe 1 genommen.")
                 }
@@ -43,6 +44,7 @@ struct PulsAuswahlAnsicht: View {
                 .disabled(puls.auswahl.kurse.isEmpty)
             }
         }
+        .navigationDestination(item: $details) { id in PulsKursAnsicht(publishid: id) }
         .sheet(isPresented: $optionen) { NavigationStack { PulsOptionenAnsicht() } }
         .sheet(isPresented: $verzeichnis) {
             NavigationStack { PulsVerzeichnisAnsicht(pfad: "", titel: "Vorlesungsverzeichnis") }
@@ -84,7 +86,7 @@ struct PulsAuswahlAnsicht: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(puls.auswahl.kurse) { k in
-                    KursZeile(kurs: k, fokus: $fokus)
+                    KursZeile(kurs: k, fokus: $fokus) { details = k.publishid }
                 }
                 .onDelete { i in i.map { puls.auswahl.kurse[$0].publishid }.forEach(puls.entfernen) }
             } header: {
@@ -431,13 +433,15 @@ private struct BlockAnsicht: View {
 private struct KursZeile: View {
     let kurs: PulsModell.Kurs
     @Binding var fokus: String?
+    let details: () -> Void
     @ObservedObject private var puls = PulsModell.shared
 
     var body: some View {
         let info = Kurse.info(kurs.titel)
         let aktiv = fokus == kurs.publishid
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
+            HStack(spacing: 4) {
+              HStack(spacing: 10) {
                 RoundedRectangle(cornerRadius: 3).fill(info.farbe).frame(width: 5, height: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(kurs.titel).lineLimit(2).foregroundStyle(.primary)
@@ -464,8 +468,12 @@ private struct KursZeile: View {
                         }
                     }
                 }
-                Spacer()
-                NavigationLink { PulsKursAnsicht(publishid: kurs.publishid) } label: {
+                Spacer(minLength: 0)
+              }
+              .contentShape(Rectangle())
+              .onTapGesture { withAnimation { fokus = aktiv ? nil : kurs.publishid } }
+                // Eigener Knopf (kein NavigationLink: der würde in der Zeile verschluckt)
+                Button(action: details) {
                     Image(systemName: "info.circle")
                         .font(.title3)
                         .frame(width: 44, height: 44)
@@ -474,8 +482,6 @@ private struct KursZeile: View {
                 .buttonStyle(.borderless)
                 .fixedSize()
             }
-            .contentShape(Rectangle())
-            .onTapGesture { withAnimation { fokus = aktiv ? nil : kurs.publishid } }
 
             if aktiv, let v = puls.cache[kurs.publishid], v.gruppen.count > 1 {
                 ScrollView(.horizontal, showsIndicators: false) {

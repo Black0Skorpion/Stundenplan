@@ -3,8 +3,12 @@ import UniformTypeIdentifiers
 
 struct EinstellungenReiter: View {
     @EnvironmentObject var zustand: AppZustand
-    @State private var link = Speicher.einstellungen().link
-    @State private var importieren = false
+    @State private var name = Speicher.einstellungen().name
+    @State private var teilen = false
+    @State private var wecker = Speicher.einstellungen().wecker
+    @State private var weckerVorlauf = Speicher.einstellungen().weckerVorlauf
+    @State private var weckerFruehestens = Speicher.einstellungen().weckerFruehestens
+    @State private var naechsterWecker: Wecker.Weckzeit?
     @State private var erinnerungen = Speicher.einstellungen().erinnerungen
     @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
     @State private var live = Speicher.einstellungen().liveAktivitaet
@@ -12,51 +16,44 @@ struct EinstellungenReiter: View {
     @State private var karten = Speicher.einstellungen().karten
     @State private var neueLinie = ""
 
-    private var icsTypen: [UTType] {
-        var t: [UTType] = [.calendarEvent]
-        if let ics = UTType(filenameExtension: "ics") { t.append(ics) }
-        t.append(.data)
-        return t
-    }
-
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     LabeledContent("Quelle", value: PulsModell.shared.auswahl.aktiv ? "PULS (\(PulsModell.shared.auswahl.kurse.count) Veranstaltungen)"
-                                   : Speicher.eigeneTermine ? "Eigener Import" : "Eingebaut (WiSe 26/27)")
+                                   : Speicher.eigeneTermine ? "Datei" : "noch keiner")
                     NavigationLink {
                         PulsAuswahlAnsicht()
                     } label: {
                         Label("Veranstaltungen aus PULS wählen", systemImage: "checklist")
                     }
-                    LabeledContent("Termine", value: "\(zustand.termine.count)")
-                    Button("ICS-Datei importieren …") { importieren = true }
-                    if Speicher.eigeneTermine {
-                        Button("Eingebaute Termine verwenden", role: .destructive) { zustand.eingebauteVerwenden() }
-                    }
                 } header: {
                     Text("Stundenplan")
                 } footer: {
-                    Text("Am einfachsten: Veranstaltungen direkt aus PULS wählen – dann gleicht die App einmal täglich Räume und Zeiten ab. Alternativ im Planer den Plan als .ics exportieren und hier auswählen (oder die Datei in der Dateien-App teilen → „Stundenplan“).")
+                    Text("Veranstaltungen und Gruppen direkt aus PULS wählen – die App gleicht Räume und Zeiten dann einmal täglich ab.")
                 }
 
                 Section {
-                    TextField("https://planner.joshuan.dev/de?s=…", text: $link)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    Button("Speichern") { linkSpeichern(link) }
-                    if !Speicher.einstellungen().link.isEmpty {
-                        Button("Standard verwenden") {
-                            link = ""
-                            linkSpeichern("")
+                    TextField("Dein Name", text: $name)
+                        .onChange(of: name) { _, n in
+                            var e = Speicher.einstellungen()
+                            e.name = n.trimmingCharacters(in: .whitespaces)
+                            Speicher.speichere(e)
+                        }
+                    Button { teilen = true } label: { Label("Meinen Plan teilen (QR-Code, Datei)", systemImage: "qrcode") }
+                    NavigationLink {
+                        ProfileAnsicht()
+                    } label: {
+                        LabeledContent {
+                            Text("\(zustand.profile.count)")
+                        } label: {
+                            Label("Profile anderer", systemImage: "person.2")
                         }
                     }
                 } header: {
-                    Text("Planer-Link")
+                    Text("Teilen & Profile")
                 } footer: {
-                    Text("Im Planer auf „Plan teilen“ tippen, Link kopieren und hier einfügen. Öffnet sich in der App über „Planer“ (oben rechts) und im Lageplan. Ohne eigenen Link öffnet sich die leere Planer-Seite.")
+                    Text("Der Name steht auf deinem geteilten Plan. Pläne anderer kannst du im Plan-Reiter oben links umschalten.")
                 }
 
                 Section {
@@ -71,6 +68,32 @@ struct EinstellungenReiter: View {
                 } footer: {
                     Text("Mitteilung mit Raum vor jeder Veranstaltung, z. B. „GdP in 10 Min“. Tippen öffnet den Lageplan. Läuft nur auf dem iPhone, ohne Server.")
                 }
+
+                Section {
+                    Toggle("Vor der ersten Veranstaltung wecken", isOn: $wecker)
+                    if wecker {
+                        Picker("Vorher", selection: $weckerVorlauf) {
+                            ForEach(Wecker.vorlaufOptionen, id: \.self) { Text(Wecker.vorlaufText($0)).tag($0) }
+                        }
+                        Picker("Frühestens um", selection: $weckerFruehestens) {
+                            ForEach(Wecker.fruehestensOptionen, id: \.self) { Text(Wecker.uhrText($0)).tag($0) }
+                        }
+                        if let w = naechsterWecker {
+                            LabeledContent("Nächster Wecker", value: "\(Zeit.datumKurz(w.wann)) \(Zeit.uhrzeit(w.wann))")
+                        } else {
+                            LabeledContent("Nächster Wecker", value: "keiner in den nächsten 14 Tagen")
+                        }
+                    }
+                } header: {
+                    Text("Wecker")
+                } footer: {
+                    Text(Wecker.echt
+                         ? "Klingelt wie ein normaler Wecker (auch im Lautlos-Modus), nur an Tagen mit Veranstaltungen. Ausgefallene Termine zählen nicht. Die nächsten 14 Tage sind immer geplant, beim Öffnen der App wird nachgezogen."
+                         : "Echte Wecker gehen erst ab iOS 26 – hier kommt stattdessen eine Mitteilung mit Ton (nicht im Lautlos-Modus). Nur an Tagen mit Veranstaltungen, ausgefallene Termine zählen nicht.")
+                }
+                .onChange(of: wecker) { _, an in weckerAendern(an) }
+                .onChange(of: weckerVorlauf) { _, _ in weckerSpeichern() }
+                .onChange(of: weckerFruehestens) { _, _ in weckerSpeichern() }
 
                 Section {
                     Toggle("Countdown in der Dynamic Island", isOn: $live)
@@ -144,27 +167,25 @@ struct EinstellungenReiter: View {
                     Speicher.speichere(e)
                 }
 
-                Section {
-                    LabeledContent("Datenaustausch", value: Speicher.geteilt ? "aktiv" : "nicht verfügbar")
-                    Button("Widgets neu laden") { Speicher.widgetsNeuLaden() }
-                } header: {
-                    Text("Widgets")
-                } footer: {
-                    Text(Speicher.geteilt
-                         ? "Widget gedrückt halten → „Widget bearbeiten“, um Farbschema, Variante oder Mensa-Tag auszuwählen."
-                         : "Die App-Gruppe fehlt, daher zeigen die Widgets die eingebauten Termine und den Standard-Link. Ein Neuinstallieren über SideStore oder iloader richtet sie normalerweise ein.")
-                }
-
                 Section("Info") {
                     LabeledContent("Version", value: versionText)
                     Link("Speiseplan: OpenMensa", destination: Mensa.webseite(zustand.campus))
-                    Link("Planer: planner.joshuan.dev", destination: URL(string: Konfig.standardLink)!)
+                    Button("Einführung nochmal zeigen") { zustand.einfuehrung = true }
+                }
+
+                Section {
+                    NavigationLink {
+                        DebugAnsicht()
+                    } label: {
+                        Label("Debug", systemImage: "ladybug")
+                    }
+                } footer: {
+                    Text("Datei-Import, Planer-Link, Widgets und Datenaustausch – braucht man normalerweise nicht.")
                 }
             }
             .navigationTitle("Einstellungen")
-            .fileImporter(isPresented: $importieren, allowedContentTypes: icsTypen) { ergebnis in
-                if case .success(let url) = ergebnis { zustand.importiere(url) }
-            }
+            .sheet(isPresented: $teilen) { NavigationStack { TeilenAnsicht() } }
+            .onAppear { naechsterWecker = Wecker.naechster }
         }
     }
 
@@ -203,6 +224,94 @@ struct EinstellungenReiter: View {
         let v = info?["CFBundleShortVersionString"] as? String ?? "–"
         let b = info?["CFBundleVersion"] as? String ?? "–"
         return "\(v) (Build \(b))"
+    }
+
+    private func weckerAendern(_ an: Bool) {
+        guard an else {
+            weckerSpeichern()
+            return
+        }
+        Task { @MainActor in
+            if await Wecker.erlaubnisAnfragen() {
+                weckerSpeichern()
+            } else {
+                wecker = false
+                zustand.meldung = Wecker.echt
+                    ? "Wecker sind nicht erlaubt. Bitte in den iOS-Einstellungen → Stundenplan → Wecker einschalten."
+                    : "Mitteilungen sind nicht erlaubt. Bitte in den iOS-Einstellungen → Mitteilungen → Stundenplan einschalten."
+            }
+        }
+    }
+
+    private func weckerSpeichern() {
+        var e = Speicher.einstellungen()
+        e.wecker = wecker
+        e.weckerVorlauf = weckerVorlauf
+        e.weckerFruehestens = weckerFruehestens
+        Speicher.speichere(e)
+        naechsterWecker = Wecker.naechster
+        Task { await Wecker.planen() }
+    }
+}
+
+/// Selten gebraucht: Datei-Import, Planer-Link, Widgets
+struct DebugAnsicht: View {
+    @EnvironmentObject var zustand: AppZustand
+    @State private var link = Speicher.einstellungen().link
+    @State private var importieren = false
+
+    private var icsTypen: [UTType] {
+        var t: [UTType] = [.calendarEvent]
+        if let ics = UTType(filenameExtension: "ics") { t.append(ics) }
+        t.append(.data)
+        return t
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Termine", value: "\(zustand.termine.count)")
+                Button("ICS-Datei importieren …") { importieren = true }
+            } header: {
+                Text("Stundenplan-Datei")
+            } footer: {
+                Text("Z. B. aus dem Planer exportiert. Geht auch über „Teilen“ in der Dateien-App → „Stundenplan“.")
+            }
+
+            Section {
+                TextField("https://planner.joshuan.dev/de?s=…", text: $link)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("Speichern") { linkSpeichern(link) }
+                if !Speicher.einstellungen().link.isEmpty {
+                    Button("Standard verwenden") {
+                        link = ""
+                        linkSpeichern("")
+                    }
+                }
+                Link("Planer öffnen", destination: Speicher.planerLink)
+            } header: {
+                Text("Planer-Link")
+            } footer: {
+                Text("Link aus „Plan teilen“ im Planer (planner.joshuan.dev). Öffnet sich auch im Lageplan.")
+            }
+
+            Section {
+                LabeledContent("Datenaustausch", value: Speicher.geteilt ? "aktiv" : "nicht verfügbar")
+                Button("Widgets neu laden") { Speicher.widgetsNeuLaden() }
+            } header: {
+                Text("Widgets")
+            } footer: {
+                Text(Speicher.geteilt
+                     ? "Widget gedrückt halten → „Widget bearbeiten“, um Farbschema, Variante oder Mensa-Tag auszuwählen."
+                     : "Die App-Gruppe fehlt, daher sehen die Widgets keinen Stundenplan. Ein Neuinstallieren über SideStore oder iloader richtet sie normalerweise ein.")
+            }
+        }
+        .navigationTitle("Debug")
+        .fileImporter(isPresented: $importieren, allowedContentTypes: icsTypen) { ergebnis in
+            if case .success(let url) = ergebnis { zustand.importiere(url) }
+        }
     }
 
     private func linkSpeichern(_ wert: String) {

@@ -4,16 +4,22 @@ struct PlanReiter: View {
     @EnvironmentObject var zustand: AppZustand
     @Environment(\.colorScheme) private var schema
     @State private var wochenVersatz = 0
+    @State private var teilen = false
+    @State private var profileZeigen = false
 
     var body: some View {
         NavigationStack {
             TimelineView(.periodic(from: .now, by: 30)) { kontext in
                 let jetzt = kontext.date
                 let farben = Farben.fuer(dunkel: schema == .dark)
-                let woche = Plan.woche(zustand.alleTermine, jetzt, versatz: wochenVersatz)
+                let woche = Plan.woche(zustand.planAlleTermine, jetzt, versatz: wochenVersatz)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        if zustand.planAlleTermine.isEmpty && zustand.profil == nil {
+                            leererPlan(farben)
+                        }
+
                         wochenKopf(woche, farben)
 
                         if woche.leer {
@@ -25,7 +31,7 @@ struct PlanReiter: View {
                                 .frame(height: 480)
                         }
 
-                        if let auswahl = Plan.tagesAuswahl(zustand.termine, jetzt) {
+                        if let auswahl = Plan.tagesAuswahl(zustand.planTermine, jetzt) {
                             tagesTeil(auswahl, jetzt, farben)
                         } else {
                             Text("Keine weiteren Termine")
@@ -36,15 +42,56 @@ struct PlanReiter: View {
                 }
                 .background(farben.bg)
             }
-            .navigationTitle("Stundenplan")
+            .navigationTitle(zustand.profil.map { "Plan von \($0.name)" } ?? "Stundenplan")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) { profilMenu }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Link(destination: Ziele.planer) {
-                        Label("Planer", systemImage: "safari")
+                    if zustand.profil != nil {
+                        Button("Mein Plan") { zustand.profilID = nil }
+                    } else {
+                        Button { teilen = true } label: { Label("Teilen", systemImage: "square.and.arrow.up") }
                     }
                 }
             }
+            .sheet(isPresented: $teilen) { NavigationStack { TeilenAnsicht() } }
+            .sheet(isPresented: $profileZeigen) { NavigationStack { ProfileAnsicht() }.environmentObject(zustand) }
+            .onChange(of: zustand.profilID) { _, _ in wochenVersatz = 0 }
         }
+    }
+
+    private var profilMenu: some View {
+        Menu {
+            Picker("Plan", selection: $zustand.profilID) {
+                let name = Speicher.einstellungen().name
+                Label(name.isEmpty ? "Mein Plan" : "\(name) (ich)", systemImage: "person.fill").tag(UUID?.none)
+                ForEach(zustand.profile) { p in
+                    Label(p.name, systemImage: "person").tag(UUID?.some(p.id))
+                }
+            }
+            Divider()
+            Button { profileZeigen = true } label: { Label("Profile verwalten …", systemImage: "person.2") }
+        } label: {
+            Image(systemName: zustand.profil == nil ? "person.crop.circle" : "person.crop.circle.fill")
+        }
+    }
+
+    private func leererPlan(_ farben: Farben) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Noch kein Stundenplan").font(.headline)
+            Text("Wähle deine Veranstaltungen direkt aus PULS – oder lass dir den Plan von jemandem per QR-Code oder Datei schicken.")
+                .font(.subheadline).foregroundStyle(farben.gedimmt)
+            Button { zustand.modulwahl = true } label: {
+                Label("Veranstaltungen aus PULS wählen", systemImage: "checklist")
+            }
+            .buttonStyle(.borderedProminent)
+            Button { profileZeigen = true } label: {
+                Label("QR-Code scannen", systemImage: "qrcode.viewfinder")
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.gray.opacity(0.12)))
     }
 
     private func wochenKopf(_ woche: Plan.Woche, _ farben: Farben) -> some View {
@@ -84,7 +131,7 @@ struct PlanReiter: View {
                 TerminKarte(termin: fokus, istHeute: auswahl.istHeute, jetzt: jetzt, ausfuehrlich: true)
                     .verlinkt(Ziele.termin(fokus))
             }
-            TagesListe(termine: Plan.termineAm(zustand.alleTermine, auswahl.datum), jetzt: jetzt, farben: farben,
+            TagesListe(termine: Plan.termineAm(zustand.planAlleTermine, auswahl.datum), jetzt: jetzt, farben: farben,
                        maxZeilen: 99, wege: true)
         }
     }
