@@ -4,6 +4,12 @@
 - Erst bauen/veröffentlichen (Push, der einen Build auslöst), wenn der Nutzer es ausdrücklich sagt.
   Änderungen vorher nur vorbereiten (z. B. auf einem Arbeits-Branch) und hier unter „Vorgemerkt“ notieren.
 
+## Vorgemerkt (fertig auf Branch `wecker-eigene-termine`, noch nicht gebaut)
+- iOS 0.5.1, Android 1.6.1, Scriptable 1.1.1: einstellbares Schlummern, „Wecker 7:15“ im Widget am Vorabend,
+  eigene Termine über „+“ im Plan (Scriptable: nur der Wecker-Hinweis). Beim Bauen: Branch nach main mergen.
+  Vorher mit „Android prüfen (Branch)“ prüfen; iOS wird erst auf main gebaut (AlarmKit-Schlummern mit Live-Aktivität
+  ist neu und ungeprüft).
+
 ## Versionsnummern
 - Kleinschrittig erhöhen: normale Änderungen und Fehlerbehebungen nur die letzte Ziffer
   (iOS 0.3.2 → 0.3.3, Android 1.4 → 1.4.1, Scriptable 1.0.0 → 1.0.1).

@@ -220,6 +220,10 @@ struct TerminKarte: View {
                     Text("Beginnt in")
                     Text(timerInterval: jetzt...termin.start, countsDown: true)
                         .monospacedDigit()
+                } else if !istHeute, let w = WeckerStand.fuer(termin) {
+                    Text("Erster Termin · ")
+                    Image(systemName: "alarm.fill")
+                    Text("Wecker " + Zeit.uhrzeit(w))
                 } else {
                     Text(istHeute ? "Als Nächstes" : "Erster Termin")
                 }

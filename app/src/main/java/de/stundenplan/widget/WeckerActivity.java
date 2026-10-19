@@ -73,14 +73,15 @@ public class WeckerActivity extends Activity {
         aus.setOnClickListener(v -> beenden());
         l.addView(aus, new LinearLayout.LayoutParams(Math.round(220 * d), Math.round(72 * d)));
         Button schlummern = new Button(this);
-        schlummern.setText("10 Min schlummern");
+        final int minuten = Wecker.schlummern(this);
+        schlummern.setText(minuten + " Min schlummern");
         schlummern.setOnClickListener(v -> {
             android.app.AlarmManager am = (android.app.AlarmManager) getSystemService(Context.ALARM_SERVICE);
             if (am != null) {
                 android.app.PendingIntent pi = android.app.PendingIntent.getActivity(this, 23,
                         new android.content.Intent(this, WeckerActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
                         android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
-                long wann = System.currentTimeMillis() + 10 * 60_000L;
+                long wann = System.currentTimeMillis() + minuten * 60_000L;
                 if (Wecker.darfStellen(this)) am.setAlarmClock(new android.app.AlarmManager.AlarmClockInfo(wann, pi), pi);
                 else am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, wann, pi);
             }

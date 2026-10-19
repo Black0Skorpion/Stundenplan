@@ -45,6 +45,7 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
     public static void alleAktualisieren(Context ctx) {
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
         List<Termin> alle = Daten.laden(ctx);
+        Zeichner.wecker = Wecker.an(ctx) ? Wecker.naechste(alle, Wecker.vorlauf(ctx), Wecker.fruehestens(ctx), System.currentTimeMillis()) : null;
         boolean irgendeins = false;
         for (Class<?> k : ALLE_GROESSEN) {
             int[] ids = mgr.getAppWidgetIds(new ComponentName(ctx, k));

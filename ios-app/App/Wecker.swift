@@ -12,6 +12,8 @@ import AlarmKit
 enum Wecker {
     static let vorlaufOptionen = [30, 45, 60, 75, 90, 105, 120, 150, 180]
     static let fruehestensOptionen = [0, 300, 330, 360, 390, 420, 450]
+    /// Schlummern in Minuten (0 = kein Schlummern-Knopf)
+    static let schlummerOptionen = [0, 5, 9, 10, 15, 20]
     static let praefix = "wecker-"
     private static let tage = 14
 
@@ -76,24 +78,26 @@ enum Wecker {
         return await Erinnerungen.erlaubnisAnfragen()
     }
 
-    /// Wecker neu planen (nur wenn sich etwas geändert hat)
+    /// Wecker neu planen (nur wenn sich etwas geändert hat; erzwingen z. B. nach geänderter Schlummerzeit)
     @MainActor
-    static func planen() async {
+    static func planen(erzwingen: Bool = false) async {
         let e = Speicher.einstellungen()
         let neu = e.wecker ? zeiten(Speicher.termine(), e) : []
         let alt = Speicher.lesen([Weckzeit].self, "wecker.json") ?? []
-        if neu == alt.filter({ $0.wann > Date() }) && !neu.isEmpty { return }
+        if !erzwingen && neu == alt.filter({ $0.wann > Date() }) && !neu.isEmpty { return }
         if neu.isEmpty && alt.isEmpty { return }
 
         #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
-            let ok = await AlarmPlaner.planen(neu)
+            let ok = await AlarmPlaner.planen(neu, schlummern: e.weckerSchlummern)
             Speicher.schreiben(ok ? neu : [], "wecker.json")
+            Speicher.widgetsNeuLaden()
             return
         }
         #endif
         await mitteilungenPlanen(neu)
         Speicher.schreiben(neu, "wecker.json")
+        Speicher.widgetsNeuLaden()
     }
 
     static func titel(_ w: Weckzeit) -> String {
@@ -122,9 +126,6 @@ enum Wecker {
 
 #if canImport(AlarmKit)
 @available(iOS 26.0, *)
-struct WeckerDaten: AlarmMetadata {}
-
-@available(iOS 26.0, *)
 enum AlarmPlaner {
     static func erlaubnis() async -> Bool {
         let m = AlarmManager.shared
@@ -136,7 +137,7 @@ enum AlarmPlaner {
     }
 
     @discardableResult
-    static func planen(_ zeiten: [Wecker.Weckzeit]) async -> Bool {
+    static func planen(_ zeiten: [Wecker.Weckzeit], schlummern: Int) async -> Bool {
         let m = AlarmManager.shared
         // Alle Wecker dieser App ersetzen
         if let alle = try? m.alarms {
@@ -145,11 +146,23 @@ enum AlarmPlaner {
         guard m.authorizationState == .authorized else { return false }
         for w in zeiten {
             let stopp = AlarmButton(text: "Aus", textColor: .white, systemImageName: "alarm")
-            let alarm = AlarmPresentation.Alert(title: LocalizedStringResource(String.LocalizationValue(Wecker.titel(w))),
-                                                stopButton: stopp)
-            let attribute = AlarmAttributes<WeckerDaten>(presentation: AlarmPresentation(alert: alarm),
+            let titel = LocalizedStringResource(String.LocalizationValue(Wecker.titel(w)))
+            let praesentation: AlarmPresentation
+            var dauer: Alarm.CountdownDuration? = nil
+            if schlummern > 0 {
+                // Schlummern: Countdown, danach klingelt es erneut
+                let schlummer = AlarmButton(text: "Schlummern", textColor: .white, systemImageName: "zzz")
+                let alarm = AlarmPresentation.Alert(title: titel, stopButton: stopp,
+                                                    secondaryButton: schlummer, secondaryButtonBehavior: .countdown)
+                let countdown = AlarmPresentation.Countdown(title: LocalizedStringResource(String.LocalizationValue("Schlummern")))
+                praesentation = AlarmPresentation(alert: alarm, countdown: countdown)
+                dauer = Alarm.CountdownDuration(preAlert: nil, postAlert: TimeInterval(schlummern * 60))
+            } else {
+                praesentation = AlarmPresentation(alert: AlarmPresentation.Alert(title: titel, stopButton: stopp))
+            }
+            let attribute = AlarmAttributes<WeckerDaten>(presentation: praesentation,
                                                          metadata: WeckerDaten(), tintColor: .orange)
-            let konfig = AlarmManager.AlarmConfiguration<WeckerDaten>(countdownDuration: nil,
+            let konfig = AlarmManager.AlarmConfiguration<WeckerDaten>(countdownDuration: dauer,
                                                                       schedule: .fixed(w.wann),
                                                                       attributes: attribute,
                                                                       stopIntent: nil,

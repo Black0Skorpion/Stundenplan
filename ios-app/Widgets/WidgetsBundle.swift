@@ -9,5 +9,10 @@ struct StundenplanWidgets: WidgetBundle {
         MensaWidget()
         AbfahrtenWidget()
         VorlesungLiveAktivitaet()
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            WeckerAktivitaet()
+        }
+        #endif
     }
 }

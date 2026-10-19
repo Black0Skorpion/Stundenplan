@@ -8,6 +8,7 @@ struct EinstellungenReiter: View {
     @State private var wecker = Speicher.einstellungen().wecker
     @State private var weckerVorlauf = Speicher.einstellungen().weckerVorlauf
     @State private var weckerFruehestens = Speicher.einstellungen().weckerFruehestens
+    @State private var weckerSchlummern = Speicher.einstellungen().weckerSchlummern
     @State private var naechsterWecker: Wecker.Weckzeit?
     @State private var erinnerungen = Speicher.einstellungen().erinnerungen
     @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
@@ -78,6 +79,11 @@ struct EinstellungenReiter: View {
                         Picker("Frühestens um", selection: $weckerFruehestens) {
                             ForEach(Wecker.fruehestensOptionen, id: \.self) { Text(Wecker.uhrText($0)).tag($0) }
                         }
+                        if Wecker.echt {
+                            Picker("Schlummern", selection: $weckerSchlummern) {
+                                ForEach(Wecker.schlummerOptionen, id: \.self) { Text($0 == 0 ? "aus" : "\($0) Min").tag($0) }
+                            }
+                        }
                         if let w = naechsterWecker {
                             LabeledContent("Nächster Wecker", value: "\(Zeit.datumKurz(w.wann)) \(Zeit.uhrzeit(w.wann))")
                         } else {
@@ -88,12 +94,13 @@ struct EinstellungenReiter: View {
                     Text("Wecker")
                 } footer: {
                     Text(Wecker.echt
-                         ? "Klingelt wie ein normaler Wecker (auch im Lautlos-Modus), nur an Tagen mit Veranstaltungen. Ausgefallene Termine zählen nicht. Die nächsten 14 Tage sind immer geplant, beim Öffnen der App wird nachgezogen."
+                         ? "Klingelt wie ein normaler Wecker (auch im Lautlos-Modus), mit Schlummern, nur an Tagen mit Veranstaltungen. Am Vorabend zeigt das Stundenplan-Widget, wann er klingelt. Ausgefallene Termine zählen nicht. Die nächsten 14 Tage sind immer geplant, beim Öffnen der App wird nachgezogen."
                          : "Echte Wecker gehen erst ab iOS 26 – hier kommt stattdessen eine Mitteilung mit Ton (nicht im Lautlos-Modus). Nur an Tagen mit Veranstaltungen, ausgefallene Termine zählen nicht.")
                 }
                 .onChange(of: wecker) { _, an in weckerAendern(an) }
                 .onChange(of: weckerVorlauf) { _, _ in weckerSpeichern() }
                 .onChange(of: weckerFruehestens) { _, _ in weckerSpeichern() }
+                .onChange(of: weckerSchlummern) { _, _ in weckerSpeichern(erzwingen: true) }
 
                 Section {
                     Toggle("Countdown in der Dynamic Island", isOn: $live)
@@ -243,14 +250,15 @@ struct EinstellungenReiter: View {
         }
     }
 
-    private func weckerSpeichern() {
+    private func weckerSpeichern(erzwingen: Bool = false) {
         var e = Speicher.einstellungen()
         e.wecker = wecker
         e.weckerVorlauf = weckerVorlauf
         e.weckerFruehestens = weckerFruehestens
+        e.weckerSchlummern = weckerSchlummern
         Speicher.speichere(e)
         naechsterWecker = Wecker.naechster
-        Task { await Wecker.planen() }
+        Task { await Wecker.planen(erzwingen: erzwingen) }
     }
 }
 

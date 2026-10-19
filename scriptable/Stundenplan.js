@@ -647,7 +647,10 @@ function karte(parent, t, auswahl, jetzt, breite, ausfuehrlich) {
   } else if (auswahl.istHeute && t.start - jetzt <= 60 * 60000) {
     countdown("Beginnt in", t.start)
   } else {
-    textHinzu(zeile1, auswahl.istHeute ? "Als Nächstes" : "Erster Termin", statusFont, weiss, { deckkraft: 0.9 })
+    // Am Vorabend: wann der Wecker klingelt
+    const wk = !auswahl.istHeute && WECKER_NAECHSTER && WECKER_NAECHSTER.t.start.getTime() === t.start.getTime()
+      ? " · ⏰ " + uhrzeit(WECKER_NAECHSTER.wann) : ""
+    textHinzu(zeile1, (auswahl.istHeute ? "Als Nächstes" : "Erster Termin") + wk, statusFont, weiss, { deckkraft: 0.9 })
     zeile1.addSpacer()
   }
   k.addSpacer(2)
@@ -2248,9 +2251,13 @@ const LAGEPLAN_PNG = "iVBORw0KGgoAAAANSUhEUgAABEIAAAXSCAMAAAArDbq8AAAAkFBMVEX///
 
 // ───────────────────────── Start ─────────────────────────
 
+let WECKER_NAECHSTER = null
+
 async function erstelleWidget(familie) {
   const jetzt = new Date()
   const alle = await ladeAlle(false)
+  const ew = einstellungen()
+  if (ew.wecker && !PROFIL) WECKER_NAECHSTER = weckzeiten(alle, ew.wecker, ew.weckerFruehestens || 0, jetzt)[0] || null
   const farben = themenFarben()
   let w
   if (familie === "accessoryInline") w = sperrInline(alle, jetzt)

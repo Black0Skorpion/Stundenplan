@@ -52,6 +52,9 @@ public final class Zeichner extends Leinwand {
 
     private final Ziele ziele = new Ziele();
 
+    /** Nächster Wecker { Weckzeit, Beginn der ersten Veranstaltung } für den Hinweis am Vorabend (null = aus) */
+    static volatile long[] wecker;
+
     /** Tippfläche im Wochenraster der App: Termin (oder null = Tageskopf) */
     public static final class Treffer {
         public final android.graphics.RectF rect;
@@ -253,6 +256,9 @@ public final class Zeichner extends Leinwand {
             status = "Beginnt in " + minutenText((t.start - jetzt + 59999) / 60000);
         } else {
             status = a.istHeute ? "Als Nächstes" : "Erster Termin";
+            // Am Vorabend: wann der Wecker klingelt
+            long[] w = wecker;
+            if (!a.istHeute && w != null && w[1] == t.start) status = "Erster Termin · ⏰ " + uhrzeit(w[0]);
         }
 
         String titel = ausfuehrlich ? t.titel : kurs[0];

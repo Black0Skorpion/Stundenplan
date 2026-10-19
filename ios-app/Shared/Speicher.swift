@@ -76,8 +76,8 @@ enum Speicher {
     /// Ausgefallene Termine sind nur mit `mitAusfaellen` dabei (für die Anzeige in der App).
     static func termine(mitAusfaellen: Bool = false) -> [Termin] {
         let aenderungen = self.aenderungen()
-        return rohTermine()
-            .map(Plan.viertelAnpassen)
+        // Eigene Termine (Plus im Plan) mit genau den eingegebenen Zeiten, ohne akademisches Viertel
+        return (rohTermine().map(Plan.viertelAnpassen) + EigeneTermine.termine())
             .map { t -> Termin in
                 guard let a = aenderungen[t.schluessel] else { return t }
                 var n = t
@@ -163,6 +163,8 @@ enum Speicher {
         var weckerVorlauf: Int = 90
         /// Frühestens um (Minuten nach Mitternacht, 0 = egal)
         var weckerFruehestens: Int = 0
+        /// Schlummern in Minuten (0 = aus)
+        var weckerSchlummern: Int = 9
         /// Kurze Einführung schon gesehen/übersprungen
         var einfuehrungGesehen: Bool = false
 
@@ -183,6 +185,7 @@ enum Speicher {
             wecker = (try? c.decodeIfPresent(Bool.self, forKey: .wecker)) ?? false
             weckerVorlauf = (try? c.decodeIfPresent(Int.self, forKey: .weckerVorlauf)) ?? 90
             weckerFruehestens = (try? c.decodeIfPresent(Int.self, forKey: .weckerFruehestens)) ?? 0
+            weckerSchlummern = (try? c.decodeIfPresent(Int.self, forKey: .weckerSchlummern)) ?? 9
             einfuehrungGesehen = (try? c.decodeIfPresent(Bool.self, forKey: .einfuehrungGesehen)) ?? false
         }
     }

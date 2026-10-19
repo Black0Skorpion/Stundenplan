@@ -163,6 +163,13 @@ final class EinstellungenSeite implements MainActivity.Seite {
                 Wecker.prefs(act).edit().putInt(Wecker.FRUEHESTENS, Wecker.FRUEHESTENS_OPTIONEN[i]).apply();
                 Wecker.planen(act);
             }));
+            String[] sn = new String[Wecker.SCHLUMMER_OPTIONEN.length];
+            int sg = 1;
+            for (int i = 0; i < sn.length; i++) {
+                sn[i] = Wecker.SCHLUMMER_OPTIONEN[i] + " Min";
+                if (Wecker.SCHLUMMER_OPTIONEN[i] == Wecker.schlummern(act)) sg = i;
+            }
+            wz.add(auswahl("Schlummern", sn, sg, i -> Wecker.prefs(act).edit().putInt(Wecker.SCHLUMMERN, Wecker.SCHLUMMER_OPTIONEN[i]).apply()));
             long[] n = Wecker.naechste(act);
             wz.add(ui.wertZeile("Nächster Wecker", n == null ? "keiner in 14 Tagen"
                     : Lageplan.datumKurz(n[0]) + " " + Lageplan.uhrzeitText(n[0]), null));
@@ -173,7 +180,7 @@ final class EinstellungenSeite implements MainActivity.Seite {
         }
         ui.fuellen(g, wz.toArray(new View[0]));
         inhalt.addView(g);
-        inhalt.addView(ui.fuss("Klingelt wie ein Wecker (mit Schlummern), nur an Tagen mit Veranstaltungen. Ausgefallene Termine zählen nicht."));
+        inhalt.addView(ui.fuss("Klingelt wie ein Wecker (mit Schlummern), nur an Tagen mit Veranstaltungen. Ausgefallene Termine zählen nicht. Am Vorabend zeigt das Stundenplan-Widget, wann er klingelt."));
 
         // ───── Erinnerungen ─────
         inhalt.addView(ui.abschnitt("Erinnerungen"));

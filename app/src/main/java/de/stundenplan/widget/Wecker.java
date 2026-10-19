@@ -21,6 +21,8 @@ public final class Wecker {
     static final String AN = "wecker_an";
     static final String VORLAUF = "wecker_vorlauf";
     static final String FRUEHESTENS = "wecker_fruehestens";
+    static final String SCHLUMMERN = "wecker_schlummern";
+    static final int[] SCHLUMMER_OPTIONEN = {5, 9, 10, 15, 20};
     static final int[] VORLAUF_OPTIONEN = {30, 45, 60, 75, 90, 105, 120, 150, 180};
     /** Minuten nach Mitternacht, 0 = egal */
     static final int[] FRUEHESTENS_OPTIONEN = {0, 300, 330, 360, 390, 420, 450};
@@ -32,6 +34,8 @@ public final class Wecker {
     static int vorlauf(Context ctx) { return prefs(ctx).getInt(VORLAUF, 90); }
 
     static int fruehestens(Context ctx) { return prefs(ctx).getInt(FRUEHESTENS, 0); }
+
+    static int schlummern(Context ctx) { return prefs(ctx).getInt(SCHLUMMERN, 9); }
 
     static String vorlaufText(int m) {
         int h = m / 60, r = m % 60;

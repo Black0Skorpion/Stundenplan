@@ -75,6 +75,9 @@ final class PlanSeite implements MainActivity.Seite {
         if (profil != null) {
             kopf.addView(ui.kapsel("Mein Plan", ui.akzent, false, v -> { MainActivity.setzeAnzeige(act, null); versatz = 0; aufbauen(); }));
         } else {
+            kopf.addView(ui.kapsel("＋", ui.akzent, false, v -> plusMenue()));
+            View l2 = new View(act);
+            kopf.addView(l2, new LinearLayout.LayoutParams(ui.dp(6), 1));
             kopf.addView(ui.kapsel("Teilen", ui.akzent, false, v -> act.startActivity(new Intent(act, TeilenActivity.class))));
         }
         inhalt.addView(kopf);
@@ -212,6 +215,14 @@ final class PlanSeite implements MainActivity.Seite {
         String ort = Lageplan.einrichtungText(t.raum);
         if (ort != null) k.addView(ui.text(ort, 13, Leinwand.alpha(Color.WHITE, 0.85f)));
         if (t.alterRaum != null) k.addView(ui.text("Geändert, ursprünglich " + t.alterRaum, 12.5f, Leinwand.alpha(Color.WHITE, 0.85f)));
+        if (!gleicherTag(t.start, jetzt) && profilId() == null && Wecker.an(act)) {
+            long[] w = Wecker.naechste(act);
+            if (w != null && w[1] == t.start) {
+                TextView wt = ui.fett("⏰ Wecker " + Lageplan.datumKurz(w[0]) + " " + Lageplan.uhrzeitText(w[0]), 13, Color.WHITE);
+                wt.setPadding(0, ui.dp(6), 0, 0);
+                k.addView(wt);
+            }
+        }
         if (laeuft) {
             ProgressBar p = new ProgressBar(act, null, android.R.attr.progressBarStyleHorizontal);
             p.setMax(1000);
@@ -251,6 +262,15 @@ final class PlanSeite implements MainActivity.Seite {
 
     private void lageplan(long termin, long tag) {
         act.startActivity(LageplanActivity.intern(act, termin, tag, profilId()));
+    }
+
+    private void plusMenue() {
+        int n = EigeneTermine.alle(act).size();
+        new AlertDialog.Builder(act).setItems(new String[]{"Neuer Termin", "Eigene Termine (" + n + ")"}, (d, i) -> {
+            Intent in = new Intent(act, EigenerTerminActivity.class);
+            if (i == 1) in.putExtra(EigenerTerminActivity.EXTRA_LISTE, true);
+            act.startActivity(in);
+        }).show();
     }
 
     private void profilMenue() {

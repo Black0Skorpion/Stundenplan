@@ -43,6 +43,12 @@
             android:theme="@style/AppTheme.Reiter" />
 
         <activity
+            android:name=".EigenerTerminActivity"
+            android:exported="false"
+            android:label="Eigener Termin"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".VerzeichnisActivity"
             android:exported="false"
             android:label="Vorlesungsverzeichnis" />

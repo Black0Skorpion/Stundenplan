@@ -6,6 +6,8 @@ struct PlanReiter: View {
     @State private var wochenVersatz = 0
     @State private var teilen = false
     @State private var profileZeigen = false
+    @State private var neuerTermin = false
+    @State private var eigeneListe = false
 
     var body: some View {
         NavigationStack {
@@ -46,6 +48,20 @@ struct PlanReiter: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { profilMenu }
                 ToolbarItem(placement: .topBarTrailing) {
+                    if zustand.profil == nil {
+                        Menu {
+                            Button { neuerTermin = true } label: { Label("Neuer Termin", systemImage: "plus") }
+                            Button { eigeneListe = true } label: {
+                                Label("Eigene Termine (\(EigeneTermine.alle().count))", systemImage: "list.bullet")
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                        } primaryAction: {
+                            neuerTermin = true
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     if zustand.profil != nil {
                         Button("Mein Plan") { zustand.profilID = nil }
                     } else {
@@ -54,6 +70,8 @@ struct PlanReiter: View {
                 }
             }
             .sheet(isPresented: $teilen) { NavigationStack { TeilenAnsicht() } }
+            .sheet(isPresented: $neuerTermin) { NavigationStack { EigenerTerminAnsicht() }.environmentObject(zustand) }
+            .sheet(isPresented: $eigeneListe) { NavigationStack { EigeneTermineListe() }.environmentObject(zustand) }
             .sheet(isPresented: $profileZeigen) { NavigationStack { ProfileAnsicht() }.environmentObject(zustand) }
             .onChange(of: zustand.profilID) { _, _ in wochenVersatz = 0 }
         }

@@ -44,7 +44,11 @@ public final class Daten {
     }
 
     private static List<Termin> ladenRoh(Context ctx) {
-        return aufbereiten(ladenRohOhneViertel(ctx));
+        List<Termin> l = aufbereiten(ladenRohOhneViertel(ctx));
+        // Eigene Termine mit genau den eingegebenen Zeiten (ohne akademisches Viertel)
+        l.addAll(EigeneTermine.termine(ctx));
+        Collections.sort(l, (a, b) -> Long.compare(a.start, b.start));
+        return l;
     }
 
     /** Zum Teilen: Rohzeiten, mit eigenem Raum, ohne ausgefallene Termine */
