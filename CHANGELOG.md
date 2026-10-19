@@ -2,6 +2,12 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## iOS 0.5.1.3
+
+**Neu**
+- Zeiten von Veranstaltungen selbst festlegen: Termin antippen → „Ändern“ → „Zeit ändern …“. Gilt wahlweise nur für diesen einen Termin oder für alle Termine der Reihe (gleiche Veranstaltung, gleicher Wochentag, gleiche Uhrzeit) – auch für neue Termine nach dem PULS-Abgleich. Schnellwahl „Volle Stunde (s.t.)“ statt des automatischen c.t.
+- Geänderte Termine zeigen die ursprüngliche Zeit; „Eigene Zeit entfernen“ bzw. „Änderungen zurücksetzen“ stellt sie wieder her. Wecker, Erinnerungen, Widgets und „Nicht stören“ richten sich nach der neuen Zeit.
+
 ## iOS 0.5.1.2
 
 **Neu**

@@ -4,6 +4,10 @@
 - Erst bauen/veröffentlichen (Push, der einen Build auslöst), wenn der Nutzer es ausdrücklich sagt.
   Änderungen vorher nur vorbereiten (z. B. auf einem Arbeits-Branch) und hier unter „Vorgemerkt“ notieren.
 
+## Vorgemerkt (noch nicht gebaut)
+- Branch `eigene-zeiten`: iOS 0.5.1.3 – Zeiten von Veranstaltungen selbst festlegen (einzeln/Reihe).
+  Android/Scriptable noch nicht nachgezogen.
+
 ## Versionsnummern
 - Kleinschrittig erhöhen: normale Änderungen und Fehlerbehebungen nur die letzte Ziffer
   (iOS 0.3.2 → 0.3.3, Android 1.4 → 1.4.1, Scriptable 1.0.0 → 1.0.1).
@@ -17,7 +21,8 @@
 ## Android
 - Seit 1.5 auf dem Stand von iOS 0.5.0 (Modulwahl, Teilen/Profile, Wecker, Live Update). Neue iOS-Funktionen
   dort nachziehen, wenn der Nutzer es möchte. Auf Arbeits-Branches prüft der Workflow „Android prüfen (Branch)“
-  den Build (ohne Release); APK-Releases nur von main.
+  den Build (ohne Release); APK-Releases nur von main. iOS genauso: „iOS-App bauen“ per workflow_dispatch auf einem
+  Arbeits-Branch prüft nur den Build, Release nur von main.
 - Parser-Test Java: Workflow „PULS-Test (Java)“ (app/test/PulsTest.java), Ergebnis im Branch daten-java.
 
 ## Releases
