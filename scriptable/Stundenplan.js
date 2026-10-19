@@ -10,6 +10,7 @@
 // Widget-Parameter (optional, beim Bearbeiten des Widgets eintragen, mit Leerzeichen kombinierbar):
 //   hell   → immer heller Modus
 //   dunkel → immer dunkler Modus
+//   transparent → ohne Hintergrund (durchsichtig im iOS-Look „Klar“/„Getönt“)
 //   https://planner.joshuan.dev/de?s=…  → dein eigener Planer-Link, öffnet sich beim Tippen
 //
 // Einfacher: Script in der Scriptable-App starten → „Einstellungen“ (Farbschema, Planer-Link,
@@ -47,7 +48,7 @@ const CONFIG = {
   AKADEMISCHES_VIERTEL: true,
   STANDARD_START: 8,   // früheste angezeigte Stunde
   STANDARD_ENDE: 18,   // späteste angezeigte Stunde
-  THEMA: "auto",       // "auto" | "hell" | "dunkel"
+  THEMA: "auto",       // "auto" | "hell" | "dunkel" | "transparent"
   TAP_URL: "https://planner.joshuan.dev/de", // Standard-Planer-Link (Lageplan → „Im Planer öffnen“)
 
   // Kurznamen und Farben pro Veranstaltung (vollständiger Titel aus dem Kalender)
@@ -534,7 +535,8 @@ function zeichneRaster(breite, hoehe, tage, startH, endeH, jetzt, mitTagesDatum)
 
 function themenFarben() {
   const teile = (args.widgetParameter || "").trim().toLowerCase().split(/\s+/)
-  const thema = teile.includes("hell") ? "hell" : teile.includes("dunkel") ? "dunkel" : (einstellungen().thema || CONFIG.THEMA)
+  const thema = teile.includes("hell") ? "hell" : teile.includes("dunkel") ? "dunkel"
+    : teile.includes("transparent") || teile.includes("durchsichtig") ? "transparent" : (einstellungen().thema || CONFIG.THEMA)
   if (thema === "hell" || thema === "dunkel") {
     const f = FARBEN[thema]
     return {
@@ -545,7 +547,8 @@ function themenFarben() {
     }
   }
   return {
-    bg: Color.dynamic(new Color(FARBEN.hell.bg), new Color(FARBEN.dunkel.bg)),
+    // „transparent“: kein eigener Hintergrund (richtig durchsichtig im iOS-Look „Klar“/„Getönt“)
+    bg: thema === "transparent" ? Color.clear() : Color.dynamic(new Color(FARBEN.hell.bg), new Color(FARBEN.dunkel.bg)),
     vorder: Color.dynamic(new Color(FARBEN.hell.text), new Color(FARBEN.dunkel.text)),
     gedimmt: Color.dynamic(new Color(FARBEN.hell.gedimmt), new Color(FARBEN.dunkel.gedimmt)),
     akzent: Color.dynamic(new Color("#185FA5"), new Color("#85B7EB")),
@@ -2088,7 +2091,7 @@ async function profilHinzufuegen() {
 async function zeigeEinstellungen() {
   const e = Object.assign({}, einstellungen())
   while (true) {
-    const themaName = { auto: "Automatisch", hell: "Hell", dunkel: "Dunkel" }[e.thema || "auto"]
+    const themaName = { auto: "Automatisch", hell: "Hell", dunkel: "Dunkel", transparent: "Transparent" }[e.thema || "auto"]
     const linkName = e.link ? "Eigener Link" : "Standard (leere Planer-Seite)"
     const eintraege = [
       ["thema", "Farbschema: " + themaName],
@@ -2111,7 +2114,7 @@ async function zeigeEinstellungen() {
     if (i < 0) break
     const schluessel = eintraege[i][0]
     if (schluessel === "thema") {
-      const w = await auswahlMenue("Farbschema", [["auto", "Automatisch"], ["hell", "Hell"], ["dunkel", "Dunkel"]], e.thema || "auto")
+      const w = await auswahlMenue("Farbschema", [["auto", "Automatisch"], ["hell", "Hell"], ["dunkel", "Dunkel"], ["transparent", "Transparent (ohne Hintergrund)"]], e.thema || "auto")
       if (w !== undefined) e.thema = w
     } else if (schluessel === "erinnerungen") {
       const w = await auswahlMenue("Erinnerung vor Veranstaltungen",

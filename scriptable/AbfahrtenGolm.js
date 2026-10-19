@@ -7,7 +7,7 @@
 //
 // Widget-Parameter (optional, mit Leerzeichen kombinierbar):
 //   zug     → nur Züge (Regionalbahn/S-Bahn), keine Busse
-//   hell / dunkel → festes Farbschema
+//   hell / dunkel → festes Farbschema; transparent → ohne Hintergrund (durchsichtig im iOS-Look „Klar“)
 //   golm / palais / griebnitzsee → fester Campus
 // Ohne Campus-Parameter gilt die Einstellung aus dem Stundenplan-Script (Einstellungen → Campus;
 // „Automatisch“ = Campus der laufenden bzw. nächsten Veranstaltung). Priorisierte Linien
@@ -144,16 +144,18 @@ function uhrzeit(d) {
 function parameter() {
   const t = (args.widgetParameter || "").toLowerCase().split(/\s+/)
   return { nurZuege: t.includes("zug") || t.includes("züge") || t.includes("zuege"),
-           thema: t.includes("hell") ? "hell" : t.includes("dunkel") ? "dunkel" : "auto" }
+           thema: t.includes("hell") ? "hell" : t.includes("dunkel") ? "dunkel"
+             : t.includes("transparent") || t.includes("durchsichtig") ? "transparent" : "auto" }
 }
 
 function farben(thema) {
-  if (thema !== "auto") {
+  if (thema === "hell" || thema === "dunkel") {
     const f = FARBEN[thema]
     return { bg: new Color(f.bg), vorder: new Color(f.text), gedimmt: new Color(f.gedimmt), akzent: new Color(f.akzent) }
   }
   const dyn = k => Color.dynamic(new Color(FARBEN.hell[k]), new Color(FARBEN.dunkel[k]))
-  return { bg: dyn("bg"), vorder: dyn("text"), gedimmt: dyn("gedimmt"), akzent: dyn("akzent") }
+  // „transparent“: kein eigener Hintergrund (richtig durchsichtig im iOS-Look „Klar“/„Getönt“)
+  return { bg: thema === "transparent" ? Color.clear() : dyn("bg"), vorder: dyn("text"), gedimmt: dyn("gedimmt"), akzent: dyn("akzent") }
 }
 
 function text(stack, inhalt, font, farbe, optionen) {

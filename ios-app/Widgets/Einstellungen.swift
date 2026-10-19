@@ -5,13 +5,14 @@ import SwiftUI
 // ───────────────────────── Farbschema ─────────────────────────
 
 enum ThemaOption: String, AppEnum, CaseIterable {
-    case automatisch, hell, dunkel
+    case automatisch, hell, dunkel, transparent
 
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Farbschema"
     static var caseDisplayRepresentations: [ThemaOption: DisplayRepresentation] = [
         .automatisch: "Automatisch",
         .hell: "Hell",
         .dunkel: "Dunkel",
+        .transparent: "Transparent",
     ]
 
     func farben(_ schema: ColorScheme) -> Farben {
@@ -19,6 +20,11 @@ enum ThemaOption: String, AppEnum, CaseIterable {
         case .hell: return .fuer(dunkel: false)
         case .dunkel: return .fuer(dunkel: true)
         case .automatisch: return .fuer(dunkel: schema == .dark)
+        case .transparent:
+            // Ohne eigenen Hintergrund; Schrift passend zum System (hell/dunkel).
+            // Richtig durchsichtig wirkt das im iOS-Look „Klar“ bzw. „Getönt“.
+            let f = Farben.fuer(dunkel: schema == .dark)
+            return Farben(bg: .clear, vorder: f.vorder, gedimmt: f.gedimmt, akzent: f.akzent)
         }
     }
 }

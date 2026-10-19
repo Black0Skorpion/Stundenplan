@@ -75,8 +75,7 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
         float[] g = groesse(ctx, mgr, id, modus);
         float b = g[0], h = g[1];
 
-        boolean dunkel = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
-                == Configuration.UI_MODE_NIGHT_YES;
+        boolean dunkel = WidgetThema.dunkel(ctx);
         float dichte = ctx.getResources().getDisplayMetrics().density;
         // Bildgröße begrenzen, damit Android das Bild sicher an den Startbildschirm übergeben kann
         float skala = Math.min(dichte, (float) Math.sqrt(2_500_000.0 / (b * h)));
@@ -89,6 +88,7 @@ public abstract class StundenplanWidget extends AppWidgetProvider {
                 int layout = Zeichner.KLEIN.equals(modus) ? R.layout.widget_klein
                         : Zeichner.MITTEL.equals(modus) ? R.layout.widget_mittel : R.layout.widget_gross;
                 RemoteViews rv = new RemoteViews(ctx.getPackageName(), layout);
+                WidgetThema.hintergrund(ctx, rv);
                 rv.setImageViewBitmap(R.id.bild, bild);
                 PendingIntent planer = tippAktion(ctx); // öffnet die App
                 rv.setOnClickPendingIntent(R.id.wurzel, planer);

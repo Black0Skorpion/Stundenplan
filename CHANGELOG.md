@@ -2,6 +2,21 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## iOS 0.5.1.4
+
+**Neu**
+- Widgets mit Farbschema „Transparent“ (neben Automatisch, Hell und Dunkel): Widget gedrückt halten → „Widget bearbeiten“ → Farbschema. Das Widget hat dann keinen eigenen Hintergrund. Richtig durchsichtig wird es im iOS-Look „Klar“ bzw. „Getönt“ (Home-Bildschirm bearbeiten → Anpassen); im normalen Look zeigt iOS dahinter seinen Standard-Hintergrund.
+
+## Android 1.6.1.3
+
+**Neu**
+- Farbschema für alle Widgets: System, Hell, Dunkel oder Transparent (Einstellungen → Widgets). Bei „Transparent“ hat das Widget keinen Hintergrund, dein Hintergrundbild scheint durch; die Schrift richtet sich nach dem System.
+
+## Scriptable 1.1.1.3
+
+**Neu**
+- Farbschema „Transparent“ für alle drei Widgets: im Stundenplan-Script unter Einstellungen → Farbschema oder als Widget-Parameter „transparent“ (auch bei Mensa und Abfahrten). Das Widget hat dann keinen eigenen Hintergrund – richtig durchsichtig im iOS-Look „Klar“ bzw. „Getönt“.
+
 ## iOS 0.5.1.3
 
 **Neu**
