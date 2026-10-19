@@ -4,12 +4,11 @@
 - Erst bauen/veröffentlichen (Push, der einen Build auslöst), wenn der Nutzer es ausdrücklich sagt.
   Änderungen vorher nur vorbereiten (z. B. auf einem Arbeits-Branch) und hier unter „Vorgemerkt“ notieren.
 
-## Vorgemerkt (noch nicht gebaut)
-- Branch `wecker-fix`: Wecker nur vor der ersten Veranstaltung des Tages (iOS 0.5.2, Android 1.6.2, Scriptable 1.1.2).
-
 ## Versionsnummern
 - Kleinschrittig erhöhen: normale Änderungen und Fehlerbehebungen nur die letzte Ziffer
   (iOS 0.3.2 → 0.3.3, Android 1.4 → 1.4.1, Scriptable 1.0.0 → 1.0.1).
+- Hotfix (dringende Einzelkorrektur auf einer veröffentlichten Version): vierte Stelle anhängen bzw. erhöhen
+  (iOS 0.5.1 → 0.5.1.1, Android 1.6.1 → 1.6.1.1, Scriptable 1.1.1 → 1.1.1.1); versionCode trotzdem +1.
 - Die mittlere Ziffer nur bei wirklich größeren Updates (viele neue Funktionen auf einmal).
 - Versionen: iOS `ios-app/VERSION`, Android `app/build.gradle` (versionName + versionCode +1),
   Scriptable `scriptable/VERSION`.

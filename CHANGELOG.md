@@ -2,17 +2,17 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
-## iOS 0.5.2
+## iOS 0.5.1.1
 
 **Behoben**
 - Wecker klingelte vor jeder Vorlesung statt nur vor der ersten des Tages, sobald der Plan im Lauf des Tages neu berechnet wurde (z. B. beim Öffnen der App oder nach dem PULS-Abgleich). Jetzt gibt es pro Tag nur noch einen Wecker; hat die erste Veranstaltung schon begonnen, kommt der nächste erst am nächsten Morgen.
 
-## Android 1.6.2
+## Android 1.6.1.1
 
 **Behoben**
 - Wecker klingelte vor jeder Vorlesung statt nur vor der ersten des Tages, sobald der Plan im Lauf des Tages neu berechnet wurde (z. B. beim Öffnen der App oder nach dem PULS-Abgleich). Jetzt gibt es pro Tag nur noch einen Wecker; hat die erste Veranstaltung schon begonnen, kommt der nächste erst am nächsten Morgen.
 
-## Scriptable 1.1.2
+## Scriptable 1.1.1.1
 
 **Behoben**
 - Wecker klingelte vor jeder Vorlesung statt nur vor der ersten des Tages, sobald der Plan im Lauf des Tages neu berechnet wurde (z. B. beim Öffnen der App oder nach dem PULS-Abgleich). Jetzt gibt es pro Tag nur noch einen Wecker; hat die erste Veranstaltung schon begonnen, kommt der nächste erst am nächsten Morgen.

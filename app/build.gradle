@@ -11,7 +11,7 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 9
-        versionName '1.6.2'
+        versionName '1.6.1.1'
     }
 
     // Fester Signaturschlüssel, damit Updates über die vorhandene App installiert werden können.
