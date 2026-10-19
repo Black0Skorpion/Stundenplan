@@ -1,4 +1,26 @@
 import SwiftUI
+import WidgetKit
+
+// ───────────────────────── Farbflächen (auch im iOS-Look „Klar“/„Getönt“) ─────────────────────────
+
+/// Im Look „Klar“ bzw. „Getönt“ macht iOS alle Farben einfarbig hell – eine farbige Fläche mit weißer
+/// Schrift wäre dann weiß auf weiß. Dort wird die Fläche deshalb zu halbdurchsichtigem Glas.
+private struct FarbFlaeche<Form: Shape>: ViewModifier {
+    let form: Form
+    let farbe: Color
+    @Environment(\.widgetRenderingMode) private var modus
+
+    func body(content: Content) -> some View {
+        content.background(form.fill(modus == .fullColor ? farbe : Color.white.opacity(0.2)))
+    }
+}
+
+extension View {
+    /// Farbige Fläche als Hintergrund, die auch im Look „Klar“/„Getönt“ lesbar bleibt
+    func farbFlaeche<Form: Shape>(_ form: Form, _ farbe: Color) -> some View {
+        modifier(FarbFlaeche(form: form, farbe: farbe))
+    }
+}
 
 // ───────────────────────── Links ─────────────────────────
 
@@ -80,7 +102,7 @@ struct WochenRaster: View {
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: spaltenB - 4, height: 14)
-                                .background(Capsule().fill(Palette.heute))
+                                .farbFlaeche(Capsule(), Palette.heute)
                                 .frame(width: spaltenB, height: 14)
                         } else {
                             Text(label)
@@ -183,7 +205,7 @@ struct TerminBlock: View {
         .padding(.vertical, kurz ? 1 : 3)
         .frame(width: breite, height: hoehe, alignment: .topLeading)
         .strikethrough(termin.ausfall, color: .white)
-        .background(RoundedRectangle(cornerRadius: 5).fill(kurs.farbe))
+        .farbFlaeche(RoundedRectangle(cornerRadius: 5), kurs.farbe)
         .clipped()
         .opacity(termin.ausfall ? 0.35 : 1)
     }
@@ -266,7 +288,7 @@ struct TerminKarte: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(kurs.farbe))
+        .farbFlaeche(RoundedRectangle(cornerRadius: 12), kurs.farbe)
     }
 }
 

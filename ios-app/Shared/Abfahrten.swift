@@ -178,7 +178,7 @@ struct AbfahrtZeile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .frame(width: kompakt ? 32 : 38, height: kompakt ? 16 : 18)
-                .background(RoundedRectangle(cornerRadius: 4).fill(Abfahrten.farbe(a)))
+                .farbFlaeche(RoundedRectangle(cornerRadius: 4), Abfahrten.farbe(a))
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 3) {
                     if favorit {

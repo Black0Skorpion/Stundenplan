@@ -2,6 +2,11 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## iOS 0.5.1.5
+
+**Behoben**
+- Widgets im iOS-Look „Klar“ bzw. „Getönt“: Veranstaltungen im Wochenplan, die Karte zur nächsten Veranstaltung, die Markierung des heutigen Tages und die Linien-Schilder der Abfahrten waren weiße Flächen ohne lesbare Schrift. Sie erscheinen dort jetzt als halbdurchsichtiges Glas mit lesbarer Schrift.
+
 ## iOS 0.5.1.4
 
 **Neu**
