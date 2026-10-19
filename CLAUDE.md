@@ -4,6 +4,9 @@
 - Erst bauen/veröffentlichen (Push, der einen Build auslöst), wenn der Nutzer es ausdrücklich sagt.
   Änderungen vorher nur vorbereiten (z. B. auf einem Arbeits-Branch) und hier unter „Vorgemerkt“ notieren.
 
+## Vorgemerkt (noch nicht gebaut)
+- Branch `klar-modus`: iOS 0.5.1.5 – Widgets im Look „Klar“/„Getönt“ lesbar.
+
 ## Versionsnummern
 - Kleinschrittig erhöhen: normale Änderungen und Fehlerbehebungen nur die letzte Ziffer
   (iOS 0.3.2 → 0.3.3, Android 1.4 → 1.4.1, Scriptable 1.0.0 → 1.0.1).
