@@ -2,6 +2,27 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## iOS 0.5.1.3
+
+**Neu**
+- Zeiten von Veranstaltungen selbst festlegen: Termin antippen → „Ändern“ → „Zeit ändern …“. Gilt wahlweise nur für diesen einen Termin oder für alle Termine der Reihe (gleiche Veranstaltung, gleicher Wochentag, gleiche Uhrzeit) – auch für neue Termine nach dem PULS-Abgleich. Schnellwahl „Volle Stunde (s.t.)“ statt des automatischen c.t.
+- Wecker bleibt bei der ursprünglichen Zeit: Wird eine Veranstaltung nach hinten verschoben (z. B. 10:15 → 10:30), klingelt der Wecker trotzdem wie bisher – Züge fahren ja nicht später. Lässt sich pro Änderung abschalten; bei einer früheren Zeit richtet sich der Wecker immer nach der neuen.
+- Geänderte Termine zeigen die ursprüngliche Zeit; „Eigene Zeit entfernen“ bzw. „Änderungen zurücksetzen“ stellt sie wieder her. Erinnerungen, Widgets und „Nicht stören“ richten sich nach der neuen Zeit.
+
+## Android 1.6.1.2
+
+**Neu**
+- Zeiten von Veranstaltungen selbst festlegen: im Lageplan bzw. nach Tippen auf einen Termin „🕒 Zeit ändern“. Gilt wahlweise nur für diesen Termin oder für alle Termine der Reihe (gleiche Veranstaltung, gleicher Wochentag, gleiche Uhrzeit) – auch nach dem PULS-Abgleich. Schnellwahl „Volle Stunde (s.t.)“ statt des automatischen c.t.
+- Wecker bleibt bei der ursprünglichen Zeit: Wird eine Veranstaltung nach hinten verschoben (z. B. 10:15 → 10:30), klingelt der Wecker trotzdem wie bisher – Züge fahren ja nicht später. Lässt sich pro Änderung abschalten; bei einer früheren Zeit richtet sich der Wecker immer nach der neuen.
+- Geänderte Termine zeigen die ursprüngliche Zeit; „Eigene Zeit entfernen“ bzw. „Zurücksetzen“ stellt sie wieder her. Erinnerungen und Widgets richten sich nach der neuen Zeit.
+
+## Scriptable 1.1.1.2
+
+**Neu**
+- Zeiten von Veranstaltungen selbst festlegen: „Termin ändern“ (bzw. „Ändern“ im Lageplan) → „Zeit ändern …“. Gilt wahlweise nur für diesen Termin oder für alle Termine der Reihe – auch nach einem neuen Plan-Import. Schnellwahl „Volle Stunde (s.t.)“ statt des automatischen c.t. oder eigene Uhrzeit eingeben.
+- Wecker bleibt bei der ursprünglichen Zeit: Beginnt eine Veranstaltung später, fragt das Skript, ob der Wecker trotzdem wie bisher klingeln soll (Züge fahren ja nicht später). Bei einer früheren Zeit richtet er sich immer nach der neuen.
+- Geänderte Termine zeigen die ursprüngliche Zeit; „Eigene Zeit entfernen“ bzw. „Änderungen zurücksetzen“ stellt sie wieder her.
+
 ## iOS 0.5.1.2
 
 **Neu**

@@ -135,12 +135,19 @@ async function ladeTermine(profil) {
 async function ladeAlle(mitAusfaellen, profil) {
   const p = profil === undefined ? PROFIL : profil
   const aend = p ? {} : aenderungen()
+  const regeln = p ? {} : zeitRegeln()
   return (await ladeTermine(p))
     .map(viertelAnpassen)
     .map(t => {
+      // eigene Zeit für die ganze Reihe
+      const r = regeln[reihe(t)]
+      return r ? zeitSetzen(t, r.von, r.bis, r.weckerFest !== false) : t
+    })
+    .map(t => {
       const a = aend[schluessel(t)]
       if (!a) return t
-      const n = Object.assign({}, t)
+      let n = Object.assign({}, t)
+      if (a.von != null && a.bis != null) n = zeitSetzen(n, a.von, a.bis, a.weckerFest !== false)
       if (a.ausfall) n.ausfall = true
       if (a.raum && a.raum !== t.raum) { n.alterRaum = t.raum; n.raum = a.raum }
       return n
@@ -149,8 +156,27 @@ async function ladeAlle(mitAusfaellen, profil) {
     .sort((a, b) => a.start - b.start)
 }
 
+// Bleibt gleich, auch wenn Raum oder Zeit geändert werden
 function schluessel(t) {
-  return Math.floor(t.start.getTime() / 1000) + "|" + t.titel
+  return Math.floor((t.originalStart || t.start).getTime() / 1000) + "|" + t.titel
+}
+
+// Reihe: gleiche Veranstaltung, gleiche Art, gleicher Wochentag, gleiche (ursprüngliche) Uhrzeit
+function reihe(t) {
+  const o = t.originalStart || t.start
+  return t.titel + "|" + t.typ + "|" + o.getDay() + "|" + (o.getHours() * 60 + o.getMinutes())
+}
+
+// Termin auf eigene Uhrzeiten setzen (Minuten nach Mitternacht). weckerFest: wird der Beginn nach hinten
+// verschoben, richtet sich der Wecker weiter nach der ursprünglichen Zeit (Züge fahren nicht später).
+function zeitSetzen(t, von, bis, weckerFest) {
+  const n = Object.assign({}, t)
+  if (!n.originalStart) { n.originalStart = t.start; n.originalEnde = t.ende }
+  const tag = tagesBeginn(n.originalStart)
+  n.start = new Date(tag.getTime() + von * 60000)
+  n.ende = new Date(tag.getTime() + Math.max(bis, von + 5) * 60000)
+  n.weckStart = weckerFest && n.start > n.originalStart ? n.originalStart : null
+  return n
 }
 
 function icsDatum(wert, params) {
@@ -1026,7 +1052,7 @@ function aenderungen() {
 function aenderungSetzen(t, neu) {
   const alle = Object.assign({}, aenderungen())
   const k = schluessel(t)
-  if (!neu || (!neu.ausfall && !neu.raum)) delete alle[k]
+  if (!neu || (!neu.ausfall && !neu.raum && neu.von == null)) delete alle[k]
   else alle[k] = neu
   // Alte Einträge (über 30 Tage vergangen) aufräumen
   const grenze = Date.now() / 1000 - 30 * 86400
@@ -1036,19 +1062,158 @@ function aenderungSetzen(t, neu) {
   fm.writeString(pfad, JSON.stringify(alle, null, 2))
 }
 
-async function aendernMenue(t) {
+// ───── Eigene Zeiten für ganze Reihen (stundenplan-zeitregeln.json) ─────
+
+let _zeitRegeln = null
+function zeitRegelnDatei() {
+  const { fm } = aenderungsDatei()
+  return { fm, pfad: fm.joinPath(fm.documentsDirectory(), "stundenplan-zeitregeln.json") }
+}
+
+function zeitRegeln() {
+  if (_zeitRegeln) return _zeitRegeln
+  _zeitRegeln = {}
+  try {
+    const { fm, pfad } = zeitRegelnDatei()
+    if (fm.fileExists(pfad)) {
+      if (fm.isFileStoredIniCloud(pfad) && !fm.isFileDownloaded(pfad)) fm.downloadFileFromiCloud(pfad)
+      else _zeitRegeln = JSON.parse(fm.readString(pfad)) || {}
+    }
+  } catch (e) { _zeitRegeln = {} }
+  return _zeitRegeln
+}
+
+function zeitRegelSetzen(r, regel) {
+  const alle = Object.assign({}, zeitRegeln())
+  if (regel) alle[r] = regel
+  else delete alle[r]
+  _zeitRegeln = alle
+  const { fm, pfad } = zeitRegelnDatei()
+  fm.writeString(pfad, JSON.stringify(alle, null, 2))
+}
+
+function uhrText(m) { return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0") }
+function minutenVon(d) { return d.getHours() * 60 + d.getMinutes() }
+
+// „10:30“, „10.30“, „1030“ oder „10“ → Minuten nach Mitternacht (null = ungültig)
+function zeitLesen(s) {
+  const m = String(s || "").trim().match(/^(\d{1,2})(?:[:.,]?(\d{2}))?$/)
+  if (!m) return null
+  const h = Number(m[1]), mi = Number(m[2] || 0)
+  return h < 24 && mi < 60 ? h * 60 + mi : null
+}
+
+// Beginn/Ende selbst festlegen – nur dieser Termin oder die ganze Reihe
+async function zeitAendern(t, alle) {
+  const oStart = t.originalStart || t.start, oEnde = t.originalEnde || t.ende
+  const oVon = minutenVon(oStart), oBis = minutenVon(oEnde)
+  const r = reihe(t)
+  const anzahl = alle.filter(x => reihe(x) === r).length
+  const einzelnVorher = (aenderungen()[schluessel(t)] || {}).von != null
+
+  const u = new Alert()
+  u.title = "Zeit ändern – gilt für"
+  u.message = t.titel + "\nursprünglich " + uhrText(oVon) + "–" + uhrText(oBis)
+  u.addAction("Alle " + anzahl + " (jeden " + WOCHENTAGE_VOLL[oStart.getDay()] + " " + uhrText(oVon) + ")")
+  u.addAction("Nur diesen Termin (" + datumKurz(t.start) + ")")
+  if (t.originalStart) u.addDestructiveAction("Eigene Zeit entfernen")
+  u.addCancelAction("Abbrechen")
+  const ui = await u.presentSheet()
+  if (ui < 0) return false
+  if (ui === 2) {
+    zeitRegelSetzen(r, null)
+    const a = Object.assign({}, aenderungen()[schluessel(t)] || {})
+    delete a.von; delete a.bis; delete a.weckerFest
+    aenderungSetzen(t, a)
+    return true
+  }
+  const nurDieser = ui === 1
+
+  const z = new Alert()
+  z.title = "Neue Zeit"
+  z.message = "Erinnerungen und Widgets richten sich nach der neuen Zeit."
+  const optionen = []
+  if (oVon % 60 === 15) optionen.push(["Volle Stunde (s.t.): " + uhrText(oVon - 15) + "–" + uhrText(oBis + 15), oVon - 15, oBis + 15])
+  optionen.push(["Wie bisher (c.t.): " + uhrText(oVon) + "–" + uhrText(oBis), oVon, oBis])
+  optionen.forEach(o => z.addAction(o[0]))
+  z.addAction("Eigene Zeit eingeben …")
+  z.addCancelAction("Abbrechen")
+  const zi = await z.presentSheet()
+  if (zi < 0) return false
+  let von, bis
+  if (zi < optionen.length) {
+    von = optionen[zi][1]; bis = optionen[zi][2]
+  } else {
+    const e = new Alert()
+    e.title = "Eigene Zeit"
+    e.message = "Uhrzeit z. B. als 10:30"
+    e.addTextField("Beginn", uhrText(minutenVon(t.start)))
+    e.addTextField("Ende", uhrText(minutenVon(t.ende)))
+    e.addAction("Weiter")
+    e.addCancelAction("Abbrechen")
+    if (await e.presentAlert() < 0) return false
+    von = zeitLesen(e.textFieldValue(0)); bis = zeitLesen(e.textFieldValue(1))
+    if (von == null || bis == null || bis <= von) {
+      await hinweisZeigen("Ungültige Zeit", "Bitte Beginn und Ende als Uhrzeit eingeben, das Ende nach dem Beginn.")
+      return false
+    }
+  }
+
+  // Später als ursprünglich? Dann fragen, wonach sich der Wecker richtet
+  let weckerFest = true
+  if (von > oVon) {
+    const w = new Alert()
+    w.title = "Wecker"
+    w.message = "Die Veranstaltung beginnt später. Züge fahren aber nicht später – soll der Wecker trotzdem wie bisher klingeln?"
+    w.addAction("Wecker bleibt bei " + uhrText(oVon) + " (wie bisher)")
+    w.addAction("Wecker nach neuer Zeit (" + uhrText(von) + ")")
+    w.addCancelAction("Abbrechen")
+    const wi = await w.presentSheet()
+    if (wi < 0) return false
+    weckerFest = wi === 0
+  }
+
+  const wieOriginal = von === oVon && bis === oBis
+  const a = Object.assign({}, aenderungen()[schluessel(t)] || {})
+  if (nurDieser) {
+    if (wieOriginal && !zeitRegeln()[r]) { delete a.von; delete a.bis; delete a.weckerFest }
+    else { a.von = von; a.bis = bis; if (weckerFest) delete a.weckerFest; else a.weckerFest = false }
+  } else {
+    zeitRegelSetzen(r, wieOriginal ? null : (weckerFest ? { von, bis } : { von, bis, weckerFest: false }))
+    delete a.von; delete a.bis; delete a.weckerFest
+  }
+  aenderungSetzen(t, a)
+  if (!nurDieser && einzelnVorher) await hinweisZeigen("Gespeichert", "Gilt jetzt für die ganze Reihe; die Einzel-Zeit dieses Termins wurde dabei aufgehoben.")
+  return true
+}
+
+async function hinweisZeigen(titel, text) {
+  const h = new Alert()
+  h.title = titel
+  h.message = text
+  h.addCancelAction("OK")
+  await h.presentAlert()
+}
+
+async function aendernMenue(t, alle) {
   const a = new Alert()
   a.title = kursInfo(t.titel).kurz + " · " + datumKurz(t.start) + " " + uhrzeit(t.start)
   a.message = t.titel + "\n" + t.raum + (t.alterRaum ? " (ursprünglich " + t.alterRaum + ")" : "") + (t.ausfall ? "\nFällt aus" : "")
+    + (t.originalStart ? "\nEigene Zeit, ursprünglich " + uhrzeit(t.originalStart) + "–" + uhrzeit(t.originalEnde) : "")
   a.addAction(t.ausfall ? "Findet doch statt" : "Fällt aus")
   a.addAction("Raum ändern …")
-  if (t.ausfall || t.alterRaum) a.addDestructiveAction("Änderungen zurücksetzen")
+  a.addAction("Zeit ändern …")
+  if (t.ausfall || t.alterRaum || (aenderungen()[schluessel(t)] || {}).von != null) a.addDestructiveAction("Änderungen zurücksetzen")
   a.addCancelAction("Abbrechen")
   const i = await a.presentSheet()
   if (i < 0) return false
   const eigenerRaum = t.alterRaum ? t.raum : undefined
+  // eine eigene Zeit des Termins bleibt erhalten
+  const bisher = aenderungen()[schluessel(t)] || {}
+  const zeitTeil = bisher.von != null ? { von: bisher.von, bis: bisher.bis, weckerFest: bisher.weckerFest } : {}
+  if (i === 2) return await zeitAendern(t, alle || await ladeAlle(true))
   if (i === 0) {
-    aenderungSetzen(t, { ausfall: !t.ausfall, raum: eigenerRaum })
+    aenderungSetzen(t, Object.assign({ ausfall: !t.ausfall, raum: eigenerRaum }, zeitTeil))
   } else if (i === 1) {
     const r = new Alert()
     r.title = "Raum ändern"
@@ -1059,7 +1224,7 @@ async function aendernMenue(t) {
     if (await r.presentAlert() < 0) return false
     const neu = r.textFieldValue(0).trim()
     const original = t.alterRaum || t.raum
-    aenderungSetzen(t, { ausfall: !!t.ausfall, raum: neu && neu !== original ? neu : undefined })
+    aenderungSetzen(t, Object.assign({ ausfall: !!t.ausfall, raum: neu && neu !== original ? neu : undefined }, zeitTeil))
   } else {
     aenderungSetzen(t, null)
   }
@@ -1091,7 +1256,7 @@ async function terminAendernMenue() {
   ea.addCancelAction("Abbrechen")
   const ei = await ea.presentSheet()
   if (ei < 0) return
-  if (await aendernMenue(ts[ei])) await erinnerungenPlanen(true)
+  if (await aendernMenue(ts[ei], alle)) await erinnerungenPlanen(true)
 }
 
 // ───────────────────────── Erinnerungen ─────────────────────────
@@ -1134,16 +1299,18 @@ function weckzeiten(alle, vorlauf, fruehestens, jetzt) {
   const bis = jetzt.getTime() + 14 * 86400000
   const tage = new Set()
   const aus = []
-  for (const t of alle) {
+  // Bei nach hinten verschobenen Terminen ggf. die ursprüngliche Zeit (Züge fahren nicht später)
+  const beginn = t => t.weckStart || t.start
+  for (const t of alle.slice().sort((a, b) => beginn(a) - beginn(b))) {
     // ab Tagesbeginn zählen, damit eine schon laufende erste Veranstaltung den Tag „belegt“
-    if (t.ausfall || t.start < tagesBeginn(jetzt) || t.start.getTime() > bis) continue
-    const tag = tagesBeginn(t.start).getTime()
+    if (t.ausfall || beginn(t) < tagesBeginn(jetzt) || beginn(t).getTime() > bis) continue
+    const tag = tagesBeginn(beginn(t)).getTime()
     if (tage.has(tag)) continue
     tage.add(tag)
-    let wann = t.start.getTime() - vorlauf * 60000
+    let wann = beginn(t).getTime() - vorlauf * 60000
     if (fruehestens) {
       const grenze = tag + fruehestens * 60000
-      if (wann < grenze) wann = Math.min(grenze, t.start.getTime() - 15 * 60000)
+      if (wann < grenze) wann = Math.min(grenze, beginn(t).getTime() - 15 * 60000)
     }
     if (wann > jetzt.getTime()) aus.push({ wann: new Date(wann), t })
   }
@@ -2283,9 +2450,12 @@ if (config.runsInWidget) {
   // „Ändern“ im Lageplan
   const alle = await ladeAlle(true)
   const t = alle.find(x => x.start.getTime() === Number(aufruf.aendern))
-  if (t && await aendernMenue(t)) {
+  if (t && await aendernMenue(t, alle)) {
     await erinnerungenPlanen(true)
-    await zeigeLageplan(await ladeAlle(true), { termin: aufruf.aendern })
+    // Zeit evtl. geändert: Termin über den gleichbleibenden Schlüssel wiederfinden
+    const neu = await ladeAlle(true)
+    const t2 = neu.find(x => schluessel(x) === schluessel(t))
+    await zeigeLageplan(neu, { termin: String((t2 || t).start.getTime()) })
   }
 } else if (aufruf.termin || aufruf.tag) {
   // Aus einem Widget oder einer Erinnerung heraus geöffnet: Lageplan zeigen
@@ -2299,7 +2469,7 @@ if (config.runsInWidget) {
   start.addAction("Widget-Vorschau")
   start.addAction("Einstellungen")
   start.addAction("Lageplan für heute")
-  start.addAction("Termin ändern (fällt aus / Raum)")
+  start.addAction("Termin ändern (fällt aus / Raum / Zeit)")
   start.addAction("Im Planer öffnen")
   start.addAction("Stundenplan-Datei wählen (.ics)")
   start.addAction("Meinen Plan teilen (.ics)")

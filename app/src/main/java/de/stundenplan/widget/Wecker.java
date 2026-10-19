@@ -55,19 +55,24 @@ public final class Wecker {
     static long[] naechste(List<Termin> termine, int vorlauf, int fruehestens, long jetzt) {
         long bis = jetzt + 14 * 86400_000L;
         long letzterTag = -1;
-        for (Termin t : termine) {            // sortiert, ohne ausgefallene
+        // Nach dem Beginn sortieren, nach dem sich der Wecker richtet (bei nach hinten verschobenen
+        // Veranstaltungen ggf. die ursprüngliche Zeit – Züge fahren nicht später)
+        List<Termin> liste = new java.util.ArrayList<>(termine);
+        java.util.Collections.sort(liste, (a, b) -> Long.compare(a.weckBeginn(), b.weckBeginn()));
+        for (Termin t : liste) {
+            long beginn = t.weckBeginn();
             // ab Tagesbeginn zählen, damit eine schon laufende erste Veranstaltung den Tag „belegt“
-            if (t.ausfall || t.start < MensaDaten.tagesBeginn(jetzt) || t.start > bis) continue;
-            long tag = MensaDaten.tagesBeginn(t.start);
+            if (t.ausfall || beginn < MensaDaten.tagesBeginn(jetzt) || beginn > bis) continue;
+            long tag = MensaDaten.tagesBeginn(beginn);
             if (tag == letzterTag) continue;  // nur die erste Veranstaltung des Tages
             letzterTag = tag;
-            long wann = t.start - vorlauf * 60_000L;
+            long wann = beginn - vorlauf * 60_000L;
             if (fruehestens > 0) {
                 Calendar c = Calendar.getInstance();
                 c.setTimeInMillis(tag);
                 c.add(Calendar.MINUTE, fruehestens);
                 long grenze = c.getTimeInMillis();
-                if (wann < grenze) wann = Math.min(grenze, t.start - 15 * 60_000L);
+                if (wann < grenze) wann = Math.min(grenze, beginn - 15 * 60_000L);
             }
             if (wann > jetzt + 5_000) return new long[]{wann, t.start};
         }

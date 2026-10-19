@@ -17,7 +17,8 @@
 ## Android
 - Seit 1.5 auf dem Stand von iOS 0.5.0 (Modulwahl, Teilen/Profile, Wecker, Live Update). Neue iOS-Funktionen
   dort nachziehen, wenn der Nutzer es möchte. Auf Arbeits-Branches prüft der Workflow „Android prüfen (Branch)“
-  den Build (ohne Release); APK-Releases nur von main.
+  den Build (ohne Release); APK-Releases nur von main. iOS genauso: „iOS-App bauen“ per workflow_dispatch auf einem
+  Arbeits-Branch prüft nur den Build, Release nur von main.
 - Parser-Test Java: Workflow „PULS-Test (Java)“ (app/test/PulsTest.java), Ergebnis im Branch daten-java.
 
 ## Releases

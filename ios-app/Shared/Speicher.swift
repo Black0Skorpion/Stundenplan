@@ -76,11 +76,18 @@ enum Speicher {
     /// Ausgefallene Termine sind nur mit `mitAusfaellen` dabei (für die Anzeige in der App).
     static func termine(mitAusfaellen: Bool = false) -> [Termin] {
         let aenderungen = self.aenderungen()
-        // Eigene Termine (Plus im Plan) mit genau den eingegebenen Zeiten, ohne akademisches Viertel
+        let regeln = zeitRegeln()
+        // Veranstaltungen mit akademischem Viertel, eigene Termine (Plus im Plan) mit genau den eingegebenen Zeiten.
+        // Danach von Hand festgelegte Zeiten: erst für die ganze Reihe, dann für einzelne Termine.
         return (rohTermine().map(Plan.viertelAnpassen) + EigeneTermine.termine())
+            .map { t -> Termin in
+                guard let r = regeln[t.reihe] else { return t }
+                return Plan.zeitSetzen(t, von: r.von, bis: r.bis, weckerFest: r.weckerFest ?? true)
+            }
             .map { t -> Termin in
                 guard let a = aenderungen[t.schluessel] else { return t }
                 var n = t
+                if let von = a.von, let bis = a.bis { n = Plan.zeitSetzen(n, von: von, bis: bis, weckerFest: a.weckerFest ?? true) }
                 n.ausfall = a.ausfall
                 if let r = a.raum, !r.isEmpty, r != t.raum {
                     n.alterRaum = t.raum
@@ -97,7 +104,30 @@ enum Speicher {
     struct Aenderung: Codable {
         var ausfall: Bool = false
         var raum: String? = nil
-        var leer: Bool { !ausfall && (raum ?? "").isEmpty }
+        /// Eigene Zeit nur für diesen Termin (Minuten nach Mitternacht)
+        var von: Int? = nil
+        var bis: Int? = nil
+        /// Wecker bleibt bei der ursprünglichen Zeit, wenn der Beginn nach hinten verschoben ist (Standard: ja)
+        var weckerFest: Bool? = nil
+        var leer: Bool { !ausfall && (raum ?? "").isEmpty && von == nil }
+    }
+
+    /// Eigene Zeiten für eine ganze Reihe (Termin.reihe → Minuten nach Mitternacht)
+    struct ZeitRegel: Codable, Equatable {
+        var von: Int
+        var bis: Int
+        var weckerFest: Bool? = nil
+    }
+
+    static func zeitRegeln() -> [String: ZeitRegel] {
+        lesen([String: ZeitRegel].self, "zeitregeln.json") ?? [:]
+    }
+
+    static func setzeZeitRegel(_ reihe: String, _ regel: ZeitRegel?) {
+        var alle = zeitRegeln()
+        alle[reihe] = regel
+        schreiben(alle, "zeitregeln.json")
+        widgetsNeuLaden()
     }
 
     static func aenderungen() -> [String: Aenderung] {

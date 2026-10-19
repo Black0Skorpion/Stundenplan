@@ -174,8 +174,10 @@ class LageplanAnsicht extends FrameLayout {
             Aenderungen.setzen(act, t, !t.ausfall, Aenderungen.eigenerRaum(t));
             anzeigen();
         } else if ("zuruecksetzen".equals(was)) {
-            Aenderungen.setzen(act, t, false, null);
+            Aenderungen.zuruecksetzen(act, t);
             anzeigen();
+        } else if ("zeit".equals(was)) {
+            zeitDialog(t);
         } else if ("raum".equals(was)) {
             EditText feld = new EditText(act);
             feld.setSingleLine(true);
@@ -196,4 +198,122 @@ class LageplanAnsicht extends FrameLayout {
         }
     }
 
+    // ───── Zeit ändern (nur dieser Termin oder ganze Reihe) ─────
+
+    private static String uhr(int m) { return String.format(java.util.Locale.GERMANY, "%d:%02d", m / 60, m % 60); }
+
+    private static int minuten(long ms) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.setTimeInMillis(ms);
+        return c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE);
+    }
+
+    private void zeitDialog(Termin t) {
+        final long oStart = t.originalStart != 0 ? t.originalStart : t.start;
+        final long oEnde = t.originalEnde != 0 ? t.originalEnde : t.ende;
+        final int[] zeit = {minuten(t.start), minuten(t.ende)};
+        final int oVon = minuten(oStart), oBis = minuten(oEnde);
+        Aenderungen.Eintrag eintrag = Aenderungen.eintrag(act, t);
+        boolean einzeln = eintrag.von >= 0;
+        int anzahl = 0;
+        for (Termin x : Daten.laden(act, true)) if (x.reihe().equals(t.reihe())) anzahl++;
+        String[] tage = {"", "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"};
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.setTimeInMillis(oStart);
+        String reiheText = "jeden " + tage[c.get(java.util.Calendar.DAY_OF_WEEK)] + " " + uhr(oVon);
+
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        android.widget.LinearLayout box = new android.widget.LinearLayout(act);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setPadding(pad, pad / 2, pad, 0);
+        android.widget.TextView info = new android.widget.TextView(act);
+        info.setText(Lageplan.datumKurz(t.start) + " · ursprünglich " + uhr(oVon) + "–" + uhr(oBis));
+        box.addView(info);
+
+        android.widget.RadioGroup umfang = new android.widget.RadioGroup(act);
+        android.widget.RadioButton nurDieser = new android.widget.RadioButton(act);
+        nurDieser.setId(android.view.View.generateViewId());
+        nurDieser.setText("Nur diesen Termin");
+        android.widget.RadioButton alle = new android.widget.RadioButton(act);
+        alle.setId(android.view.View.generateViewId());
+        alle.setText("Alle " + anzahl + " (" + reiheText + ")");
+        umfang.addView(nurDieser);
+        umfang.addView(alle);
+        umfang.check(einzeln ? nurDieser.getId() : alle.getId());
+        box.addView(umfang);
+
+        android.widget.Button beginn = new android.widget.Button(act);
+        android.widget.Button ende = new android.widget.Button(act);
+        Runnable beschriften = () -> {
+            beginn.setText("Beginn " + uhr(zeit[0]));
+            ende.setText("Ende " + uhr(zeit[1]));
+        };
+        beschriften.run();
+        beginn.setOnClickListener(v -> new android.app.TimePickerDialog(act, (tp, h, m) -> {
+            zeit[0] = h * 60 + m;
+            beschriften.run();
+        }, zeit[0] / 60, zeit[0] % 60, true).show());
+        ende.setOnClickListener(v -> new android.app.TimePickerDialog(act, (tp, h, m) -> {
+            zeit[1] = h * 60 + m;
+            beschriften.run();
+        }, zeit[1] / 60, zeit[1] % 60, true).show());
+        android.widget.LinearLayout zeile = new android.widget.LinearLayout(act);
+        zeile.addView(beginn, new android.widget.LinearLayout.LayoutParams(0, -2, 1));
+        zeile.addView(ende, new android.widget.LinearLayout.LayoutParams(0, -2, 1));
+        box.addView(zeile);
+
+        android.widget.LinearLayout schnell = new android.widget.LinearLayout(act);
+        if (oVon % 60 == 15) {
+            android.widget.Button st = new android.widget.Button(act);
+            st.setText("Volle Stunde (s.t.)");
+            st.setAllCaps(false);
+            st.setOnClickListener(v -> { zeit[0] = oVon - 15; zeit[1] = oBis + 15; beschriften.run(); });
+            schnell.addView(st, new android.widget.LinearLayout.LayoutParams(0, -2, 1));
+        }
+        android.widget.Button wieBisher = new android.widget.Button(act);
+        wieBisher.setText("Wie bisher (c.t.)");
+        wieBisher.setAllCaps(false);
+        wieBisher.setOnClickListener(v -> { zeit[0] = oVon; zeit[1] = oBis; beschriften.run(); });
+        schnell.addView(wieBisher, new android.widget.LinearLayout.LayoutParams(0, -2, 1));
+        box.addView(schnell);
+
+        android.widget.CheckBox weckerFest = new android.widget.CheckBox(act);
+        weckerFest.setText("Wecker bleibt bei der ursprünglichen Zeit");
+        weckerFest.setChecked(einzeln ? eintrag.weckerFest : Aenderungen.reiheWeckerFest(act, t));
+        box.addView(weckerFest);
+        android.widget.TextView hilfe = new android.widget.TextView(act);
+        hilfe.setTextSize(12);
+        hilfe.setText("Wird die Veranstaltung nach hinten verschoben, klingelt der Wecker trotzdem wie bisher – Züge fahren ja nicht später. "
+                + "Bei einer früheren Zeit richtet er sich immer nach der neuen. Erinnerungen und Widgets nehmen die neue Zeit.");
+        box.addView(hilfe);
+
+        android.widget.ScrollView rollen = new android.widget.ScrollView(act);
+        rollen.addView(box);
+        AlertDialog.Builder b = new AlertDialog.Builder(act)
+                .setTitle("Zeit ändern · " + t.titel)
+                .setView(rollen)
+                .setPositiveButton("Sichern", (d, w) -> {
+                    if (zeit[1] <= zeit[0]) {
+                        android.widget.Toast.makeText(act, "Das Ende muss nach dem Beginn liegen.", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    boolean wieOriginal = zeit[0] == oVon && zeit[1] == oBis;
+                    boolean fest = weckerFest.isChecked();
+                    if (umfang.getCheckedRadioButtonId() == nurDieser.getId()) {
+                        boolean festhalten = !wieOriginal || Aenderungen.hatReihe(act, t);
+                        Aenderungen.zeitEinzeln(act, t, festhalten ? zeit[0] : -1, zeit[1], fest);
+                    } else {
+                        Aenderungen.zeitReihe(act, t, wieOriginal ? -1 : zeit[0], zeit[1], fest);
+                    }
+                    anzeigen();
+                })
+                .setNegativeButton("Abbrechen", null);
+        if (t.zeitGeaendert()) {
+            b.setNeutralButton("Eigene Zeit entfernen", (d, w) -> {
+                Aenderungen.zeitReihe(act, t, -1, 0, true);
+                anzeigen();
+            });
+        }
+        b.show();
+    }
 }

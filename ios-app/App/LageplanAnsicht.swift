@@ -27,6 +27,7 @@ struct LageplanAnsicht: View {
     @State private var gewaehlterCampus: Campus?
     @State private var raumAendern: Termin?
     @State private var neuerRaum = ""
+    @State private var zeitAendern: Termin?
 
     /// Aktueller Stand der Termine (inkl. eigener Änderungen)
     private var termine: [Termin] {
@@ -99,6 +100,10 @@ struct LageplanAnsicht: View {
                 }
             }
         }
+        .sheet(item: $zeitAendern) { t in
+            NavigationStack { ZeitAendernAnsicht(termin: t) }
+                .environmentObject(zustand)
+        }
         .fullScreenCover(item: $vollbild) { campus in
             ZoomPlan(campus: campus, markierungen: Lageplan.markierungen(termine.filter { !$0.ausfall }, campus: campus,
                                                                         nummern: termine.filter { !$0.ausfall }.count > 1)) { vollbild = nil }
@@ -154,6 +159,9 @@ struct LageplanAnsicht: View {
             if let alt = t.alterRaum {
                 Text("Geändert, ursprünglich \(alt)").font(.footnote).opacity(0.85)
             }
+            if let o = t.originalStart, let oe = t.originalEnde, o != t.start || oe != t.ende {
+                Text("Eigene Zeit, ursprünglich \(Zeit.uhrzeit(o))–\(Zeit.uhrzeit(oe))").font(.footnote).opacity(0.85)
+            }
             if let e = Lageplan.einrichtungText(t.raum) {
                 Text(e).font(.footnote).opacity(0.85)
             }
@@ -172,7 +180,10 @@ struct LageplanAnsicht: View {
                         neuerRaum = t.raum
                         raumAendern = t
                     }
-                    if t.ausfall || t.alterRaum != nil {
+                    Button("Zeit ändern …", systemImage: "clock") {
+                        zeitAendern = t
+                    }
+                    if t.ausfall || t.alterRaum != nil || Speicher.aenderungen()[t.schluessel]?.von != nil {
                         Button("Änderungen zurücksetzen", systemImage: "arrow.counterclockwise") {
                             zustand.aendere(t) { $0 = Speicher.Aenderung() }
                         }
