@@ -272,6 +272,12 @@ final class EinstellungenSeite implements MainActivity.Seite {
         inhalt.addView(ui.fuss("Stehen in den Abfahrten oben und im Widget immer mit drin. Geht auch direkt in den Abfahrten: Linie gedrückt halten."));
 
         // ───── Info ─────
+        inhalt.addView(ui.abschnitt("Widgets"));
+        g = ui.gruppe();
+        ui.fuellen(g, auswahl("Farbschema", WidgetThema.NAMEN, WidgetThema.wahl(act), i -> WidgetThema.setzen(act, i)));
+        inhalt.addView(g);
+        inhalt.addView(ui.fuss("Gilt für alle Widgets (Stundenplan, Mensa, Abfahrten). „Transparent“: ohne Hintergrund, das Hintergrundbild scheint durch; die Schrift richtet sich nach dem System (hell/dunkel)."));
+
         inhalt.addView(ui.abschnitt("Info"));
         g = ui.gruppe();
         String version = "–";

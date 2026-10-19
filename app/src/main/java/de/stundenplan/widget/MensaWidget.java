@@ -105,8 +105,7 @@ public abstract class MensaWidget extends AppWidgetProvider {
         MensaDaten.Plan plan = a.tag.geschlossen ? null : MensaDaten.ladePlan(ctx, a.tag.datum, netz);
 
         float[] g = StundenplanWidget.groesse(ctx, mgr, id, modus);
-        boolean dunkel = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
-                == Configuration.UI_MODE_NIGHT_YES;
+        boolean dunkel = WidgetThema.dunkel(ctx);
         float skala = Math.min(ctx.getResources().getDisplayMetrics().density,
                 (float) Math.sqrt(2_500_000.0 / (g[0] * g[1])));
 
@@ -114,6 +113,7 @@ public abstract class MensaWidget extends AppWidgetProvider {
             try {
                 Bitmap bild = MensaZeichner.zeichnen(modus, g[0], g[1], skala, dunkel, jetzt, a, plan);
                 RemoteViews rv = new RemoteViews(ctx.getPackageName(), layout);
+                WidgetThema.hintergrund(ctx, rv);
                 rv.setImageViewBitmap(R.id.bild, bild);
                 // Tippen öffnet den Mensa-Reiter der App
                 Intent web = new Intent(ctx, MainActivity.class).putExtra(MainActivity.EXTRA_REITER, MainActivity.MENSA)

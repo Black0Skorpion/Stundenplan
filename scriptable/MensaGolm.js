@@ -12,6 +12,7 @@
 //   +1, +2, +3 …      1., 2., 3. … Öffnungstag nach dem automatisch gewählten Tag
 //   mo, di, mi, do, fr  dieser Wochentag (ist er schon vorbei: nächste Woche)
 //   hell / dunkel     festes Farbschema (kombinierbar, z. B. "+1 dunkel")
+//   transparent       ohne Hintergrund (durchsichtig im iOS-Look „Klar“)
 //   golm / palais / griebnitzsee  feste Mensa (sonst die Campus-Einstellung des Stundenplan-Scripts;
 //                     „Automatisch“ = Campus der laufenden bzw. nächsten Veranstaltung)
 //
@@ -55,7 +56,7 @@ const CONFIG = {
   PREISGRUPPE: "students",       // "students", "employees" oder "others"
   UMSCHALTEN_UM: 15,             // ab dieser Stunde zeigt "leer" schon den nächsten Tag
   ABEND_ANZEIGEN: true,          // Abendangebote anzeigen (nur wenn sie sich vom Mittag unterscheiden)
-  THEMA: "auto",                 // "auto" | "hell" | "dunkel"
+  THEMA: "auto",                 // "auto" | "hell" | "dunkel" | "transparent"
   TAP_URL: "https://openmensa.org/c/" + MENSA.id, // beim Tippen öffnen ("" = Scriptable öffnen)
 }
 
@@ -202,6 +203,7 @@ function parameterLesen() {
   const p = { thema: null, modus: "auto", wert: 0 }
   for (const t of teile) {
     if (t === "hell" || t === "dunkel") p.thema = t
+    else if (t === "transparent" || t === "durchsichtig") p.thema = "transparent"
     else if (t === "heute") p.modus = "heute"
     else if (t === "morgen") p.modus = "morgen"
     else if (/^\+?\d+$/.test(t)) { p.modus = "auto"; p.wert = Number(t.replace("+", "")) }
@@ -246,7 +248,8 @@ function themenFarben(p) {
     return { bg: new Color(f.bg), vorder: new Color(f.text), gedimmt: new Color(f.gedimmt), akzent: new Color(f.akzent) }
   }
   const dyn = k => Color.dynamic(new Color(FARBEN.hell[k]), new Color(FARBEN.dunkel[k]))
-  return { bg: dyn("bg"), vorder: dyn("text"), gedimmt: dyn("gedimmt"), akzent: dyn("akzent") }
+  // „transparent“: kein eigener Hintergrund (richtig durchsichtig im iOS-Look „Klar“/„Getönt“)
+  return { bg: thema === "transparent" ? Color.clear() : dyn("bg"), vorder: dyn("text"), gedimmt: dyn("gedimmt"), akzent: dyn("akzent") }
 }
 
 function textHinzu(stack, inhalt, font, farbe, optionen) {

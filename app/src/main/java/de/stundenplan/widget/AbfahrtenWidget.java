@@ -55,8 +55,7 @@ public class AbfahrtenWidget extends AppWidgetProvider {
         String campus = Campus.aktuell(ctx);
         List<String> favoriten = Campus.favoriten(ctx);
         List<AbfahrtenDaten.Abfahrt> liste = AbfahrtenDaten.laden(ctx, campus, laden);
-        boolean dunkel = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
-                == Configuration.UI_MODE_NIGHT_YES;
+        boolean dunkel = WidgetThema.dunkel(ctx);
         long jetzt = System.currentTimeMillis();
         Intent app = new Intent(ctx, MainActivity.class).putExtra(MainActivity.EXTRA_REITER, MainActivity.ABFAHRTEN)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -69,6 +68,7 @@ public class AbfahrtenWidget extends AppWidgetProvider {
                 try {
                     Bitmap bild = AbfahrtenZeichner.zeichnen(g[0], g[1], skala, dunkel, jetzt, liste, campus, favoriten);
                     RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_abfahrten);
+                WidgetThema.hintergrund(ctx, rv);
                     rv.setImageViewBitmap(R.id.bild, bild);
                     rv.setOnClickPendingIntent(R.id.wurzel, oeffnen);
                     mgr.updateAppWidget(id, rv);
