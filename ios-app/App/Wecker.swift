@@ -46,7 +46,10 @@ enum Wecker {
     static func zeiten(_ termine: [Termin], _ e: Speicher.Einstellungen, jetzt: Date = Date()) -> [Weckzeit] {
         let bis = jetzt.addingTimeInterval(TimeInterval(tage * 86400))
         var erste: [Date: Termin] = [:]
-        for t in termine where !t.ausfall && t.start > jetzt && t.start < bis {
+        // Ab Tagesbeginn zählen: hat die erste Veranstaltung heute schon begonnen, gibt es heute keinen Wecker mehr
+        // (sonst würde vor jeder weiteren Veranstaltung des Tages geweckt)
+        let heute = Zeit.tagesBeginn(jetzt)
+        for t in termine where !t.ausfall && t.start >= heute && t.start < bis {
             let tag = Zeit.tagesBeginn(t.start)
             if let alt = erste[tag], alt.start <= t.start { continue }
             erste[tag] = t

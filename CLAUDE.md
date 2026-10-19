@@ -7,6 +7,8 @@
 ## Versionsnummern
 - Kleinschrittig erhöhen: normale Änderungen und Fehlerbehebungen nur die letzte Ziffer
   (iOS 0.3.2 → 0.3.3, Android 1.4 → 1.4.1, Scriptable 1.0.0 → 1.0.1).
+- Hotfix (dringende Einzelkorrektur auf einer veröffentlichten Version): vierte Stelle anhängen bzw. erhöhen
+  (iOS 0.5.1 → 0.5.1.1, Android 1.6.1 → 1.6.1.1, Scriptable 1.1.1 → 1.1.1.1); versionCode trotzdem +1.
 - Die mittlere Ziffer nur bei wirklich größeren Updates (viele neue Funktionen auf einmal).
 - Versionen: iOS `ios-app/VERSION`, Android `app/build.gradle` (versionName + versionCode +1),
   Scriptable `scriptable/VERSION`.
