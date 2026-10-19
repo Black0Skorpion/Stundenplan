@@ -379,13 +379,16 @@ public final class Lageplan {
                     .append("<div class=\"titel\">").append(schutz(t.titel)).append("</div>")
                     .append("<div class=\"ort\">").append(ort).append("</div>")
                     .append(t.alterRaum != null ? "<div class=\"einr\">Geändert, ursprünglich " + schutz(t.alterRaum) + "</div>" : "")
+                    .append(t.zeitGeaendert() && (t.originalStart != t.start || t.originalEnde != t.ende)
+                            ? "<div class=\"einr\">Eigene Zeit, ursprünglich " + uhrzeit(t.originalStart) + "–" + uhrzeit(t.originalEnde) + "</div>" : "")
                     .append(einr.isEmpty() ? "" : "<div class=\"einr\">" + einr + "</div>")
                     .append("<div class=\"knoepfe\">")
                     .append(route != null ? "<a class=\"k\" href=\"" + schutz(route) + "\">🚶 Route</a>" : "")
                     .append("<a class=\"k\" href=\"aktion://ausfall/").append(i).append("\">")
                     .append(t.ausfall ? "↩ Findet statt" : "✕ Fällt aus").append("</a>")
                     .append("<a class=\"k\" href=\"aktion://raum/").append(i).append("\">✎ Raum ändern</a>")
-                    .append(t.ausfall || t.alterRaum != null ? "<a class=\"k\" href=\"aktion://zuruecksetzen/" + i + "\">⟲ Zurücksetzen</a>" : "")
+                    .append("<a class=\"k\" href=\"aktion://zeit/").append(i).append("\">🕒 Zeit ändern</a>")
+                    .append(t.ausfall || t.alterRaum != null || t.zeitGeaendert() ? "<a class=\"k\" href=\"aktion://zuruecksetzen/" + i + "\">⟲ Zurücksetzen</a>" : "")
                     .append("</div></div>");
         }
         StringBuilder bilder = new StringBuilder();
