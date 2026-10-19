@@ -167,6 +167,10 @@ enum Speicher {
         var weckerSchlummern: Int = 9
         /// Kurze Einführung schon gesehen/übersprungen
         var einfuehrungGesehen: Bool = false
+        /// Nicht stören (Fokus) in Veranstaltungen – über eine Kurzbefehl-Automation
+        var fokus: Bool = false
+        /// Minuten vor Beginn einschalten
+        var fokusVorlauf: Int = 0
 
         init() {}
 
@@ -187,6 +191,8 @@ enum Speicher {
             weckerFruehestens = (try? c.decodeIfPresent(Int.self, forKey: .weckerFruehestens)) ?? 0
             weckerSchlummern = (try? c.decodeIfPresent(Int.self, forKey: .weckerSchlummern)) ?? 9
             einfuehrungGesehen = (try? c.decodeIfPresent(Bool.self, forKey: .einfuehrungGesehen)) ?? false
+            fokus = (try? c.decodeIfPresent(Bool.self, forKey: .fokus)) ?? false
+            fokusVorlauf = (try? c.decodeIfPresent(Int.self, forKey: .fokusVorlauf)) ?? 0
         }
     }
 

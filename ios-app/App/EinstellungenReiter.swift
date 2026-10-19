@@ -10,6 +10,8 @@ struct EinstellungenReiter: View {
     @State private var weckerFruehestens = Speicher.einstellungen().weckerFruehestens
     @State private var weckerSchlummern = Speicher.einstellungen().weckerSchlummern
     @State private var naechsterWecker: Wecker.Weckzeit?
+    @State private var fokus = Speicher.einstellungen().fokus
+    @State private var fokusVorlauf = Speicher.einstellungen().fokusVorlauf
     @State private var erinnerungen = Speicher.einstellungen().erinnerungen
     @State private var vorlauf = Speicher.einstellungen().vorlaufMinuten
     @State private var live = Speicher.einstellungen().liveAktivitaet
@@ -101,6 +103,26 @@ struct EinstellungenReiter: View {
                 .onChange(of: weckerVorlauf) { _, _ in weckerSpeichern() }
                 .onChange(of: weckerFruehestens) { _, _ in weckerSpeichern() }
                 .onChange(of: weckerSchlummern) { _, _ in weckerSpeichern(erzwingen: true) }
+
+                Section {
+                    Toggle("Nicht stören in Veranstaltungen", isOn: $fokus)
+                    if fokus {
+                        Picker("Einschalten", selection: $fokusVorlauf) {
+                            ForEach(Fokus.vorlaufOptionen, id: \.self) { Text($0 == 0 ? "zu Beginn" : "\($0) Min vorher").tag($0) }
+                        }
+                        NavigationLink {
+                            FokusAnleitung(vorlauf: fokusVorlauf)
+                        } label: {
+                            Label("Einrichten (Kurzbefehl & Fokus wählen)", systemImage: "moon")
+                        }
+                    }
+                } header: {
+                    Text("Nicht stören")
+                } footer: {
+                    Text("Schaltet während deiner Veranstaltungen einen Fokus ein und danach wieder aus – welchen (z. B. „Nicht stören“ oder einen eigenen „Uni“-Fokus), wählst du beim Einrichten. Läuft über eine Kurzbefehl-Automation, weil iOS Apps keinen Fokus selbst einschalten lässt. Ausgefallene Termine zählen nicht.")
+                }
+                .onChange(of: fokus) { _, _ in fokusSpeichern() }
+                .onChange(of: fokusVorlauf) { _, _ in fokusSpeichern() }
 
                 Section {
                     Toggle("Countdown in der Dynamic Island", isOn: $live)
@@ -248,6 +270,13 @@ struct EinstellungenReiter: View {
                     : "Mitteilungen sind nicht erlaubt. Bitte in den iOS-Einstellungen → Mitteilungen → Stundenplan einschalten."
             }
         }
+    }
+
+    private func fokusSpeichern() {
+        var e = Speicher.einstellungen()
+        e.fokus = fokus
+        e.fokusVorlauf = fokusVorlauf
+        Speicher.speichere(e)
     }
 
     private func weckerSpeichern(erzwingen: Bool = false) {

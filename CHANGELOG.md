@@ -2,6 +2,12 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## iOS 0.5.1.2
+
+**Neu**
+- Nicht stören in Veranstaltungen: schaltet während deiner Veranstaltungen automatisch einen Fokus ein und danach wieder aus. Welcher Fokus (z. B. „Nicht stören“ oder ein eigener „Uni“-Fokus), wählst du beim Einrichten. Einschalten zu Beginn oder 5, 10 bzw. 15 Minuten vorher; direkt aufeinanderfolgende Veranstaltungen zählen als ein Block, ausgefallene gar nicht.
+- Einrichtung in Einstellungen → Nicht stören mit Schritt-für-Schritt-Anleitung und den passenden Uhrzeiten aus deinem Plan. Weil iOS Apps keinen Fokus selbst einschalten lässt, läuft das über eine Kurzbefehl-Automation mit der neuen Aktion „Ende der Veranstaltung (für Fokus)“.
+
 ## iOS 0.5.1.1
 
 **Behoben**
