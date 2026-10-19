@@ -15,6 +15,7 @@ struct ZeitAendernAnsicht: View {
     @State private var umfang: Umfang = .reihe
     @State private var beginn = Date()
     @State private var ende = Date()
+    @State private var weckerFest = true
 
     private var original: (start: Date, ende: Date) {
         (termin.originalStart ?? termin.start, termin.originalEnde ?? termin.ende)
@@ -71,7 +72,14 @@ struct ZeitAendernAnsicht: View {
             } header: {
                 Text("Zeit")
             } footer: {
-                Text("Wecker, Erinnerungen, Widgets und „Nicht stören“ richten sich nach der neuen Zeit.")
+                Text("Erinnerungen, Widgets und „Nicht stören“ richten sich nach der neuen Zeit.")
+            }
+            Section {
+                Toggle("Wecker bleibt bei der ursprünglichen Zeit", isOn: $weckerFest)
+            } footer: {
+                Text(weckerFest
+                     ? "Wird die Veranstaltung nach hinten verschoben, klingelt der Wecker trotzdem wie bisher – Züge fahren ja nicht später. Bei einer früheren Zeit richtet er sich immer nach der neuen."
+                     : "Der Wecker richtet sich nach der neuen Zeit.")
             }
             if termin.zeitGeaendert {
                 Section {
@@ -91,7 +99,13 @@ struct ZeitAendernAnsicht: View {
             beginn = termin.start
             ende = termin.ende
             // Einzeln geändert? Dann standardmäßig auch nur diesen Termin bearbeiten
-            if Speicher.aenderungen()[termin.schluessel]?.von != nil { umfang = .einzeln }
+            let a = Speicher.aenderungen()[termin.schluessel]
+            if a?.von != nil {
+                umfang = .einzeln
+                weckerFest = a?.weckerFest ?? true
+            } else {
+                weckerFest = Speicher.zeitRegeln()[termin.reihe]?.weckerFest ?? true
+            }
         }
     }
 
@@ -101,25 +115,26 @@ struct ZeitAendernAnsicht: View {
         let wieOriginal = von == Plan.minuten(o.start) && bis == Plan.minuten(o.ende)
         switch umfang {
         case .einzeln:
+            // Gibt es eine Reihen-Zeit, muss auch „wie ursprünglich“ einzeln festgehalten werden
+            let festhalten = !wieOriginal || Speicher.zeitRegeln()[termin.reihe] != nil
+            let fest = weckerFest
             zustand.aendere(termin) {
-                $0.von = wieOriginal ? nil : von
-                $0.bis = wieOriginal ? nil : bis
-            }
-            // Gibt es eine Reihen-Zeit, muss „wie ursprünglich“ einzeln festgehalten werden
-            if wieOriginal, Speicher.zeitRegeln()[termin.reihe] != nil {
-                zustand.aendere(termin) { $0.von = von; $0.bis = bis }
+                $0.von = festhalten ? von : nil
+                $0.bis = festhalten ? bis : nil
+                $0.weckerFest = festhalten && !fest ? false : nil
             }
         case .reihe:
-            Speicher.setzeZeitRegel(termin.reihe, wieOriginal ? nil : Speicher.ZeitRegel(von: von, bis: bis))
+            Speicher.setzeZeitRegel(termin.reihe, wieOriginal ? nil
+                                    : Speicher.ZeitRegel(von: von, bis: bis, weckerFest: weckerFest ? nil : false))
             // Einzel-Zeit dieses Termins aufheben, damit die neue Reihen-Zeit greift
-            zustand.aendere(termin) { $0.von = nil; $0.bis = nil }
+            zustand.aendere(termin) { $0.von = nil; $0.bis = nil; $0.weckerFest = nil }
         }
         schliessen()
     }
 
     private func entfernen() {
         Speicher.setzeZeitRegel(termin.reihe, nil)
-        zustand.aendere(termin) { $0.von = nil; $0.bis = nil }
+        zustand.aendere(termin) { $0.von = nil; $0.bis = nil; $0.weckerFest = nil }
         schliessen()
     }
 }

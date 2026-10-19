@@ -49,17 +49,19 @@ enum Wecker {
         // Ab Tagesbeginn zählen: hat die erste Veranstaltung heute schon begonnen, gibt es heute keinen Wecker mehr
         // (sonst würde vor jeder weiteren Veranstaltung des Tages geweckt)
         let heute = Zeit.tagesBeginn(jetzt)
-        for t in termine where !t.ausfall && t.start >= heute && t.start < bis {
-            let tag = Zeit.tagesBeginn(t.start)
-            if let alt = erste[tag], alt.start <= t.start { continue }
+        // Bei nach hinten verschobenen Terminen zählt ggf. die ursprüngliche Zeit (weckStart)
+        func beginn(_ t: Termin) -> Date { t.weckStart ?? t.start }
+        for t in termine where !t.ausfall && beginn(t) >= heute && beginn(t) < bis {
+            let tag = Zeit.tagesBeginn(beginn(t))
+            if let alt = erste[tag], beginn(alt) <= beginn(t) { continue }
             erste[tag] = t
         }
-        return erste.values.sorted { $0.start < $1.start }.compactMap { t in
-            var wann = t.start.addingTimeInterval(-TimeInterval(e.weckerVorlauf * 60))
+        return erste.values.sorted { beginn($0) < beginn($1) }.compactMap { t in
+            var wann = beginn(t).addingTimeInterval(-TimeInterval(e.weckerVorlauf * 60))
             if e.weckerFruehestens > 0 {
-                let grenze = Zeit.tagesBeginn(t.start).addingTimeInterval(TimeInterval(e.weckerFruehestens * 60))
+                let grenze = Zeit.tagesBeginn(beginn(t)).addingTimeInterval(TimeInterval(e.weckerFruehestens * 60))
                 // nicht vor der Uhrzeit – aber spätestens 15 Min vor Beginn
-                if wann < grenze { wann = min(grenze, t.start.addingTimeInterval(-15 * 60)) }
+                if wann < grenze { wann = min(grenze, beginn(t).addingTimeInterval(-15 * 60)) }
             }
             guard wann > jetzt else { return nil }
             return Weckzeit(wann: wann, titel: t.titel, start: t.start, raum: t.raum)

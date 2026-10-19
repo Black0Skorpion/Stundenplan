@@ -16,6 +16,8 @@ struct Termin: Codable, Hashable, Identifiable {
     /// Ursprüngliche Zeiten (mit akademischem Viertel), falls von Hand geändert – Schlüssel bleibt daran hängen
     var originalStart: Date? = nil
     var originalEnde: Date? = nil
+    /// Bei nach hinten verschobener Zeit: Beginn, nach dem sich der Wecker richtet (Züge fahren nicht später)
+    var weckStart: Date? = nil
 
     init(start: Date, ende: Date, titel: String, typ: String, raum: String) {
         self.start = start
@@ -37,6 +39,7 @@ struct Termin: Codable, Hashable, Identifiable {
         alterRaum = try c.decodeIfPresent(String.self, forKey: .alterRaum)
         originalStart = try c.decodeIfPresent(Date.self, forKey: .originalStart)
         originalEnde = try c.decodeIfPresent(Date.self, forKey: .originalEnde)
+        weckStart = try c.decodeIfPresent(Date.self, forKey: .weckStart)
     }
 
     var id: String { schluessel }

@@ -18,7 +18,8 @@ enum Plan {
     }
 
     /// Termin auf eigene Uhrzeiten setzen (Minuten nach Mitternacht); die ursprünglichen Zeiten bleiben gemerkt
-    static func zeitSetzen(_ t: Termin, von: Int, bis: Int) -> Termin {
+    /// `weckerFest`: wird der Beginn nach hinten verschoben, bleibt der Wecker bei der ursprünglichen Zeit
+    static func zeitSetzen(_ t: Termin, von: Int, bis: Int, weckerFest: Bool = true) -> Termin {
         var n = t
         if n.originalStart == nil {
             n.originalStart = t.start
@@ -27,6 +28,8 @@ enum Plan {
         let tag = Zeit.tagesBeginn(n.originalStart ?? t.start)
         n.start = tag.addingTimeInterval(TimeInterval(von * 60))
         n.ende = tag.addingTimeInterval(TimeInterval(max(bis, von + 5) * 60))
+        let o = n.originalStart ?? t.start
+        n.weckStart = weckerFest && n.start > o ? o : nil
         return n
     }
 
