@@ -17,6 +17,24 @@ enum Plan {
         return t
     }
 
+    /// Termin auf eigene Uhrzeiten setzen (Minuten nach Mitternacht); die ursprünglichen Zeiten bleiben gemerkt
+    static func zeitSetzen(_ t: Termin, von: Int, bis: Int) -> Termin {
+        var n = t
+        if n.originalStart == nil {
+            n.originalStart = t.start
+            n.originalEnde = t.ende
+        }
+        let tag = Zeit.tagesBeginn(n.originalStart ?? t.start)
+        n.start = tag.addingTimeInterval(TimeInterval(von * 60))
+        n.ende = tag.addingTimeInterval(TimeInterval(max(bis, von + 5) * 60))
+        return n
+    }
+
+    static func minuten(_ d: Date) -> Int {
+        let k = Zeit.kalender.dateComponents([.hour, .minute], from: d)
+        return (k.hour ?? 0) * 60 + (k.minute ?? 0)
+    }
+
     static func termineAm(_ alle: [Termin], _ tag: Date) -> [Termin] {
         let von = Zeit.tagesBeginn(tag)
         let bis = Zeit.plusTage(von, 1)

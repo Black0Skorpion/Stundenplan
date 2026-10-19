@@ -13,6 +13,9 @@ struct Termin: Codable, Hashable, Identifiable {
     var ausfall: Bool = false
     /// Ursprünglicher Raum, falls von Hand geändert
     var alterRaum: String? = nil
+    /// Ursprüngliche Zeiten (mit akademischem Viertel), falls von Hand geändert – Schlüssel bleibt daran hängen
+    var originalStart: Date? = nil
+    var originalEnde: Date? = nil
 
     init(start: Date, ende: Date, titel: String, typ: String, raum: String) {
         self.start = start
@@ -32,11 +35,20 @@ struct Termin: Codable, Hashable, Identifiable {
         raum = try c.decode(String.self, forKey: .raum)
         ausfall = try c.decodeIfPresent(Bool.self, forKey: .ausfall) ?? false
         alterRaum = try c.decodeIfPresent(String.self, forKey: .alterRaum)
+        originalStart = try c.decodeIfPresent(Date.self, forKey: .originalStart)
+        originalEnde = try c.decodeIfPresent(Date.self, forKey: .originalEnde)
     }
 
     var id: String { schluessel }
-    /// Bleibt gleich, auch wenn der Raum geändert wird
-    var schluessel: String { "\(Int(start.timeIntervalSince1970))|\(titel)" }
+    /// Bleibt gleich, auch wenn Raum oder Zeit geändert werden
+    var schluessel: String { "\(Int((originalStart ?? start).timeIntervalSince1970))|\(titel)" }
+    /// Zeit von Hand geändert (einzeln oder für die ganze Reihe)
+    var zeitGeaendert: Bool { originalStart != nil }
+    /// Reihe: gleiche Veranstaltung, gleiche Art, gleicher Wochentag, gleiche (ursprüngliche) Uhrzeit
+    var reihe: String {
+        let k = Zeit.kalender.dateComponents([.weekday, .hour, .minute], from: originalStart ?? start)
+        return "\(titel)|\(typ)|\(k.weekday ?? 0)|\((k.hour ?? 0) * 60 + (k.minute ?? 0))"
+    }
     var dauer: TimeInterval { ende.timeIntervalSince(start) }
 
     func laeuft(_ jetzt: Date) -> Bool { start <= jetzt && ende > jetzt }
