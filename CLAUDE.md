@@ -4,6 +4,9 @@
 - Erst bauen/veröffentlichen (Push, der einen Build auslöst), wenn der Nutzer es ausdrücklich sagt.
   Änderungen vorher nur vorbereiten (z. B. auf einem Arbeits-Branch) und hier unter „Vorgemerkt“ notieren.
 
+## Vorgemerkt (noch nicht gebaut)
+- Branch `wecker-fix`: Wecker nur vor der ersten Veranstaltung des Tages (iOS 0.5.2, Android 1.6.2, Scriptable 1.1.2).
+
 ## Versionsnummern
 - Kleinschrittig erhöhen: normale Änderungen und Fehlerbehebungen nur die letzte Ziffer
   (iOS 0.3.2 → 0.3.3, Android 1.4 → 1.4.1, Scriptable 1.0.0 → 1.0.1).

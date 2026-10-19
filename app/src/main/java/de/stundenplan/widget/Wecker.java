@@ -56,7 +56,8 @@ public final class Wecker {
         long bis = jetzt + 14 * 86400_000L;
         long letzterTag = -1;
         for (Termin t : termine) {            // sortiert, ohne ausgefallene
-            if (t.ausfall || t.start <= jetzt || t.start > bis) continue;
+            // ab Tagesbeginn zählen, damit eine schon laufende erste Veranstaltung den Tag „belegt“
+            if (t.ausfall || t.start < MensaDaten.tagesBeginn(jetzt) || t.start > bis) continue;
             long tag = MensaDaten.tagesBeginn(t.start);
             if (tag == letzterTag) continue;  // nur die erste Veranstaltung des Tages
             letzterTag = tag;

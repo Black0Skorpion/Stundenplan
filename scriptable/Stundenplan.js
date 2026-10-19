@@ -1135,7 +1135,8 @@ function weckzeiten(alle, vorlauf, fruehestens, jetzt) {
   const tage = new Set()
   const aus = []
   for (const t of alle) {
-    if (t.ausfall || t.start <= jetzt || t.start.getTime() > bis) continue
+    // ab Tagesbeginn zählen, damit eine schon laufende erste Veranstaltung den Tag „belegt“
+    if (t.ausfall || t.start < tagesBeginn(jetzt) || t.start.getTime() > bis) continue
     const tag = tagesBeginn(t.start).getTime()
     if (tage.has(tag)) continue
     tage.add(tag)
