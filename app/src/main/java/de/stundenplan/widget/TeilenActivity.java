@@ -137,13 +137,13 @@ public class TeilenActivity extends Activity {
     }
 
     private void dateiTeilen() {
-        Teilen.Freigabe f = Teilen.eigeneFreigabe(this, mit);
+        Teilen.Freigabe fg = Teilen.eigeneFreigabe(this, mit);
         List<Termin> t = new java.util.ArrayList<>(Teilen.eigeneZumTeilen(this));
         // Eigene Termine als normale Kalendereinträge (für andere Kalender-Apps) und zusätzlich in der Freigabe
-        t.addAll(f.eigeneEinzeln());
+        t.addAll(fg.eigeneEinzeln());
         if (t.isEmpty()) { Toast.makeText(this, "Keine Termine zum Teilen.", Toast.LENGTH_SHORT).show(); return; }
         String name = Teilen.name(this);
-        String text = Teilen.ics(t, name, f);
+        String text = Teilen.ics(t, name, fg);
         String dateiname = (name.isEmpty() ? "Stundenplan" : "Stundenplan " + name).replaceAll("[^\\p{L}\\p{N} -]", "") + ".ics";
         File f = new File(Dateien.ordner(this), dateiname);
         try (FileOutputStream out = new FileOutputStream(f)) {
