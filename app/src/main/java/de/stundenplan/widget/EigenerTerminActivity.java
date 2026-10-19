@@ -138,7 +138,7 @@ public class EigenerTerminActivity extends Activity {
         if (e.abstandTage > 0) z.add(ui.wertZeile("Endet am", (e.bis > 0 ? Lageplan.datumKurz(e.bis) : "nach einem Jahr") + " ›", v -> bis()));
         ui.fuellen(g, z.toArray(new View[0]));
         inhalt.addView(g);
-        inhalt.addView(ui.fuss("Eigene Termine zählen wie Veranstaltungen: Widgets, Erinnerungen und Wecker berücksichtigen sie. Beim Teilen des Plans werden sie nicht mitgeschickt."));
+        inhalt.addView(ui.fuss("Eigene Termine zählen wie Veranstaltungen: Widgets, Erinnerungen und Wecker berücksichtigen sie. Beim Teilen des Plans wählst du aus, welche mitkommen."));
 
         LinearLayout k = ui.gruppe();
         List<View> kz = new ArrayList<>();

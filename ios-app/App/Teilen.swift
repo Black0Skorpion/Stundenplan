@@ -15,12 +15,42 @@ struct Freigabe: Codable, Equatable {
         var g: String?
         var a: [String]?
     }
+    /// Mitgeschickter eigener Termin (kompakt, gleiches Format wie Android)
+    struct Eigen: Codable, Equatable {
+        var t: String      // Titel
+        var y: String      // Art
+        var r: String      // Raum
+        var s: Int         // Beginn (Sekunden seit 1970)
+        var d: Int         // Dauer in Minuten
+        var w: Int         // Wiederholung in Tagen (0, 7, 14)
+        var b: Int?        // letzter Tag (Sekunden seit 1970)
+
+        init(_ e: EigeneTermine.Eintrag) {
+            t = e.titel; y = e.typ; r = e.raum
+            s = Int(e.start.timeIntervalSince1970)
+            d = max(5, Int(e.ende.timeIntervalSince(e.start) / 60))
+            w = e.abstandTage
+            b = e.bis.map { Int($0.timeIntervalSince1970) }
+        }
+
+        var eintrag: EigeneTermine.Eintrag {
+            let start = Date(timeIntervalSince1970: TimeInterval(s))
+            return EigeneTermine.Eintrag(titel: t, typ: y, raum: r, start: start, ende: start.addingTimeInterval(TimeInterval(d * 60)),
+                                         abstandTage: w, bis: b.map { Date(timeIntervalSince1970: TimeInterval($0)) })
+        }
+    }
+
     var v: Int = 1
     var name: String
     var semester: String?
     var kurse: [Kurs]
+    /// Ausgewählte eigene Termine (optional)
+    var e: [Eigen]? = nil
 
     var mitPuls: Bool { !kurse.isEmpty }
+    var eigeneTermine: [EigeneTermine.Eintrag] { (e ?? []).map(\.eintrag) }
+    /// Alle mitgeschickten eigenen Termine einzeln (ohne akademisches Viertel)
+    var eigeneEinzeln: [Termin] { eigeneTermine.flatMap(EigeneTermine.einzelne) }
 
     var code: String? {
         guard let json = try? JSONEncoder().encode(self),
@@ -46,14 +76,16 @@ struct Freigabe: Codable, Equatable {
         return URL(string: "stundenplan://teilen?d=\(code)")
     }
 
-    /// Der eigene Stundenplan
+    /// Der eigene Stundenplan, mit den ausgewählten eigenen Terminen
     @MainActor
-    static var eigene: Freigabe {
+    static func eigene(mit auswahl: Set<UUID> = []) -> Freigabe {
         let a = PulsModell.shared.auswahl
         let name = Speicher.einstellungen().name.trimmingCharacters(in: .whitespaces)
-        guard a.aktiv else { return Freigabe(name: name, semester: nil, kurse: []) }
+        let mit = EigeneTermine.alle().filter { auswahl.contains($0.id) }.map(Eigen.init)
+        guard a.aktiv else { return Freigabe(name: name, semester: nil, kurse: [], e: mit.isEmpty ? nil : mit) }
         return Freigabe(name: name, semester: a.semester,
-                        kurse: a.kurse.map { Kurs(p: $0.publishid, t: $0.titel, g: $0.gruppe, a: $0.ausgeblendet) })
+                        kurse: a.kurse.map { Kurs(p: $0.publishid, t: $0.titel, g: $0.gruppe, a: $0.ausgeblendet) },
+                        e: mit.isEmpty ? nil : mit)
     }
 
     var pulsKurse: [PulsModell.Kurs] {
@@ -69,9 +101,11 @@ struct Profil: Codable, Identifiable, Equatable {
     /// Rohtermine (ohne akademisches Viertel – das kommt wie beim eigenen Plan beim Anzeigen dazu)
     var termine: [Termin]
     var freigabe: Freigabe?
+    /// Mitgeschickte eigene Termine (mit genauen Zeiten, ohne akademisches Viertel)
+    var eigene: [Termin]? = nil
     var stand: Date = Date()
 
-    var angezeigt: [Termin] { termine.map(Plan.viertelAnpassen).sorted { $0.start < $1.start } }
+    var angezeigt: [Termin] { (termine.map(Plan.viertelAnpassen) + (eigene ?? [])).sorted { $0.start < $1.start } }
 
     static func alle() -> [Profil] { Speicher.lesen([Profil].self, "profile.json") ?? [] }
     static func speichern(_ p: [Profil]) { Speicher.schreiben(p, "profile.json") }
@@ -127,7 +161,7 @@ enum Teilen {
     static func ics(_ termine: [Termin], name: String, freigabe: Freigabe?) -> String {
         var z = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Stundenplan Uni Potsdam//DE", "CALSCALE:GREGORIAN",
                  "X-WR-CALNAME:" + maskiert(name.isEmpty ? "Stundenplan" : "Stundenplan von \(name)")]
-        if let code = freigabe?.code { z.append("X-STUNDENPLAN-FREIGABE:" + code) }
+        if let freigabe, let code = freigabe.code { z.append("X-STUNDENPLAN-FREIGABE:" + code) }
         let jetzt = utc(Date())
         for (i, t) in termine.enumerated() {
             z += ["BEGIN:VEVENT",
@@ -146,9 +180,12 @@ enum Teilen {
 
     /// Eigenen Plan als .ics-Datei (für AirDrop, Nachrichten, Kalender-Apps)
     @MainActor
-    static func eigeneDatei() -> URL? {
+    static func eigeneDatei(mit auswahl: Set<UUID> = []) -> URL? {
         let name = Speicher.einstellungen().name.trimmingCharacters(in: .whitespaces)
-        let text = ics(Speicher.termineZumTeilen(), name: name, freigabe: Freigabe.eigene)
+        let f = Freigabe.eigene(mit: auswahl)
+        // Eigene Termine als normale Kalendereinträge (für andere Kalender-Apps) und zusätzlich in der Freigabe
+        let text = ics(Speicher.termineZumTeilen() + f.eigeneEinzeln, name: name,
+                       freigabe: f.mitPuls || f.e != nil ? f : nil)
         let datei = name.isEmpty ? "Stundenplan" : "Stundenplan \(name)"
         let erlaubt = datei.filter { $0.isLetter || $0.isNumber || $0 == " " || $0 == "-" }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(erlaubt).ics")
@@ -202,9 +239,12 @@ struct TeilenAnsicht: View {
     @Environment(\.dismiss) private var schliessen
     @State private var name = Speicher.einstellungen().name
     @State private var datei: URL?
+    /// Eigene Termine, die mitgeschickt werden
+    @State private var mit: Set<UUID> = []
+    private let eigene = EigeneTermine.alle().sorted { $0.start < $1.start }
 
     var body: some View {
-        let f = Freigabe.eigene
+        let f = Freigabe.eigene(mit: mit)
         Form {
             Section {
                 TextField("Dein Name", text: $name)
@@ -216,8 +256,28 @@ struct TeilenAnsicht: View {
                 Text("Steht beim Empfänger über deinem Plan. Kann dort jederzeit geändert werden.")
             }
 
+            if !eigene.isEmpty {
+                Section {
+                    ForEach(eigene) { e in
+                        Toggle(isOn: Binding(get: { mit.contains(e.id) },
+                                             set: { an in if an { mit.insert(e.id) } else { mit.remove(e.id) } })) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(e.titel)
+                                Text("\(e.typ) · \(Zeit.datumKurz(e.start)) \(Zeit.uhrzeit(e.start))" + (e.abstandTage == 7 ? " · jede Woche" : e.abstandTage == 14 ? " · alle 2 Wochen" : ""))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Eigene Termine mitschicken")
+                } footer: {
+                    Text("Nur die ausgewählten eigenen Termine kommen mit – im QR-Code, im Link und in der Datei.")
+                }
+                .onChange(of: mit) { _, _ in datei = Teilen.eigeneDatei(mit: mit) }
+            }
+
             Section {
-                if f.mitPuls, let link = Freigabe(name: name, semester: f.semester, kurse: f.kurse).link,
+                if f.mitPuls || f.e != nil, let link = Freigabe(name: name, semester: f.semester, kurse: f.kurse, e: f.e).link,
                    let bild = Teilen.qrBild(link.absoluteString) {
                     Image(uiImage: bild)
                         .interpolation(.none)
@@ -226,7 +286,8 @@ struct TeilenAnsicht: View {
                         .frame(maxWidth: 280)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                    Text("\(f.kurse.count) Fächer mit Gruppen")
+                    Text([f.mitPuls ? "\(f.kurse.count) Fächer mit Gruppen" : nil,
+                          f.e.map { "\($0.count) eigene Termine" }].compactMap { $0 }.joined(separator: " · "))
                         .font(.footnote).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                 } else {
@@ -256,7 +317,7 @@ struct TeilenAnsicht: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) { Button("Fertig") { nameSpeichern(); schliessen() } }
         }
-        .onAppear { datei = Teilen.eigeneDatei() }
+        .onAppear { datei = Teilen.eigeneDatei(mit: mit) }
         .onChange(of: name) { _, _ in nameSpeichern() }
     }
 
@@ -266,7 +327,7 @@ struct TeilenAnsicht: View {
         guard e.name != n else { return }
         e.name = n
         Speicher.speichere(e)
-        datei = Teilen.eigeneDatei()
+        datei = Teilen.eigeneDatei(mit: mit)
     }
 }
 
@@ -306,6 +367,9 @@ struct EmpfangAnsicht: View {
                 }
                 if let t = empfang.termine {
                     LabeledContent("Termine", value: "\(t.count)")
+                }
+                if let e = empfang.freigabe?.eigeneTermine, !e.isEmpty {
+                    LabeledContent("Eigene Termine", value: e.map(\.titel).joined(separator: ", "))
                 }
             } header: {
                 Text(empfang.freigabe?.mitPuls == true ? "Fächer aus PULS" : "Inhalt")
@@ -378,8 +442,26 @@ struct EmpfangAnsicht: View {
             fehler = "Die Termine konnten nicht aus PULS geladen werden. Bitte später nochmal versuchen."
             return
         }
-        zustand.profilHinzufuegen(Profil(name: anzeigename, termine: termine, freigabe: empfang.freigabe))
+        var p = Profil(name: anzeigename, termine: ohneEigene(termine), freigabe: empfang.freigabe)
+        if let e = empfang.freigabe?.eigeneEinzeln, !e.isEmpty { p.eigene = e }
+        zustand.profilHinzufuegen(p)
         schliessen()
+    }
+
+    /// Mitgeschickte eigene Termine stehen in der Datei auch als normale Einträge – die nicht doppelt nehmen
+    private func ohneEigene(_ t: [Termin]) -> [Termin] {
+        let e = empfang.freigabe?.eigeneEinzeln ?? []
+        guard !e.isEmpty else { return t }
+        return t.filter { x in !e.contains { $0.titel == x.titel && abs($0.start.timeIntervalSince(x.start)) < 60 } }
+    }
+
+    /// Mitgeschickte eigene Termine zu den eigenen übernehmen (ohne Doppelte)
+    private func eigeneUebernehmen() {
+        let neu = empfang.freigabe?.eigeneTermine ?? []
+        guard !neu.isEmpty else { return }
+        var alle = EigeneTermine.alle()
+        for e in neu where !alle.contains(where: { $0.titel == e.titel && $0.start == e.start }) { alle.append(e) }
+        EigeneTermine.speichern(alle)
     }
 
     private func inModulwahl() {
@@ -390,6 +472,7 @@ struct EmpfangAnsicht: View {
         if let s = f.semester { a.semester = s }
         a.aktiv = false
         puls.auswahl = a
+        eigeneUebernehmen()
         schliessen()
         zustand.profilID = nil
         zustand.reiter = .plan
@@ -397,8 +480,10 @@ struct EmpfangAnsicht: View {
     }
 
     private func uebernehmen() {
-        guard let t = empfang.termine else { return }
+        guard let alle = empfang.termine else { return }
+        let t = ohneEigene(alle)
         Speicher.speichereTermine(t)
+        eigeneUebernehmen()
         PulsModell.shared.deaktivieren()
         zustand.profilID = nil
         zustand.termineGeaendert()

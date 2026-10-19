@@ -53,8 +53,19 @@ public final class Teilen {
         public String name = "";
         public String semester;
         public List<PulsDienst.Kurs> kurse = new ArrayList<>();
+        /** Ausgewählte eigene Termine */
+        public List<EigeneTermine.Eintrag> eigene = new ArrayList<>();
 
         boolean mitPuls() { return !kurse.isEmpty(); }
+
+        boolean leer() { return kurse.isEmpty() && eigene.isEmpty(); }
+
+        /** Mitgeschickte eigene Termine einzeln (ohne akademisches Viertel) */
+        List<Termin> eigeneEinzeln() {
+            List<Termin> l = new ArrayList<>();
+            for (EigeneTermine.Eintrag e : eigene) l.addAll(EigeneTermine.einzelne(e));
+            return l;
+        }
 
         String json() throws Exception {
             JSONObject o = new JSONObject().put("v", 1).put("name", name);
@@ -66,7 +77,18 @@ public final class Teilen {
                 if (k.ausgeblendet != null && !k.ausgeblendet.isEmpty()) j.put("a", new JSONArray(k.ausgeblendet));
                 l.put(j);
             }
-            return o.put("kurse", l).toString();
+            o.put("kurse", l);
+            if (!eigene.isEmpty()) {
+                JSONArray e = new JSONArray();
+                for (EigeneTermine.Eintrag x : eigene) {
+                    JSONObject j = new JSONObject().put("t", x.titel).put("y", x.typ).put("r", x.raum)
+                            .put("s", x.start / 1000).put("d", Math.max(5, (x.ende - x.start) / 60_000)).put("w", x.abstandTage);
+                    if (x.bis > 0) j.put("b", x.bis / 1000);
+                    e.put(j);
+                }
+                o.put("e", e);
+            }
+            return o.toString();
         }
 
         static Freigabe ausJson(String s) throws Exception {
@@ -83,6 +105,19 @@ public final class Teilen {
                 k.gruppe = j.isNull("g") ? null : j.optString("g", null);
                 k.ausgeblendet = PulsDienst.strings(j.optJSONArray("a"));
                 f.kurse.add(k);
+            }
+            JSONArray e = o.optJSONArray("e");
+            if (e != null) for (int i = 0; i < e.length(); i++) {
+                JSONObject j = e.getJSONObject(i);
+                EigeneTermine.Eintrag x = new EigeneTermine.Eintrag();
+                x.titel = j.optString("t");
+                x.typ = j.optString("y", "Termin");
+                x.raum = j.optString("r");
+                x.start = j.getLong("s") * 1000;
+                x.ende = x.start + j.optLong("d", 90) * 60_000;
+                x.abstandTage = j.optInt("w", 0);
+                x.bis = j.has("b") && !j.isNull("b") ? j.getLong("b") * 1000 : 0;
+                f.eigene.add(x);
             }
             return f;
         }
@@ -131,8 +166,14 @@ public final class Teilen {
 
     /** Der eigene Plan zum Teilen (PULS-Auswahl nur, wenn der Plan daraus kommt) */
     static Freigabe eigeneFreigabe(Context ctx) {
+        return eigeneFreigabe(ctx, new java.util.HashSet<>());
+    }
+
+    /** … mit den ausgewählten eigenen Terminen (IDs) */
+    static Freigabe eigeneFreigabe(Context ctx, java.util.Set<String> mit) {
         Freigabe f = new Freigabe();
         f.name = name(ctx);
+        for (EigeneTermine.Eintrag e : EigeneTermine.alle(ctx)) if (mit.contains(e.id)) f.eigene.add(e);
         PulsDienst.Auswahl a = PulsDienst.auswahl(ctx);
         if (a.aktiv) {
             f.semester = a.semester;
@@ -197,7 +238,7 @@ public final class Teilen {
         z.add("PRODID:-//Stundenplan Uni Potsdam//DE");
         z.add("CALSCALE:GREGORIAN");
         z.add("X-WR-CALNAME:" + maskiert(name == null || name.isEmpty() ? "Stundenplan" : "Stundenplan von " + name));
-        String code = freigabe != null && freigabe.mitPuls() ? freigabe.code() : null;
+        String code = freigabe != null && !freigabe.leer() ? freigabe.code() : null;
         if (code != null) z.add("X-STUNDENPLAN-FREIGABE:" + code);
         String jetzt = utc(System.currentTimeMillis());
         int i = 0;
@@ -272,11 +313,18 @@ public final class Teilen {
         public List<Termin> termine = new ArrayList<>();
         public String freigabe;   // Code der PULS-Auswahl (zum Aktualisieren)
         public long stand = System.currentTimeMillis();
+        /** Mitgeschickte eigene Termine (genaue Zeiten, ohne akademisches Viertel) */
+        public List<Termin> eigene = new ArrayList<>();
 
         Freigabe freigabe() { return freigabe == null ? null : Freigabe.ausCode(freigabe); }
 
         /** Mit akademischem Viertel, sortiert */
-        List<Termin> angezeigt() { return Daten.aufbereiten(termine); }
+        List<Termin> angezeigt() {
+            List<Termin> l = Daten.aufbereiten(termine);
+            l.addAll(eigene);
+            l.sort((a, b) -> Long.compare(a.start, b.start));
+            return l;
+        }
     }
 
     static synchronized List<Profil> profile(Context ctx) {
@@ -293,6 +341,7 @@ public final class Teilen {
                 p.freigabe = o.isNull("freigabe") ? null : o.optString("freigabe", null);
                 p.stand = o.optLong("stand", 0);
                 p.termine = termineAus(o.optJSONArray("termine") == null ? "[]" : o.getJSONArray("termine").toString());
+                p.eigene = termineAus(o.optJSONArray("eigene") == null ? "[]" : o.getJSONArray("eigene").toString());
                 aus.add(p);
             }
         } catch (Exception ignored) {}
@@ -303,7 +352,8 @@ public final class Teilen {
         JSONArray l = new JSONArray();
         try {
             for (Profil p : profile) {
-                JSONObject o = new JSONObject().put("id", p.id).put("name", p.name).put("stand", p.stand).put("termine", termineJson(p.termine));
+                JSONObject o = new JSONObject().put("id", p.id).put("name", p.name).put("stand", p.stand).put("termine", termineJson(p.termine))
+                        .put("eigene", termineJson(p.eigene));
                 if (p.freigabe != null) o.put("freigabe", p.freigabe);
                 l.put(o);
             }

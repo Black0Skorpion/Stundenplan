@@ -57,7 +57,7 @@ struct EigenerTerminAnsicht: View {
                     }
                 }
             } footer: {
-                Text("Eigene Termine zählen wie Veranstaltungen: Widgets, Erinnerungen und Wecker berücksichtigen sie. Beim Teilen des Plans werden sie nicht mitgeschickt.")
+                Text("Eigene Termine zählen wie Veranstaltungen: Widgets, Erinnerungen und Wecker berücksichtigen sie. Beim Teilen des Plans wählst du aus, welche mitkommen.")
             }
             if !neu {
                 Section {

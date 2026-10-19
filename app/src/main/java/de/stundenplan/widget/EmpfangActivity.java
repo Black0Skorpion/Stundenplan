@@ -110,6 +110,10 @@ public class EmpfangActivity extends Activity {
             for (PulsDienst.Kurs k : freigabe.kurse) sb.append("\n• ").append(k.titel).append(k.gruppe != null ? " (Gr. " + k.gruppe + ")" : "");
         }
         if (termine != null) sb.append(sb.length() > 0 ? "\n\n" : "").append(termine.size()).append(" Termine");
+        if (freigabe != null && !freigabe.eigene.isEmpty()) {
+            sb.append(sb.length() > 0 ? "\n\n" : "").append("Eigene Termine:");
+            for (EigeneTermine.Eintrag e : freigabe.eigene) sb.append("\n• ").append(e.titel);
+        }
         info.setText(sb.toString());
         info.setPadding(0, pad / 2, 0, pad / 2);
         inhalt.addView(info);
@@ -179,8 +183,9 @@ public class EmpfangActivity extends Activity {
         List<Teilen.Profil> alle = Teilen.profile(this);
         Teilen.Profil p = new Teilen.Profil();
         p.name = n;
-        p.termine = new ArrayList<>(t);
-        p.freigabe = freigabe != null && freigabe.mitPuls() ? freigabe.code() : null;
+        p.termine = ohneEigene(t);
+        if (freigabe != null) p.eigene = freigabe.eigeneEinzeln();
+        p.freigabe = freigabe != null && !freigabe.leer() ? freigabe.code() : null;
         alle.add(p);
         Teilen.speichern(this, alle);
         MainActivity.setzeAnzeige(this, p.id);
@@ -189,19 +194,45 @@ public class EmpfangActivity extends Activity {
         finish();
     }
 
+    /** Mitgeschickte eigene Termine stehen in der Datei auch als normale Einträge – die nicht doppelt nehmen */
+    private List<Termin> ohneEigene(List<Termin> t) {
+        List<Termin> e = freigabe != null ? freigabe.eigeneEinzeln() : new ArrayList<>();
+        List<Termin> aus = new ArrayList<>();
+        for (Termin x : t) {
+            boolean doppelt = false;
+            for (Termin y : e) if (y.titel.equals(x.titel) && Math.abs(y.start - x.start) < 60_000) { doppelt = true; break; }
+            if (!doppelt) aus.add(x);
+        }
+        return aus;
+    }
+
+    /** Mitgeschickte eigene Termine zu den eigenen übernehmen (ohne Doppelte) */
+    private void eigeneUebernehmen() {
+        if (freigabe == null || freigabe.eigene.isEmpty()) return;
+        List<EigeneTermine.Eintrag> alle = EigeneTermine.alle(this);
+        for (EigeneTermine.Eintrag e : freigabe.eigene) {
+            boolean da = false;
+            for (EigeneTermine.Eintrag x : alle) if (x.titel.equals(e.titel) && x.start == e.start) { da = true; break; }
+            if (!da) alle.add(e);
+        }
+        EigeneTermine.speichern(this, alle);
+    }
+
     private void inModulwahl() {
         PulsDienst.Auswahl a = PulsDienst.auswahl(this);
         a.kurse = freigabe.kurse;
         if (freigabe.semester != null) a.semester = freigabe.semester;
         a.aktiv = false;
         PulsDienst.speichern(this, a);
+        eigeneUebernehmen();
         startActivity(new Intent(this, PulsActivity.class));
         finish();
     }
 
     private void uebernehmen() {
         PulsDienst.deaktivieren(this);
-        PulsDienst.schreibenText(this, Daten.ICS_DATEI, Teilen.ics(termine, Teilen.name(this), null));
+        PulsDienst.schreibenText(this, Daten.ICS_DATEI, Teilen.ics(ohneEigene(termine), Teilen.name(this), null));
+        eigeneUebernehmen();
         PulsDienst.nachAenderung(this);
         MainActivity.setzeAnzeige(this, null);
         Toast.makeText(this, termine.size() + " Termine übernommen", Toast.LENGTH_SHORT).show();

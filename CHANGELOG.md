@@ -7,14 +7,16 @@ Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 **Neu**
 - Wecker mit Schlummern: Schlummerzeit einstellbar (5, 9, 10, 15 oder 20 Minuten, oder aus); beim Schlummern läuft ein Countdown auf dem Sperrbildschirm und in der Dynamic Island.
 - Am Vorabend zeigt das Stundenplan-Widget beim ersten Termin des nächsten Tages, wann der Wecker klingelt („Erster Termin · Wecker 7:15“).
-- Eigene Termine: über „+“ im Plan anlegen (z. B. Lerngruppe, Sprechstunde, Klausur), einmalig, jede Woche oder alle 2 Wochen, mit Raum. Sie zählen für Widgets, Erinnerungen und Wecker, werden beim PULS-Abgleich nicht überschrieben und beim Teilen nicht mitgeschickt.
+- Eigene Termine: über „+“ im Plan anlegen (z. B. Lerngruppe, Sprechstunde, Klausur), einmalig, jede Woche oder alle 2 Wochen, mit Raum. Sie zählen für Widgets, Erinnerungen und Wecker, werden beim PULS-Abgleich nicht überschrieben.
+- Plan teilen: auswählen, welche eigenen Termine mitgeschickt werden (im QR-Code, im Link und in der Datei). Beim Empfänger landen sie im Profil bzw. bei den eigenen Terminen.
 
 ## Android 1.6.1
 
 **Neu**
 - Wecker: Schlummerzeit einstellbar (5, 9, 10, 15 oder 20 Minuten).
 - Am Vorabend zeigen das Stundenplan-Widget und die Karte im Plan beim ersten Termin des nächsten Tages, wann der Wecker klingelt.
-- Eigene Termine: über „+“ im Plan anlegen, einmalig, jede Woche oder alle 2 Wochen, mit Raum; Liste zum Bearbeiten und Löschen. Sie zählen für Widgets, Erinnerungen und Wecker, werden beim PULS-Abgleich nicht überschrieben und beim Teilen nicht mitgeschickt.
+- Eigene Termine: über „+“ im Plan anlegen, einmalig, jede Woche oder alle 2 Wochen, mit Raum; Liste zum Bearbeiten und Löschen. Sie zählen für Widgets, Erinnerungen und Wecker und werden beim PULS-Abgleich nicht überschrieben.
+- Plan teilen: auswählen, welche eigenen Termine mitgeschickt werden (im QR-Code, im Link und in der Datei). Beim Empfänger landen sie im Profil bzw. bei den eigenen Terminen.
 
 ## Scriptable 1.1.1
 

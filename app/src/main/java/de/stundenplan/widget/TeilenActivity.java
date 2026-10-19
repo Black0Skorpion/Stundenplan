@@ -28,6 +28,8 @@ public class TeilenActivity extends Activity {
 
     private ImageView qr;
     private TextView qrInfo;
+    /** Eigene Termine, die mitgeschickt werden (IDs) */
+    private final java.util.Set<String> mit = new java.util.HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +58,27 @@ public class TeilenActivity extends Activity {
         });
         l.addView(name);
 
+        List<EigeneTermine.Eintrag> eigene = EigeneTermine.alle(this);
+        if (!eigene.isEmpty()) {
+            TextView et = new TextView(this);
+            et.setText("\nEigene Termine mitschicken:");
+            l.addView(et);
+            eigene.sort((a, b) -> Long.compare(a.start, b.start));
+            for (EigeneTermine.Eintrag e : eigene) {
+                android.widget.CheckBox c = new android.widget.CheckBox(this);
+                c.setText(e.titel + "\n" + EigenerTerminActivity.beschreibung(e));
+                c.setOnCheckedChangeListener((k, an) -> {
+                    if (an) mit.add(e.id); else mit.remove(e.id);
+                    qrZeichnen();
+                });
+                l.addView(c);
+            }
+            TextView h = new TextView(this);
+            h.setText("Nur die ausgewählten kommen mit – im QR-Code, im Link und in der Datei.");
+            h.setAlpha(0.7f);
+            l.addView(h);
+        }
+
         qr = new ImageView(this);
         qr.setBackgroundColor(Color.WHITE);
         LinearLayout.LayoutParams qlp = new LinearLayout.LayoutParams(Math.round(280 * d), Math.round(280 * d));
@@ -74,9 +97,9 @@ public class TeilenActivity extends Activity {
         Button link = new Button(this);
         link.setText("Link teilen");
         link.setOnClickListener(v -> {
-            Teilen.Freigabe f = Teilen.eigeneFreigabe(this);
-            String s = f.mitPuls() ? f.link() : null;
-            if (s == null) { Toast.makeText(this, "Ein Link geht nur, wenn dein Plan aus der PULS-Modulwahl kommt.", Toast.LENGTH_LONG).show(); return; }
+            Teilen.Freigabe f = Teilen.eigeneFreigabe(this, mit);
+            String s = f.leer() ? null : f.link();
+            if (s == null) { Toast.makeText(this, "Ein Link geht nur, wenn dein Plan aus der PULS-Modulwahl kommt oder eigene Termine ausgewählt sind.", Toast.LENGTH_LONG).show(); return; }
             startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain")
                     .putExtra(Intent.EXTRA_TEXT, "Mein Stundenplan" + (f.name.isEmpty() ? "" : " (" + f.name + ")")
                             + " – in der Stundenplan-App öffnen oder dort unter „Link einfügen“:\n" + s), "Link teilen"));
@@ -97,8 +120,8 @@ public class TeilenActivity extends Activity {
     }
 
     private void qrZeichnen() {
-        Teilen.Freigabe f = Teilen.eigeneFreigabe(this);
-        String link = f.mitPuls() ? f.link() : null;
+        Teilen.Freigabe f = Teilen.eigeneFreigabe(this, mit);
+        String link = f.leer() ? null : f.link();
         Bitmap b = link == null ? null : Teilen.qr(link, 800);
         if (b == null) {
             qr.setImageBitmap(null);
@@ -107,15 +130,20 @@ public class TeilenActivity extends Activity {
         } else {
             qr.setVisibility(android.view.View.VISIBLE);
             qr.setImageBitmap(b);
-            qrInfo.setText(f.kurse.size() + " Fächer mit Gruppen");
+            String info = f.mitPuls() ? f.kurse.size() + " Fächer mit Gruppen" : "";
+            if (!f.eigene.isEmpty()) info += (info.isEmpty() ? "" : " · ") + f.eigene.size() + " eigene Termine";
+            qrInfo.setText(info);
         }
     }
 
     private void dateiTeilen() {
-        List<Termin> t = Teilen.eigeneZumTeilen(this);
+        Teilen.Freigabe f = Teilen.eigeneFreigabe(this, mit);
+        List<Termin> t = new java.util.ArrayList<>(Teilen.eigeneZumTeilen(this));
+        // Eigene Termine als normale Kalendereinträge (für andere Kalender-Apps) und zusätzlich in der Freigabe
+        t.addAll(f.eigeneEinzeln());
         if (t.isEmpty()) { Toast.makeText(this, "Keine Termine zum Teilen.", Toast.LENGTH_SHORT).show(); return; }
         String name = Teilen.name(this);
-        String text = Teilen.ics(t, name, Teilen.eigeneFreigabe(this));
+        String text = Teilen.ics(t, name, f);
         String dateiname = (name.isEmpty() ? "Stundenplan" : "Stundenplan " + name).replaceAll("[^\\p{L}\\p{N} -]", "") + ".ics";
         File f = new File(Dateien.ordner(this), dateiname);
         try (FileOutputStream out = new FileOutputStream(f)) {
