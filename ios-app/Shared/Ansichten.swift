@@ -243,9 +243,23 @@ struct TerminKarte: View {
                     Text(timerInterval: jetzt...termin.start, countsDown: true)
                         .monospacedDigit()
                 } else if !istHeute, let w = WeckerStand.fuer(termin) {
-                    Text("Erster Termin · ")
-                    Image(systemName: "alarm.fill")
-                    Text("Wecker " + Zeit.uhrzeit(w))
+                    // So lang wie es passt: „Erster Termin · ⏰ Wecker 6:45“ → „Erster Termin · ⏰ 6:45“ → „⏰ Wecker 6:45“
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 3) {
+                            Text("Erster Termin ·")
+                            Image(systemName: "alarm.fill")
+                            Text("Wecker " + Zeit.uhrzeit(w))
+                        }
+                        HStack(spacing: 3) {
+                            Text("Erster Termin ·")
+                            Image(systemName: "alarm.fill")
+                            Text(Zeit.uhrzeit(w))
+                        }
+                        HStack(spacing: 3) {
+                            Image(systemName: "alarm.fill")
+                            Text("Wecker " + Zeit.uhrzeit(w))
+                        }
+                    }
                 } else {
                     Text(istHeute ? "Als Nächstes" : "Erster Termin")
                 }
