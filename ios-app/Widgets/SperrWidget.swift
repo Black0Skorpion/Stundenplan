@@ -189,6 +189,12 @@ struct SperrRechteck: View {
                             Text(timerInterval: jetzt...t.start, countsDown: true).monospacedDigit()
                         } else {
                             Text(Zeit.wannText(t, jetzt).uppercased())
+                            // Am Vorabend: wann der Wecker klingelt
+                            if !Zeit.gleicherTag(t.start, jetzt), let w = WeckerStand.fuer(t) {
+                                Text("·")
+                                Image(systemName: "alarm.fill")
+                                Text(Zeit.uhrzeit(w))
+                            }
                         }
                     }
                     .font(.system(size: 10, weight: .bold))
@@ -216,9 +222,16 @@ struct SperrRechteck: View {
         if let auswahl = Plan.tagesAuswahl(alle, jetzt) {
             let rest = Array(auswahl.termine.filter { $0.ende > jetzt }.prefix(3))
             VStack(alignment: .leading, spacing: 0) {
-                Text(auswahl.label.uppercased())
-                    .font(.system(size: 10, weight: .bold))
-                    .opacity(0.7)
+                HStack(spacing: 3) {
+                    Text(auswahl.label.uppercased())
+                    if !auswahl.istHeute, let erster = auswahl.termine.first, let w = WeckerStand.fuer(erster) {
+                        Text("·")
+                        Image(systemName: "alarm.fill")
+                        Text(Zeit.uhrzeit(w))
+                    }
+                }
+                .font(.system(size: 10, weight: .bold))
+                .opacity(0.7)
                 ForEach(rest) { t in
                     HStack(spacing: 5) {
                         Text(Zeit.uhrzeit(t.start))

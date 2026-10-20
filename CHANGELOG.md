@@ -2,6 +2,16 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## iOS 0.5.1.6
+
+**Behoben**
+- Schlummern ging nicht, wenn der Wecker noch mit einer älteren App-Version gestellt worden war: Nach jedem Update werden die Wecker jetzt einmal neu gestellt, damit alle Einstellungen (z. B. Schlummerzeit) auch wirklich darin stecken.
+- Ein Wecker, der gerade klingelt oder schlummert, wird beim Neuplanen nicht mehr versehentlich abgebrochen.
+- Stundenplan-Widget: Der Hinweis „Erster Termin · Wecker 6:45“ am Vorabend passt jetzt in die Karte – bei wenig Platz wird er gekürzt.
+
+**Neu**
+- Sperrbildschirm-Widget (Rechteck): Am Vorabend steht neben dem ersten Termin des nächsten Tages, wann der Wecker klingelt (z. B. „MORGEN 8:15 · ⏰ 6:45“), auch in der Tagesübersicht.
+
 ## iOS 0.5.1.5
 
 **Behoben**

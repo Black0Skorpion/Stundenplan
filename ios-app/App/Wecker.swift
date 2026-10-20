@@ -89,8 +89,13 @@ enum Wecker {
         let e = Speicher.einstellungen()
         let neu = e.wecker ? zeiten(Speicher.termine(), e) : []
         let alt = Speicher.lesen([Weckzeit].self, "wecker.json") ?? []
-        if !erzwingen && neu == alt.filter({ $0.wann > Date() }) && !neu.isEmpty { return }
-        if neu.isEmpty && alt.isEmpty { return }
+        // Nach einem App-Update immer neu stellen, damit neue Einstellungen (z. B. Schlummern) auch
+        // bei unveränderten Weckzeiten in den schon geplanten Weckern ankommen
+        let version = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        let neueVersion = UserDefaults.standard.string(forKey: "weckerGeplantMitVersion") != version
+        if !erzwingen && !neueVersion && neu == alt.filter({ $0.wann > Date() }) && !neu.isEmpty { return }
+        if neu.isEmpty && alt.isEmpty && !neueVersion { return }
+        UserDefaults.standard.set(version, forKey: "weckerGeplantMitVersion")
 
         #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
@@ -144,9 +149,9 @@ enum AlarmPlaner {
     @discardableResult
     static func planen(_ zeiten: [Wecker.Weckzeit], schlummern: Int) async -> Bool {
         let m = AlarmManager.shared
-        // Alle Wecker dieser App ersetzen
+        // Alle geplanten Wecker dieser App ersetzen – aber keinen, der gerade klingelt oder schlummert
         if let alle = try? m.alarms {
-            for a in alle { try? m.cancel(id: a.id) }
+            for a in alle where a.state == .scheduled { try? m.cancel(id: a.id) }
         }
         guard m.authorizationState == .authorized else { return false }
         for w in zeiten {
