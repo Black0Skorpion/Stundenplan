@@ -133,7 +133,8 @@ public class MainActivity extends Activity {
         PulsDienst.planen(this);
         PulsDienst.nachAenderung(this);
         new Thread(() -> {
-            if (PulsDienst.abgleichen(this, false)) runOnUiThread(() -> { if (aktiv >= 0) seiten[aktiv].zeigen(); });
+            boolean neu = PulsDienst.lehrpersonenNachtragen(this);
+            if (PulsDienst.abgleichen(this, false) || neu) runOnUiThread(() -> { if (aktiv >= 0) seiten[aktiv].zeigen(); });
         }).start();
     }
 

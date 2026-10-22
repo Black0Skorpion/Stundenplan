@@ -159,6 +159,7 @@ public final class Puls {
     public static final class EinzelTermin {
         public final long start, ende;
         public final String art, raum;
+        public String lehrperson = "";
 
         EinzelTermin(long start, long ende, String art, String raum) {
             this.start = start; this.ende = ende; this.art = art; this.raum = raum;
@@ -449,7 +450,9 @@ public final class Puls {
         for (LocalDate d : tage) {
             if (ausfall.contains(d.format(TAG))) continue;
             long start = LocalDateTime.of(d, von).atZone(ZONE).toInstant().toEpochMilli();
-            aus.add(new EinzelTermin(start, start + dauer, r.art, r.raum));
+            EinzelTermin e = new EinzelTermin(start, start + dauer, r.art, r.raum);
+            e.lehrperson = r.lehrperson == null ? "" : r.lehrperson.trim();
+            aus.add(e);
         }
         return aus;
     }

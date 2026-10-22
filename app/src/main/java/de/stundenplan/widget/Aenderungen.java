@@ -165,6 +165,7 @@ public final class Aenderungen {
         Erinnerungen.planen(ctx);
         Wecker.planen(ctx);
         LiveUpdate.planen(ctx);
+        NichtStoeren.planen(ctx);
     }
 
     /** Raum, der gerade gespeichert ist (null = Original) */

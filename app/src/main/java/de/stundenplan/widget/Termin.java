@@ -15,6 +15,8 @@ public final class Termin {
     public long originalStart = 0, originalEnde = 0;
     /** Bei nach hinten verschobener Zeit: Beginn, nach dem sich der Wecker richtet; 0 = wie start */
     public long weckStart = 0;
+    /** Lehrperson(en) laut PULS ("" = unbekannt) */
+    public String lehrperson = "";
 
     /** Darstellung im Wochenraster: 0 normal, 1 Auswahlmöglichkeit (grau), 2 ausgeblendet, 3 Überschneidung */
     public int stil = 0;
@@ -38,7 +40,9 @@ public final class Termin {
     }
 
     Termin mitZeiten(long neuStart, long neuEnde) {
-        return new Termin(neuStart, neuEnde, titel, typ, raum);
+        Termin n = new Termin(neuStart, neuEnde, titel, typ, raum);
+        n.lehrperson = lehrperson;
+        return n;
     }
 
     /** Bleibt gleich, auch wenn Raum oder Zeit geändert werden (wie in der iOS-App) */

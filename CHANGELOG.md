@@ -2,6 +2,15 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## Android 1.6.1.4
+
+**Neu**
+- Nicht stören in Veranstaltungen (Einstellungen → Nicht stören): Die App legt einen eigenen Modus „Vorlesung (Stundenplan)“ an und schaltet ihn während deiner Veranstaltungen ein und danach wieder aus – zu Beginn oder 5, 10 bzw. 15 Minuten vorher. Was trotzdem durchkommt (Personen, Apps, Wecker), stellst du unter „Modus anpassen“ ein. Direkt aufeinanderfolgende Veranstaltungen zählen als ein Block, ausgefallene gar nicht. Braucht einmalig den Zugriff auf „Nicht stören“.
+- Lehrperson: steht jetzt beim Termin im Lageplan (Termin antippen). Wird aus PULS übernommen, bei bestehenden Plänen beim nächsten Öffnen nachgetragen.
+
+**Geändert**
+- Live Update erst ab Beginn der Veranstaltung (statt schon eine Stunde vorher – davor gibt es ja das Widget); zum Ende verschwindet es wie bisher von selbst.
+
 ## iOS 0.5.1.7
 
 **Behoben**

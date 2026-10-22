@@ -339,10 +339,31 @@ public final class PulsDienst {
     public static List<Termin> termine(Context ctx, List<Kurs> kurse) {
         List<Termin> aus = new ArrayList<>();
         for (Kurs k : kurse) for (Puls.EinzelTermin e : einzeltermine(ctx, k, null)) {
-            aus.add(new Termin(e.start, e.ende, k.titel, e.art, e.raum));
+            Termin t = new Termin(e.start, e.ende, k.titel, e.art, e.raum);
+            t.lehrperson = e.lehrperson;
+            aus.add(t);
         }
         Collections.sort(aus, (x, y) -> Long.compare(x.start, y.start));
         return aus;
+    }
+
+    /** Ältere gespeicherte Pläne haben noch keine Lehrperson: aus den schon geladenen PULS-Daten nachtragen (ohne Netz) */
+    static boolean lehrpersonenNachtragen(Context ctx) {
+        Auswahl a = auswahl(ctx);
+        if (!a.aktiv) return false;
+        List<Termin> alt = Daten.ladenRohOhneViertel(ctx);
+        if (alt.isEmpty()) return false;
+        for (Termin t : alt) if (!t.lehrperson.isEmpty()) return false;
+        List<Termin> neu = termine(ctx, a.kurse);
+        if (neu.size() != alt.size()) return false;
+        boolean etwas = false;
+        for (int i = 0; i < neu.size(); i++) {
+            if (neu.get(i).start != alt.get(i).start || !neu.get(i).titel.equals(alt.get(i).titel)) return false;
+            if (!neu.get(i).lehrperson.isEmpty()) etwas = true;
+        }
+        if (!etwas) return false;
+        terminePlanSpeichern(ctx, neu);
+        return true;
     }
 
     /** Überschneidungen: [0] = durch die Gruppe selbst, [1] = durch gemeinsame Termine (Vorlesung) */
@@ -402,6 +423,7 @@ public final class PulsDienst {
         Erinnerungen.planen(ctx);
         Wecker.planen(ctx);
         LiveUpdate.planen(ctx);
+        NichtStoeren.planen(ctx);
     }
 
     public static void deaktivieren(Context ctx) {

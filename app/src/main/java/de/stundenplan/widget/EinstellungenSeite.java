@@ -209,6 +209,49 @@ final class EinstellungenSeite implements MainActivity.Seite {
         inhalt.addView(g);
         inhalt.addView(ui.fuss("Mitteilung mit Raum und Countdown vor jeder Veranstaltung. Tippen öffnet den Lageplan."));
 
+        // ───── Nicht stören ─────
+        inhalt.addView(ui.abschnitt("Nicht stören"));
+        g = ui.gruppe();
+        List<View> nz = new ArrayList<>();
+        boolean fokusAn = NichtStoeren.an(act) && NichtStoeren.erlaubt(act);
+        nz.add(schalter("In Veranstaltungen", fokusAn, (s, an) -> {
+            if (an && !NichtStoeren.erlaubt(act)) {
+                Erinnerungen.prefs(act).edit().putBoolean(NichtStoeren.AN, true).apply();
+                new AlertDialog.Builder(act).setTitle("Zugriff auf „Nicht stören“")
+                        .setMessage("Damit die App den Modus während deiner Veranstaltungen ein- und ausschalten kann, braucht sie den Zugriff auf „Nicht stören“. Gleich öffnen sich die Android-Einstellungen: dort „Stundenplan“ erlauben und zurückkommen.")
+                        .setPositiveButton("Weiter", (d, w) -> NichtStoeren.erlaubnisOeffnen(act))
+                        .setNegativeButton("Abbrechen", (d, w) -> {
+                            Erinnerungen.prefs(act).edit().putBoolean(NichtStoeren.AN, false).apply();
+                            aufbauen();
+                        }).show();
+                return;
+            }
+            Erinnerungen.prefs(act).edit().putBoolean(NichtStoeren.AN, an).apply();
+            if (an) NichtStoeren.planen(act); else NichtStoeren.entfernen(act);
+            aufbauen();
+        }));
+        if (fokusAn) {
+            String[] vn = new String[NichtStoeren.VORLAUF_OPTIONEN.length];
+            int vg = 0;
+            for (int i = 0; i < vn.length; i++) {
+                int m = NichtStoeren.VORLAUF_OPTIONEN[i];
+                vn[i] = m == 0 ? "zu Beginn" : m + " Min vorher";
+                if (m == NichtStoeren.vorlauf(act)) vg = i;
+            }
+            nz.add(auswahl("Einschalten", vn, vg, i -> {
+                Erinnerungen.prefs(act).edit().putInt(NichtStoeren.VORLAUF, NichtStoeren.VORLAUF_OPTIONEN[i]).apply();
+                NichtStoeren.planen(act);
+            }));
+            if (NichtStoeren.eigenerModus()) {
+                nz.add(ui.knopfZeile("Modus „Vorlesung“ anpassen", v -> NichtStoeren.modusEinstellungen(act)));
+            }
+        }
+        ui.fuellen(g, nz.toArray(new View[0]));
+        inhalt.addView(g);
+        inhalt.addView(ui.fuss(NichtStoeren.eigenerModus()
+                ? "Schaltet während deiner Veranstaltungen den eigenen Modus „Vorlesung (Stundenplan)“ ein und danach wieder aus. Was trotzdem durchkommt (Personen, Apps, Wecker), stellst du unter „Modus anpassen“ ein. Direkt aufeinanderfolgende Veranstaltungen zählen als ein Block, ausgefallene gar nicht."
+                : "Schaltet während deiner Veranstaltungen „Nicht stören“ ein und danach wieder aus (nur wenn es vorher aus war). Direkt aufeinanderfolgende Veranstaltungen zählen als ein Block, ausgefallene gar nicht."));
+
         // ───── Live Update ─────
         if (LiveUpdate.verfuegbar()) {
             inhalt.addView(ui.abschnitt("Live Update"));
@@ -219,7 +262,7 @@ final class EinstellungenSeite implements MainActivity.Seite {
                 LiveUpdate.planen(act);
             }));
             inhalt.addView(g);
-            inhalt.addView(ui.fuss("In der Statusleiste und auf dem Sperrbildschirm (Samsung: Now Bar): ab einer Stunde vorher Countdown und Raum, während der Vorlesung Ende und Fortschritt."));
+            inhalt.addView(ui.fuss("In der Statusleiste und auf dem Sperrbildschirm (Samsung: Now Bar): ab Beginn der Veranstaltung Raum, Ende und Fortschritt; zum Ende verschwindet es von selbst."));
         }
 
         // ───── Campus ─────

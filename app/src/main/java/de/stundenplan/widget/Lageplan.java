@@ -377,6 +377,7 @@ public final class Lageplan {
                     .append(schutz(typ[0])).append(" · ").append(uhrzeit(t.start)).append("–").append(uhrzeit(t.ende))
                     .append(t.ausfall ? " <span class=\"marke\">FÄLLT AUS</span>" : "").append("</div>")
                     .append("<div class=\"titel\">").append(schutz(t.titel)).append("</div>")
+                    .append(t.lehrperson != null && !t.lehrperson.isEmpty() ? "<div class=\"einr\">👤 " + schutz(t.lehrperson) + "</div>" : "")
                     .append("<div class=\"ort\">").append(ort).append("</div>")
                     .append(t.alterRaum != null ? "<div class=\"einr\">Geändert, ursprünglich " + schutz(t.alterRaum) + "</div>" : "")
                     .append(t.zeitGeaendert() && (t.originalStart != t.start || t.originalEnde != t.ende)
