@@ -83,9 +83,29 @@ enum Wecker {
         return await Erinnerungen.erlaubnisAnfragen()
     }
 
-    /// Wecker neu planen (nur wenn sich etwas geändert hat; erzwingen z. B. nach geänderter Schlummerzeit)
+    /// Läuft gerade eine Planung? Dann nicht parallel (zwei gleichzeitige würden sich gegenseitig Wecker löschen)
+    @MainActor private static var plantGerade = false
+    @MainActor private static var nochmal = false
+
+    /// Wecker neu planen (nur wenn sich etwas geändert hat oder die gestellten Wecker nicht mehr stimmen;
+    /// erzwingen z. B. nach geänderter Schlummerzeit)
     @MainActor
     static func planen(erzwingen: Bool = false) async {
+        if plantGerade {
+            nochmal = true
+            return
+        }
+        plantGerade = true
+        defer { plantGerade = false }
+        await planenEinmal(erzwingen: erzwingen)
+        while nochmal {
+            nochmal = false
+            await planenEinmal(erzwingen: false)
+        }
+    }
+
+    @MainActor
+    private static func planenEinmal(erzwingen: Bool) async {
         let e = Speicher.einstellungen()
         let neu = e.wecker ? zeiten(Speicher.termine(), e) : []
         let alt = Speicher.lesen([Weckzeit].self, "wecker.json") ?? []
@@ -93,7 +113,10 @@ enum Wecker {
         // bei unveränderten Weckzeiten in den schon geplanten Weckern ankommen
         let version = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         let neueVersion = UserDefaults.standard.string(forKey: "weckerGeplantMitVersion") != version
-        if !erzwingen && !neueVersion && neu == alt.filter({ $0.wann > Date() }) && !neu.isEmpty { return }
+        // Auch prüfen, ob die Wecker im System wirklich (noch) gestellt sind – z. B. nach einem Update
+        // oder wenn iOS sie entfernt hat. Sonst würde die App das nie bemerken.
+        if !erzwingen && !neueVersion && neu == alt.filter({ $0.wann > Date() }) && !neu.isEmpty
+            && systemStimmt(neu) { return }
         if neu.isEmpty && alt.isEmpty && !neueVersion { return }
         UserDefaults.standard.set(version, forKey: "weckerGeplantMitVersion")
 
@@ -108,6 +131,36 @@ enum Wecker {
         await mitteilungenPlanen(neu)
         Speicher.schreiben(neu, "wecker.json")
         Speicher.widgetsNeuLaden()
+    }
+
+    /// Stimmen die im System gestellten Wecker mit den geplanten Zeiten überein?
+    @MainActor
+    static func systemStimmt(_ zeiten: [Weckzeit]) -> Bool {
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            let gestellt = AlarmPlaner.gestellteZeiten()
+            let soll = zeiten.map { Int($0.wann.timeIntervalSince1970) }.sorted()
+            return gestellt == soll
+        }
+        #endif
+        return true
+    }
+
+    /// Für die Fehlersuche: was im System gestellt ist
+    @MainActor
+    static func diagnose() async -> [String] {
+        var z: [String] = []
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            z.append("Erlaubnis: " + AlarmPlaner.erlaubnisText())
+            z += AlarmPlaner.beschreibung()
+            return z
+        }
+        #endif
+        let c = UNUserNotificationCenter.current()
+        let offen = await c.pendingNotificationRequests().filter { $0.identifier.hasPrefix(praefix) }
+        z.append("Ersatz-Mitteilungen geplant: \(offen.count)")
+        return z
     }
 
     static func titel(_ w: Weckzeit) -> String {
@@ -143,6 +196,45 @@ enum AlarmPlaner {
         case .authorized: return true
         case .notDetermined: return (try? await m.requestAuthorization()) == .authorized
         default: return false
+        }
+    }
+
+    /// Zeitpunkte (Sekunden) der gestellten, noch nicht ausgelösten Wecker
+    static func gestellteZeiten() -> [Int] {
+        guard let alle = try? AlarmManager.shared.alarms else { return [] }
+        return alle.filter { $0.state == .scheduled }.compactMap { a -> Int? in
+            if case .fixed(let d)? = a.schedule { return Int(d.timeIntervalSince1970) }
+            return nil
+        }.sorted()
+    }
+
+    static func erlaubnisText() -> String {
+        switch AlarmManager.shared.authorizationState {
+        case .authorized: return "ja"
+        case .denied: return "abgelehnt"
+        case .notDetermined: return "noch nicht gefragt"
+        @unknown default: return "unbekannt"
+        }
+    }
+
+    static func beschreibung() -> [String] {
+        guard let alle = try? AlarmManager.shared.alarms else { return ["Wecker nicht lesbar"] }
+        if alle.isEmpty { return ["Keine Wecker im System gestellt"] }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "EE dd.MM. HH:mm"
+        return alle.map { a -> String in
+            var wann = "?"
+            if case .fixed(let d)? = a.schedule { wann = f.string(from: d) }
+            let zustand: String
+            switch a.state {
+            case .scheduled: zustand = "gestellt"
+            case .countdown: zustand = "schlummert"
+            case .paused: zustand = "pausiert"
+            case .alerting: zustand = "klingelt"
+            @unknown default: zustand = "?"
+            }
+            return "\(wann) · \(zustand)"
         }
     }
 

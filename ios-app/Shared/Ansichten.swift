@@ -273,6 +273,13 @@ struct TerminKarte: View {
                     .font(.system(size: 15, weight: .bold))
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
+                if let l = termin.lehrperson {
+                    Text(l)
+                        .font(.system(size: 11, weight: .medium))
+                        .opacity(0.9)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             } else {
                 Text(kurs.kurz)
                     .font(.system(size: 18, weight: .bold))

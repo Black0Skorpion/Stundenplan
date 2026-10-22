@@ -18,6 +18,8 @@ struct Termin: Codable, Hashable, Identifiable {
     var originalEnde: Date? = nil
     /// Bei nach hinten verschobener Zeit: Beginn, nach dem sich der Wecker richtet (Züge fahren nicht später)
     var weckStart: Date? = nil
+    /// Lehrperson(en) laut PULS (leer, wenn unbekannt)
+    var lehrperson: String? = nil
 
     init(start: Date, ende: Date, titel: String, typ: String, raum: String) {
         self.start = start
@@ -40,6 +42,7 @@ struct Termin: Codable, Hashable, Identifiable {
         originalStart = try c.decodeIfPresent(Date.self, forKey: .originalStart)
         originalEnde = try c.decodeIfPresent(Date.self, forKey: .originalEnde)
         weckStart = try c.decodeIfPresent(Date.self, forKey: .weckStart)
+        lehrperson = try c.decodeIfPresent(String.self, forKey: .lehrperson)
     }
 
     var id: String { schluessel }
@@ -53,6 +56,14 @@ struct Termin: Codable, Hashable, Identifiable {
         return "\(titel)|\(typ)|\(k.weekday ?? 0)|\((k.hour ?? 0) * 60 + (k.minute ?? 0))"
     }
     var dauer: TimeInterval { ende.timeIntervalSince(start) }
+
+    /// Termin aus PULS mit Lehrperson
+    static func mitLehrperson(_ t: Termin, _ l: String) -> Termin {
+        var n = t
+        let x = l.trimmingCharacters(in: .whitespaces)
+        n.lehrperson = x.isEmpty ? nil : x
+        return n
+    }
 
     func laeuft(_ jetzt: Date) -> Bool { start <= jetzt && ende > jetzt }
 }

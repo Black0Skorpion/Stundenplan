@@ -125,14 +125,14 @@ struct EinstellungenReiter: View {
                 .onChange(of: fokusVorlauf) { _, _ in fokusSpeichern() }
 
                 Section {
-                    Toggle("Countdown in der Dynamic Island", isOn: $live)
+                    Toggle("Live-Aktivität während der Veranstaltung", isOn: $live)
                     if live {
                         Toggle("Sperrbildschirm-Widgets dann ausblenden", isOn: $sperrAusblenden)
                     }
                 } header: {
                     Text("Live-Aktivität")
                 } footer: {
-                    Text("Zeigt ab einer Stunde vorher den Countdown bis Beginn und den Raum in der Dynamic Island und auf dem Sperrbildschirm; während der Vorlesung Ende und Fortschritt. Ohne Server kann iOS sie nur starten, wenn die App geöffnet wird – am einfachsten über die Erinnerung. „Ausblenden“ blendet die Stundenplan-Widgets unter der Uhr aus, solange die Live-Aktivität die Veranstaltung zeigt, damit nichts doppelt steht.")
+                    Text("Zeigt ab Beginn der Veranstaltung Raum, Ende und Fortschritt in der Dynamic Island und auf dem Sperrbildschirm (beides gehört bei iOS zusammen). Ab iOS 26 startet sie von selbst – die App merkt die nächsten Veranstaltungen vor, iOS zeigt dabei kurz einen Hinweis; davor nur, wenn die App gerade offen ist. Nach dem Ende steht nur noch „vorbei“ mit ✕ zum Schließen (ohne die App zu öffnen); beim nächsten Öffnen verschwindet sie von selbst. „Ausblenden“ blendet die Stundenplan-Widgets unter der Uhr aus, solange die Live-Aktivität läuft.")
                 }
                 .onChange(of: sperrAusblenden) { _, an in
                     var e = Speicher.einstellungen()
@@ -296,6 +296,7 @@ struct DebugAnsicht: View {
     @EnvironmentObject var zustand: AppZustand
     @State private var link = Speicher.einstellungen().link
     @State private var importieren = false
+    @State private var weckerZeilen: [String] = []
 
     private var icsTypen: [UTType] {
         var t: [UTType] = [.calendarEvent]
@@ -306,6 +307,23 @@ struct DebugAnsicht: View {
 
     var body: some View {
         Form {
+            Section {
+                ForEach(Array(weckerZeilen.enumerated()), id: \.offset) { _, z in
+                    Text(z).font(.footnote.monospacedDigit())
+                }
+                Button("Wecker jetzt neu stellen") {
+                    Task {
+                        await Wecker.planen(erzwingen: true)
+                        weckerZeilen = await Wecker.diagnose()
+                    }
+                }
+            } header: {
+                Text("Wecker im System")
+            } footer: {
+                Text("Zeigt, welche Wecker iOS gerade wirklich gestellt hat. Fehlt hier ein Tag mit Veranstaltung, „Wecker jetzt neu stellen“ antippen.")
+            }
+            .task { weckerZeilen = await Wecker.diagnose() }
+
             Section {
                 LabeledContent("Termine", value: "\(zustand.termine.count)")
                 Button("ICS-Datei importieren …") { importieren = true }

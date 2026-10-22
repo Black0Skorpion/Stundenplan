@@ -131,7 +131,7 @@ final class PulsModell: ObservableObject {
 
     func termine() -> [Termin] {
         auswahl.kurse.flatMap { k in
-            einzeltermine(k).map { Termin(start: $0.start, ende: $0.ende, titel: k.titel, typ: $0.art, raum: $0.raum) }
+            einzeltermine(k).map { Termin.mitLehrperson(Termin(start: $0.start, ende: $0.ende, titel: k.titel, typ: $0.art, raum: $0.raum), $0.lehrperson) }
         }.sorted { $0.start < $1.start }
     }
 
@@ -162,6 +162,21 @@ final class PulsModell: ObservableObject {
     }
 
     var fehlendeGruppen: [Kurs] { auswahl.kurse.filter { $0.gruppe == nil } }
+
+    /// Ältere gespeicherte Pläne haben noch keine Lehrperson: aus den schon geladenen PULS-Daten nachtragen
+    /// (ohne Netz, nur wenn sonst alles gleich ist)
+    @discardableResult
+    func lehrpersonenNachtragen() -> Bool {
+        guard auswahl.aktiv else { return false }
+        let alt = Speicher.lesen([Termin].self, "puls-termine.json") ?? []
+        guard !alt.isEmpty, alt.allSatisfy({ $0.lehrperson == nil }) else { return false }
+        let neu = termine()
+        guard neu.count == alt.count, neu.contains(where: { $0.lehrperson != nil }),
+              zip(alt, neu).allSatisfy({ $0.start == $1.start && $0.titel == $1.titel }) else { return false }
+        Speicher.speichereTermine(neu)
+        Speicher.schreiben(neu, "puls-termine.json")
+        return true
+    }
 
     /// Auswahl als Stundenplan übernehmen
     func uebernehmen() -> Int {
@@ -216,7 +231,15 @@ final class PulsModell: ObservableObject {
         let meldungen = Self.vergleich(alt, neu)
         stand.letzterAbgleich = Date()
         stand.fehler = fehlgeschlagen.isEmpty ? nil : "Nicht geladen: " + fehlgeschlagen.joined(separator: ", ")
-        guard !meldungen.isEmpty else { return false }
+        guard !meldungen.isEmpty else {
+            // Keine Änderung, die man melden müsste – aber evtl. neue Angaben (z. B. Lehrperson): still übernehmen
+            if alt.map(\.lehrperson) != neu.map(\.lehrperson) && alt.count == neu.count {
+                Speicher.speichereTermine(neu)
+                Speicher.schreiben(neu, "puls-termine.json")
+                return true
+            }
+            return false
+        }
 
         Speicher.speichereTermine(neu)
         Speicher.schreiben(neu, "puls-termine.json")
@@ -292,6 +315,8 @@ enum PulsHintergrund {
             let t = Task { @MainActor in
                 let geaendert = await PulsModell.shared.abgleichen()
                 if geaendert { Speicher.widgetsNeuLaden() }
+                // Nebenbei prüfen, ob die Wecker im System noch stimmen (auch ohne die App zu öffnen)
+                await Wecker.planen()
                 aufgabe.setTaskCompleted(success: true)
             }
             aufgabe.expirationHandler = { t.cancel() }
