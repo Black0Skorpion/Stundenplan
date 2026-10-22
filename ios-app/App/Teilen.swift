@@ -122,7 +122,7 @@ enum Teilen {
             guard let v = await puls.laden(k.publishid) ?? puls.cache[k.publishid] else { continue }
             geladen += 1
             alle += Puls.termine(v, gruppe: k.gruppe, ohne: k.ausgeblendetSet)
-                .map { Termin(start: $0.start, ende: $0.ende, titel: k.titel, typ: $0.art, raum: $0.raum) }
+                .map { Termin.mitLehrperson(Termin(start: $0.start, ende: $0.ende, titel: k.titel, typ: $0.art, raum: $0.raum), $0.lehrperson) }
         }
         return geladen == 0 && !f.kurse.isEmpty ? nil : alle.sorted { $0.start < $1.start }
     }

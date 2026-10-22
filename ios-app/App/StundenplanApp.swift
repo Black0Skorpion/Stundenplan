@@ -70,6 +70,7 @@ struct StundenplanApp: App {
                         LiveAktivitaet.aktualisieren(zustand.termine)
                         // Höchstens einmal täglich mit PULS abgleichen (wenn die Auswahl aktiv ist)
                         Task { @MainActor in
+                            if PulsModell.shared.lehrpersonenNachtragen() { zustand.neuLaden() }
                             if await PulsModell.shared.abgleichen() { zustand.neuLaden() }
                         }
                     } else if neu == .background, PulsModell.shared.auswahl.aktiv {

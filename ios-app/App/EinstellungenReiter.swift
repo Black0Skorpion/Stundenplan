@@ -296,6 +296,7 @@ struct DebugAnsicht: View {
     @EnvironmentObject var zustand: AppZustand
     @State private var link = Speicher.einstellungen().link
     @State private var importieren = false
+    @State private var weckerZeilen: [String] = []
 
     private var icsTypen: [UTType] {
         var t: [UTType] = [.calendarEvent]
@@ -306,6 +307,23 @@ struct DebugAnsicht: View {
 
     var body: some View {
         Form {
+            Section {
+                ForEach(Array(weckerZeilen.enumerated()), id: \.offset) { _, z in
+                    Text(z).font(.footnote.monospacedDigit())
+                }
+                Button("Wecker jetzt neu stellen") {
+                    Task {
+                        await Wecker.planen(erzwingen: true)
+                        weckerZeilen = await Wecker.diagnose()
+                    }
+                }
+            } header: {
+                Text("Wecker im System")
+            } footer: {
+                Text("Zeigt, welche Wecker iOS gerade wirklich gestellt hat. Fehlt hier ein Tag mit Veranstaltung, „Wecker jetzt neu stellen“ antippen.")
+            }
+            .task { weckerZeilen = await Wecker.diagnose() }
+
             Section {
                 LabeledContent("Termine", value: "\(zustand.termine.count)")
                 Button("ICS-Datei importieren …") { importieren = true }

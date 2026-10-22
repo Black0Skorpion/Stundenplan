@@ -2,6 +2,16 @@
 
 Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 
+## iOS 0.5.1.7
+
+**Behoben**
+- Wecker: Die App prüft jetzt bei jedem Öffnen und regelmäßig im Hintergrund, ob die Wecker im System wirklich gestellt sind, und stellt fehlende sofort neu. Vorher konnte ein von iOS entfernter Wecker (z. B. nach einem Update) unbemerkt fehlen.
+- Wecker: Zwei gleichzeitige Neuplanungen konnten sich gegenseitig stören – sie laufen jetzt nacheinander.
+
+**Neu**
+- Lehrperson: steht jetzt beim Termin (Termin antippen) und in der großen Karte im Plan bzw. im großen Widget, sofern Platz ist. Wird aus PULS übernommen.
+- Einstellungen → Debug → „Wecker im System“: zeigt, welche Wecker iOS gerade wirklich gestellt hat, mit Knopf „Wecker jetzt neu stellen“.
+
 ## iOS 0.5.1.6
 
 **Behoben**

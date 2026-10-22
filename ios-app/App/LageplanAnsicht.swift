@@ -155,6 +155,9 @@ struct LageplanAnsicht: View {
                 }
             }
             Text(t.titel).font(.headline).strikethrough(t.ausfall)
+            if let l = t.lehrperson {
+                Label(l, systemImage: "person").font(.footnote).opacity(0.9).lineLimit(2)
+            }
             Text(Lageplan.ortText(t.raum)).font(.subheadline.weight(.semibold))
             if let alt = t.alterRaum {
                 Text("Geändert, ursprünglich \(alt)").font(.footnote).opacity(0.85)

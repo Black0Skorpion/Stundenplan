@@ -133,6 +133,7 @@ enum Puls {
         let ende: Date
         let art: String
         let raum: String
+        var lehrperson: String = ""
     }
 
     // ───────────── Semester ─────────────
@@ -384,7 +385,7 @@ enum Puls {
             return max(900, en.timeIntervalSince(s))
         }()
         return tage.filter { !ausfall.contains(f.string(from: $0)) }
-            .map { EinzelTermin(start: $0, ende: $0.addingTimeInterval(dauer), art: r.art, raum: r.raum) }
+            .map { EinzelTermin(start: $0, ende: $0.addingTimeInterval(dauer), art: r.art, raum: r.raum, lehrperson: r.lehrperson) }
     }
 
     /// Alle Termine einer gewählten Gruppe (ohne ausgeblendete Regeln)
