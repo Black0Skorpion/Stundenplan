@@ -1,0 +1,64 @@
+Semester: 20262 WiSe 2026/27
+
+== Maschinenmodelle [Vorlesung/Übung, WiSe 2026/27] Gruppen: 5 Moodle: true Frist: 01.10.2026 - 10.11.2026 aktuell
+   gemeinsam: Vorlesung · Mo 12:00–14:00 · 2.27.0.01 wöchentlich 12.10.2026–01.02.2027 Ausfälle: [26.10.2026, 21.12.2026, 28.12.2026]
+   gemeinsam: Tutorium · Do 14:00–16:00 · 2.70.0.11 wöchentlich 15.10.2026–04.02.2027 Ausfälle: [24.12.2026, 31.12.2026]
+   gemeinsam: Vorlesung · 26.10.2026 14:00–16:00 · 2.12.0.01 Einzeltermin 26.10.2026–26.10.2026 Ausfälle: []
+   Gruppe 1: Übung · Do 12:00–14:00 · 2.70.0.10
+   Gruppe 2: Übung · Mi 10:00–12:00 · 2.70.0.09
+   Gruppe 3: Übung · Do 08:00–10:00 · 2.70.0.11
+   Gruppe 4: Übung · Mi 08:00–10:00 · 2.70.0.09
+   Gruppe 5: Übung · Di 08:00–10:00 · 2.70.0.10
+   Termine Gruppe 1: 45, erste: Mo. 12.10. 12:00 Vorlesung 2.27.0.01; Do. 15.10. 12:00 Übung 2.70.0.10; Do. 15.10. 14:00 Tutorium 2.70.0.11; Mo. 19.10. 12:00 Vorlesung 2.27.0.01
+
+== Mathematik für Informatik I [Vorlesung/Übung, WiSe 2026/27] Gruppen: 3 Moodle: true Frist: 01.10.2026 - 10.11.2026 aktuell
+   gemeinsam: Vorlesung · Di 16:00–18:00 · 2.27.1.01 wöchentlich 13.10.2026–02.02.2027 Ausfälle: [22.12.2026, 29.12.2026]
+   Gruppe 1: Übung · Di 10:00–12:00 · 2.70.0.10
+   Gruppe 2: Übung · Di 12:00–14:00 · 2.70.0.09
+   Gruppe 3: Übung · Di 12:00–14:00 · 2.70.0.10
+   Termine Gruppe 1: 30, erste: Di. 13.10. 10:00 Übung 2.70.0.10; Di. 13.10. 16:00 Vorlesung 2.27.1.01; Di. 20.10. 10:00 Übung 2.70.0.10; Di. 20.10. 16:00 Vorlesung 2.27.1.01
+
+== Mathematik für Informatik II [Vorlesung/Übung, WiSe 2026/27] Gruppen: 2 Moodle: false Frist: 01.10.2026 - 10.11.2026 aktuell
+   gemeinsam: Vorlesung · Di 14:00–16:00 · 2.28.0.108 wöchentlich 13.10.2026–02.02.2027 Ausfälle: [22.12.2026, 29.12.2026]
+   Gruppe 1: Übung · Mi 10:00–12:00 · 2.70.0.10
+   Gruppe 2: Übung · Do 10:00–12:00 · 2.70.0.10
+   Termine Gruppe 1: 30, erste: Di. 13.10. 14:00 Vorlesung 2.28.0.108; Mi. 14.10. 10:00 Übung 2.70.0.10; Di. 20.10. 14:00 Vorlesung 2.28.0.108; Mi. 21.10. 10:00 Übung 2.70.0.10
+
+== Grundlagen der Programmierung [Vorlesung/Übung, WiSe 2026/27] Gruppen: 6 Moodle: true Frist: 01.10.2026 - 10.11.2026 aktuell
+   gemeinsam: Vorlesung · Mo 14:00–16:00 · 2.12.0.01 wöchentlich 12.10.2026–01.02.2027 Ausfälle: [26.10.2026, 21.12.2026, 28.12.2026]
+   gemeinsam: Vorlesung · 26.10.2026 12:00–14:00 · 2.27.0.01 Einzeltermin 26.10.2026–26.10.2026 Ausfälle: []
+   Gruppe 1: Übung · Mi 08:00–10:00 · 2.70.0.05, ab 04.11. 2.70.0.10
+   Gruppe 2: Übung · Fr 14:00–16:00 · 2.70.0.01, ab 06.11. 2.70.0.11
+   Gruppe 3: Übung · Mi 08:00–10:00 · 2.70.0.01, ab 04.11. 2.70.0.11
+   Gruppe 4: Übung · Mi 16:00–18:00 · 2.70.0.01, ab 04.11. 2.70.0.11
+   Gruppe 5: Übung · Do 16:00–18:00 · 2.70.0.01, ab 05.11. 2.70.0.11
+   Gruppe 6: Übung · Mi 16:00–18:00 · 2.70.0.05, ab 04.11. 2.70.0.09
+   Termine Gruppe 1: 30, erste: Mo. 12.10. 14:00 Vorlesung 2.12.0.01; Mi. 14.10. 08:00 Übung 2.70.0.05; Mo. 19.10. 14:00 Vorlesung 2.12.0.01; Mi. 21.10. 08:00 Übung 2.70.0.05
+
+== Grundlagen der Programmierung (Rechnerübung) [Übung, WiSe 2026/27] Gruppen: 6 Moodle: false Frist: 01.10.2026 - 10.11.2026 aktuell
+   gemeinsam: Zusatzübung · Mo 16:00–18:00 · 2.70.0.01 wöchentlich 12.10.2026–01.02.2027 Ausfälle: [21.12.2026, 28.12.2026]
+   gemeinsam: Zusatzübung · Di 16:00–18:00 · 2.70.0.01 wöchentlich 13.10.2026–02.02.2027 Ausfälle: [22.12.2026, 29.12.2026]
+   Gruppe 1: Übung · Di 08:00–10:00 · 2.70.0.01
+   Gruppe 2: Übung · Di 12:00–14:00 · 2.70.0.01
+   Gruppe 3: Übung · Mi 14:00–16:00 · 2.70.0.01
+   Gruppe 4: Übung · Fr 12:00–14:00 · 2.70.0.01
+   Gruppe 5: Übung · Di 14:00–16:00 · 2.70.0.01
+   Gruppe 6: Übung · Fr 12:00–14:00 · 2.70.0.05
+   Termine Gruppe 1: 45, erste: Mo. 12.10. 16:00 Zusatzübung 2.70.0.01; Di. 13.10. 08:00 Übung 2.70.0.01; Di. 13.10. 16:00 Zusatzübung 2.70.0.01; Mo. 19.10. 16:00 Zusatzübung 2.70.0.01
+
+== Bioinformatik [Vorlesung/Übung, WiSe 2026/27] Gruppen: 2 Moodle: false Frist: -
+   gemeinsam: Vorlesung · Fr 08:15–09:45 · 2.25.F0.01 wöchentlich 16.10.2026–05.02.2027 Ausfälle: [25.12.2026, 01.01.2027]
+   Gruppe 1: Übung · Do 08:15–09:00 · 2.70.0.01
+   Gruppe 2: Übung · Do 09:15–10:00 · 2.70.0.01
+   Termine Gruppe 1: 30, erste: Do. 15.10. 08:15 Übung 2.70.0.01; Fr. 16.10. 08:15 Vorlesung 2.25.F0.01; Do. 22.10. 08:15 Übung 2.70.0.01; Fr. 23.10. 08:15 Vorlesung 2.25.F0.01
+
+== Molekulare Evolutionsbiologie [Vorlesung, WiSe 2026/27] Gruppen: 1 Moodle: false Frist: -
+   gemeinsam: Vorlesung · Mi 12:15–13:00 · 2.25.F0.01 wöchentlich 14.10.2026–03.02.2027 Ausfälle: [11.11.2026, 23.12.2026, 30.12.2026]
+   Gruppe 1: Vorlesung · Mi 12:15–13:00 · 2.25.F0.01
+   Termine Gruppe 1: 14, erste: Mi. 14.10. 12:15 Vorlesung 2.25.F0.01; Mi. 21.10. 12:15 Vorlesung 2.25.F0.01; Mi. 28.10. 12:15 Vorlesung 2.25.F0.01; Mi. 04.11. 12:15 Vorlesung 2.25.F0.01
+
+Verzeichnis 277989|279834|282154|278938|277613|280402: 17 Einträge: INF-1010 - Grundlagen der Programmierung | INF-1011 - Algorithmen und Datenstrukturen | INF-1020 - Formale Grundlagen der Informatik | INF-1021 - Theoretische Grundlagen: Effiziente Algorithmen | INF-1030 - Maschinenmodelle | INF-1031 - Betriebssysteme und Rechnernetze
+Oberste Ebene: 11: An-Institute der Universität Potsdam | Juristische Fakultät | Philosophische Fakultät | Humanwissenschaftliche Fakultät
+Modul GdP: Grundlagen der Programmierung (v123976) | Grundlagen der Programmierung (Rechnerübung) (v123977)
+
+Fehler: 0
