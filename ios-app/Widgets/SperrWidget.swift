@@ -9,8 +9,19 @@ struct SperrEintrag: TimelineEntry {
     let variante: SperrVariante
     /// Einstellung „Sperrbildschirm-Widgets ausblenden, solange die Live-Aktivität läuft“
     var ausblendenBis: Date? = nil
+    /// Ab wann ausgeblendet wird (Beginn der Veranstaltung – die Live-Aktivität startet erst dann)
+    var ausblendenVon: Date? = nil
 
-    var ausgeblendet: Bool { ausblendenBis.map { date < $0 } ?? false }
+    var ausgeblendet: Bool {
+        guard let bis = ausblendenBis else { return false }
+        return date < bis && date >= (ausblendenVon ?? .distantPast)
+    }
+
+    static func ausblendenVon() -> Date? {
+        let e = Speicher.einstellungen()
+        guard e.sperrAusblenden, e.liveAktivitaet, let info = Speicher.liveInfo else { return nil }
+        return info.start
+    }
 
     /// Zeitraum, in dem die Live-Aktivität die Veranstaltung zeigt (nur wenn die Einstellung an ist)
     static func ausblendenBis() -> Date? {
@@ -27,7 +38,8 @@ struct SperrProvider: AppIntentTimelineProvider {
 
     func snapshot(for configuration: SperrEinstellung, in context: Context) async -> SperrEintrag {
         SperrEintrag(date: Date(), termine: Speicher.termine(), variante: configuration.variante,
-                     ausblendenBis: context.isPreview ? nil : SperrEintrag.ausblendenBis())
+                     ausblendenBis: context.isPreview ? nil : SperrEintrag.ausblendenBis(),
+                     ausblendenVon: context.isPreview ? nil : SperrEintrag.ausblendenVon())
     }
 
     func timeline(for configuration: SperrEinstellung, in context: Context) async -> Timeline<SperrEintrag> {
@@ -36,6 +48,8 @@ struct SperrProvider: AppIntentTimelineProvider {
         var zeiten = Set(Plan.wechselZeitpunkte(alle, ab: jetzt, stunden: 24))
         let bis = SperrEintrag.ausblendenBis()
         if let bis { zeiten.insert(bis) }   // nach der Live-Aktivität wieder einblenden
+        let von = SperrEintrag.ausblendenVon()
+        if let von, von > jetzt { zeiten.insert(von) }   // ab Beginn ausblenden
         // Zeile über der Uhr zeigt Minuten als Text → alle 5 Minuten für die nächsten 3 Stunden
         if configuration.variante.fuer(.accessoryInline) == .countdown {
             var t = jetzt
@@ -45,7 +59,7 @@ struct SperrProvider: AppIntentTimelineProvider {
             }
         }
         let eintraege = ([jetzt] + zeiten.sorted().prefix(90)).map {
-            SperrEintrag(date: $0, termine: alle, variante: configuration.variante, ausblendenBis: bis)
+            SperrEintrag(date: $0, termine: alle, variante: configuration.variante, ausblendenBis: bis, ausblendenVon: von)
         }
         return Timeline(entries: eintraege, policy: .atEnd)
     }

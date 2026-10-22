@@ -12,6 +12,10 @@ Nur was sich für dich in der App ändert – neu, geändert, entfernt, behoben.
 - Lehrperson: steht jetzt beim Termin (Termin antippen) und in der großen Karte im Plan bzw. im großen Widget, sofern Platz ist. Wird aus PULS übernommen.
 - Einstellungen → Debug → „Wecker im System“: zeigt, welche Wecker iOS gerade wirklich gestellt hat, mit Knopf „Wecker jetzt neu stellen“.
 
+**Geändert**
+- Live-Aktivität erst ab Beginn der Veranstaltung (statt schon eine Stunde vorher – davor gibt es ja das Widget). Ab iOS 26 startet sie von selbst zum Beginn, auch wenn die App geschlossen ist: Die App merkt die nächsten Veranstaltungen vor; iOS zeigt beim Start kurz einen Hinweis.
+- Nach dem Ende zeigt die Live-Aktivität nur noch eine schmale Zeile „… ist vorbei“ statt der vollen Anzeige. Mit dem neuen ✕ lässt sie sich jederzeit direkt schließen, ohne die App zu öffnen.
+
 ## iOS 0.5.1.6
 
 **Behoben**

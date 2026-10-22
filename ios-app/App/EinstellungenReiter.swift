@@ -125,14 +125,14 @@ struct EinstellungenReiter: View {
                 .onChange(of: fokusVorlauf) { _, _ in fokusSpeichern() }
 
                 Section {
-                    Toggle("Countdown in der Dynamic Island", isOn: $live)
+                    Toggle("Live-Aktivität während der Veranstaltung", isOn: $live)
                     if live {
                         Toggle("Sperrbildschirm-Widgets dann ausblenden", isOn: $sperrAusblenden)
                     }
                 } header: {
                     Text("Live-Aktivität")
                 } footer: {
-                    Text("Zeigt ab einer Stunde vorher den Countdown bis Beginn und den Raum in der Dynamic Island und auf dem Sperrbildschirm; während der Vorlesung Ende und Fortschritt. Ohne Server kann iOS sie nur starten, wenn die App geöffnet wird – am einfachsten über die Erinnerung. „Ausblenden“ blendet die Stundenplan-Widgets unter der Uhr aus, solange die Live-Aktivität die Veranstaltung zeigt, damit nichts doppelt steht.")
+                    Text("Zeigt ab Beginn der Veranstaltung Raum, Ende und Fortschritt in der Dynamic Island und auf dem Sperrbildschirm (beides gehört bei iOS zusammen). Ab iOS 26 startet sie von selbst – die App merkt die nächsten Veranstaltungen vor, iOS zeigt dabei kurz einen Hinweis; davor nur, wenn die App gerade offen ist. Nach dem Ende steht nur noch „vorbei“ mit ✕ zum Schließen (ohne die App zu öffnen); beim nächsten Öffnen verschwindet sie von selbst. „Ausblenden“ blendet die Stundenplan-Widgets unter der Uhr aus, solange die Live-Aktivität läuft.")
                 }
                 .onChange(of: sperrAusblenden) { _, an in
                     var e = Speicher.einstellungen()

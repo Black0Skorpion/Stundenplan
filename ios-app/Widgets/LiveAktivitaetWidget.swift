@@ -3,12 +3,13 @@ import WidgetKit
 import SwiftUI
 
 /// Darstellung der Live-Aktivität: Sperrbildschirm-Banner und Dynamic Island.
-/// Vor Beginn: Countdown „beginnt in …“. Während der Vorlesung: kein Countdown, nur Ende und Fortschritt.
-/// (Zum Beginn wird die Aktivität „veraltet“ – iOS zeichnet sie dann neu, auch ohne App.)
+/// Startet zum Beginn der Veranstaltung: Ende und Fortschritt. Zum Ende wird sie „veraltet“ – iOS zeichnet sie
+/// dann neu (auch ohne App) und sie zeigt nur noch „vorbei“ mit ✕ zum Schließen.
 struct VorlesungLiveAktivitaet: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: VorlesungAttribute.self) { context in
-            LiveBanner(s: context.state, laufend: laeuft(context))
+            LiveBanner(s: context.state, laufend: laeuft(context), vorbei: vorbei(context),
+                       schluessel: context.attributes.schluessel)
                 .activityBackgroundTint(Color(hex: 0x1C1C1E))
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(URL(string: "stundenplan://lageplan?termin=\(Int(context.state.start.timeIntervalSince1970))"))
@@ -85,9 +86,14 @@ struct VorlesungLiveAktivitaet: Widget {
         }
     }
 
-    /// Läuft die Vorlesung schon? (Veraltet = Beginn erreicht, siehe LiveAktivitaet.swift)
+    /// Läuft die Vorlesung schon?
     private func laeuft(_ context: ActivityViewContext<VorlesungAttribute>) -> Bool {
-        context.isStale || Date() >= context.state.start
+        Date() >= context.state.start
+    }
+
+    /// Vorbei? (Veraltet = Ende erreicht, siehe LiveAktivitaet.swift)
+    private func vorbei(_ context: ActivityViewContext<VorlesungAttribute>) -> Bool {
+        context.isStale || Date() >= context.state.ende
     }
 }
 
@@ -102,10 +108,42 @@ enum LiveRaum {
 struct LiveBanner: View {
     let s: VorlesungAttribute.ContentState
     let laufend: Bool
+    var vorbei = false
+    var schluessel = ""
+
+    /// ✕: schließt die Live-Aktivität direkt, ohne die App zu öffnen
+    private var schliessen: some View {
+        Button(intent: LiveAktivitaetSchliessen(schluessel: schluessel)) {
+            Image(systemName: "xmark")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(0.8))
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(.white.opacity(0.15)))
+        }
+        .buttonStyle(.plain)
+    }
 
     var body: some View {
+        if vorbei {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(hex: s.farbe))
+                Text("\(s.kurz) ist vorbei").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                if let d = s.danach {
+                    Text("· \(d)").font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                schliessen
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        } else {
+            laufendAnsicht
+        }
+    }
+
+    private var laufendAnsicht: some View {
         let farbe = Color(hex: s.farbe)
-        HStack(alignment: .center, spacing: 12) {
+        return HStack(alignment: .center, spacing: 12) {
             RoundedRectangle(cornerRadius: 3)
                 .fill(farbe)
                 .frame(width: 6)
@@ -140,6 +178,10 @@ struct LiveBanner: View {
                         .foregroundStyle(.white.opacity(0.7))
                         .lineLimit(1)
                 }
+            }
+            VStack {
+                schliessen
+                Spacer(minLength: 0)
             }
         }
         .padding(14)

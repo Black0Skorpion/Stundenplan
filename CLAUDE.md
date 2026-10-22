@@ -6,7 +6,7 @@
 
 ## Vorgemerkt (noch nicht gebaut)
 - Branch `wecker-lehrperson`: iOS 0.5.1.7 – Wecker-Selbstprüfung (System vs. Plan), Planung nacheinander,
-  Lehrperson aus PULS, Debug „Wecker im System“.
+  Lehrperson aus PULS, Debug „Wecker im System“, Live-Aktivität erst ab Beginn (iOS 26 vorgemerkt), „vorbei“ + ✕.
 
 ## Versionsnummern
 - Kleinschrittig erhöhen: normale Änderungen und Fehlerbehebungen nur die letzte Ziffer
