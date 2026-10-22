@@ -450,9 +450,9 @@ public final class Puls {
         for (LocalDate d : tage) {
             if (ausfall.contains(d.format(TAG))) continue;
             long start = LocalDateTime.of(d, von).atZone(ZONE).toInstant().toEpochMilli();
-            EinzelTermin e = new EinzelTermin(start, start + dauer, r.art, r.raum);
-            e.lehrperson = r.lehrperson == null ? "" : r.lehrperson.trim();
-            aus.add(e);
+            EinzelTermin et = new EinzelTermin(start, start + dauer, r.art, r.raum);
+            et.lehrperson = r.lehrperson == null ? "" : r.lehrperson.trim();
+            aus.add(et);
         }
         return aus;
     }
