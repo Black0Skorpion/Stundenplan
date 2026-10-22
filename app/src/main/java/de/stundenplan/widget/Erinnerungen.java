@@ -78,6 +78,7 @@ public final class Erinnerungen extends BroadcastReceiver {
             StundenplanWidget.alleAktualisieren(ctx);
             Wecker.planen(ctx);
             LiveUpdate.planen(ctx);
+            NichtStoeren.planen(ctx);
             PulsDienst.planen(ctx);
         }
     }

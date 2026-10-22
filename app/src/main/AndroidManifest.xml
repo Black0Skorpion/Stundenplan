@@ -8,6 +8,8 @@
     <!-- Wecker vor der ersten Veranstaltung (klingelt auch im gesperrten Zustand) -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- „Nicht stören in Veranstaltungen“: eigenen Modus ein-/ausschalten -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- Täglicher Abgleich mit PULS nur ohne mobile Daten -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Live Update (Android 16): hervorgehobene Mitteilung der laufenden Veranstaltung -->
@@ -202,6 +204,10 @@
 
         <receiver
             android:name=".LiveUpdate"
+            android:exported="false" />
+
+        <receiver
+            android:name=".NichtStoeren"
             android:exported="false" />
 
         <service

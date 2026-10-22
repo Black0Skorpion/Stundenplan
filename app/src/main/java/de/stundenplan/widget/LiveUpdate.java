@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * „Live Update“ (Android 16): die laufende bzw. nächste Veranstaltung als hervorgehobene Mitteilung
  * (Chip in der Statusleiste, Sperrbildschirm; Samsung: Now Bar) – das Gegenstück zur Dynamic Island.
- * Ab einer Stunde vorher Countdown bis Beginn, während der Vorlesung kein Countdown, nur Ende und Fortschritt.
+ * Erst ab Beginn (davor gibt es das Widget): Raum, Ende und Fortschritt; zum Ende verschwindet es von selbst.
  */
 public final class LiveUpdate extends BroadcastReceiver {
 
@@ -25,7 +25,8 @@ public final class LiveUpdate extends BroadcastReceiver {
     static final String KANAL = "live";
     static final String AN = "live_an";
     static final int ID = 9001;
-    static final long VORHER = 60 * 60_000L;
+    /** Wie lange vor Beginn es erscheint (0 = erst zum Beginn, wie in der iOS-App) */
+    static final long VORHER = 0;
 
     static boolean verfuegbar() { return Build.VERSION.SDK_INT >= 36; }
 

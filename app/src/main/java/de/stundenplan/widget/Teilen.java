@@ -251,6 +251,7 @@ public final class Teilen {
             z.add("SUMMARY:" + maskiert(t.titel));
             z.add("DESCRIPTION:" + maskiert(t.typ));
             z.add("LOCATION:" + maskiert(t.raum));
+            if (t.lehrperson != null && !t.lehrperson.isEmpty()) z.add("X-LEHRPERSON:" + maskiert(t.lehrperson));
             z.add("END:VEVENT");
         }
         z.add("END:VCALENDAR");

@@ -126,17 +126,19 @@ public final class Daten {
         List<Termin> liste = new ArrayList<>();
         boolean imEvent = false;
         Long start = null, ende = null;
-        String titel = null, beschreibung = "", raum = "";
+        String titel = null, beschreibung = "", raum = "", lehrperson = "";
         for (String zeile : entfaltet.split("\n")) {
             if (zeile.equals("BEGIN:VEVENT")) {
                 imEvent = true;
-                start = null; ende = null; titel = null; beschreibung = ""; raum = "";
+                start = null; ende = null; titel = null; beschreibung = ""; raum = ""; lehrperson = "";
                 continue;
             }
             if (zeile.equals("END:VEVENT")) {
                 if (imEvent && start != null && ende != null) {
                     String t = titel != null ? titel : "Termin";
-                    liste.add(new Termin(start, ende, t, typErkennen(beschreibung, t), raum));
+                    Termin neu = new Termin(start, ende, t, typErkennen(beschreibung, t), raum);
+                    neu.lehrperson = lehrperson;
+                    liste.add(neu);
                 }
                 imEvent = false;
                 continue;
@@ -155,6 +157,7 @@ public final class Daten {
                 case "SUMMARY": titel = icsText(wert); break;
                 case "DESCRIPTION": beschreibung = icsText(wert); break;
                 case "LOCATION": raum = icsText(wert); break;
+                case "X-LEHRPERSON": lehrperson = icsText(wert); break;
                 default: break;
             }
         }
